@@ -1,0 +1,16 @@
+{
+  "name": "@packages/backend",
+  "version": "1.0.0",
+  "description": "Convex backend for Tectramin",
+  "scripts": {
+    "dev": "convex dev",
+    "setup": "convex dev --until-success"
+  },
+  "dependencies": {
+    "convex": "^1.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "5.8.3"
+  }
+}
