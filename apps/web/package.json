@@ -1,0 +1,32 @@
+{
+  "name": "web-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@clerk/clerk-react": "^5.32.1",
+    "@clerk/nextjs": "^6.23.0",
+    "@packages/backend": "*",
+    "convex": "^1.25.0",
+    "lucide-react": "^0.378.0",
+    "next": "^15.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.10",
+    "@types/node": "20.17.32",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "eslint": "8.57.1",
+    "eslint-config-next": "15.3.4",
+    "postcss": "8.5.3",
+    "tailwindcss": "4.1.10",
+    "typescript": "5.8.3"
+  }
+}
