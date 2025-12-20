@@ -1,0 +1,28 @@
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import ConvexClientProvider from "./ConvexClientProvider";
+import HomeScreen from "./src/screens/HomeScreen";
+
+const Stack = createNativeStackNavigator();
+
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ConvexClientProvider>
+          <NavigationContainer>
+            <Stack.Navigator>
+              <Stack.Screen
+                name="Home"
+                component={HomeScreen}
+                options={{ title: "Tectramin" }}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </ConvexClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
