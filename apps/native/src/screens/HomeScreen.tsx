@@ -7,15 +7,30 @@ import {
   FlatList,
   StyleSheet,
 } from "react-native";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@packages/backend/convex/_generated/api";
-import { useAuth, useUser, SignedIn, SignedOut, useSignIn } from "@clerk/clerk-expo";
+import { useAuth, useUser, SignedIn, SignedOut, useSignIn, useSSO } from "@clerk/clerk-expo";
+import { useTasks } from "../hooks/useTasks";
+import { SyncStatusIcon } from "../components/SyncStatusIcon";
 
 function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { startSSOFlow } = useSSO();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  const handleOAuthSignIn = async (strategy: "oauth_google" | "oauth_microsoft") => {
+    try {
+      const { createdSessionId, setActive: ssoSetActive } = await startSSOFlow({
+        strategy,
+      });
+
+      if (createdSessionId) {
+        await ssoSetActive!({ session: createdSessionId });
+      }
+    } catch (err: any) {
+      setError(err.errors?.[0]?.message || "OAuth sign in failed");
+    }
+  };
 
   const handleSignIn = async () => {
     if (!isLoaded) return;
@@ -37,6 +52,27 @@ function SignInScreen() {
   return (
     <View style={styles.centered}>
       <Text style={styles.title}>Tectramin</Text>
+
+      <TouchableOpacity
+        style={styles.oauthButton}
+        onPress={() => handleOAuthSignIn("oauth_google")}
+      >
+        <Text style={styles.oauthButtonText}>Sign in with Google</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.oauthButton}
+        onPress={() => handleOAuthSignIn("oauth_microsoft")}
+      >
+        <Text style={styles.oauthButtonText}>Sign in with Microsoft</Text>
+      </TouchableOpacity>
+
+      <View style={styles.separator}>
+        <View style={styles.separatorLine} />
+        <Text style={styles.separatorText}>or</Text>
+        <View style={styles.separatorLine} />
+      </View>
+
       <TextInput
         style={styles.signInInput}
         placeholder="Email"
@@ -65,24 +101,38 @@ function TasksScreen() {
   const { user } = useUser();
   const [newTask, setNewTask] = useState("");
 
-  const tasks = useQuery(api.tasks.get, user?.id ? { userId: user.id } : "skip");
-  const createTask = useMutation(api.tasks.create);
-  const toggleTask = useMutation(api.tasks.toggle);
-  const removeTask = useMutation(api.tasks.remove);
+  const { tasks, createTask, toggleTask } = useTasks(user?.id ?? "");
 
   const handleAddTask = async () => {
-    if (!newTask.trim() || !user?.id) return;
-    await createTask({ text: newTask, userId: user.id });
-    setNewTask("");
+    console.log("[HomeScreen] handleAddTask called");
+    console.log("[HomeScreen] newTask:", newTask);
+    console.log("[HomeScreen] user?.id:", user?.id);
+
+    if (!newTask.trim() || !user?.id) {
+      console.log("[HomeScreen] Validation failed - newTask.trim():", newTask.trim(), "user?.id:", user?.id);
+      return;
+    }
+
+    console.log("[HomeScreen] Calling createTask...");
+    try {
+      await createTask({ text: newTask });
+      console.log("[HomeScreen] createTask completed successfully");
+      setNewTask("");
+    } catch (error) {
+      console.error("[HomeScreen] Error in createTask:", error);
+    }
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tasks</Text>
-        <TouchableOpacity onPress={() => signOut()}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <SyncStatusIcon />
+          <TouchableOpacity onPress={() => signOut()}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.inputRow}>
@@ -100,12 +150,12 @@ function TasksScreen() {
 
       <FlatList
         data={tasks}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item) => item.clientId}
         renderItem={({ item }) => (
           <View style={styles.taskItem}>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={() => toggleTask({ id: item._id })}
+              onPress={() => toggleTask(item.clientId)}
             >
               {item.isCompleted && <View style={styles.checked} />}
             </TouchableOpacity>
@@ -114,9 +164,11 @@ function TasksScreen() {
             >
               {item.text}
             </Text>
-            <TouchableOpacity onPress={() => removeTask({ id: item._id })}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
+            {item.syncStatus === "pending" && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingText}>pending</Text>
+              </View>
+            )}
           </View>
         )}
       />
@@ -179,6 +231,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  oauthButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  oauthButtonText: {
+    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  separator: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginVertical: 16,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#d1d5db",
+  },
+  separatorText: {
+    color: "#6b7280",
+    paddingHorizontal: 16,
+    fontSize: 14,
+  },
   errorText: {
     color: "#ef4444",
     marginBottom: 8,
@@ -192,6 +276,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
   signOutText: {
     color: "#6b7280",
@@ -251,7 +340,14 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     color: "#9ca3af",
   },
-  deleteText: {
-    color: "#ef4444",
+  pendingBadge: {
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  pendingText: {
+    fontSize: 10,
+    color: "#d97706",
   },
 });
