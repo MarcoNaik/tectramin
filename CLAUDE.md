@@ -2,6 +2,77 @@
 
 Field service application with offline-first mobile and real-time web dashboard.
 
+## Domain Model
+
+### Entity Hierarchy
+```
+customers → faenas (work sites) → workOrders → workOrderDays → assignments (to users)
+                                      ↓
+services → serviceTaskTemplates → taskTemplates → fieldTemplates
+                                      ↓
+                              workOrderDayTaskTemplates (which tasks for each day)
+                                      ↓
+                              taskInstances (filled by mobile) → fieldResponses
+```
+
+### Key Entities
+| Entity | Purpose | Created By |
+|--------|---------|------------|
+| `customers` | Companies contracting work | Admin (web) |
+| `faenas` | Work sites/locations | Admin (web) |
+| `services` | Service templates with default days/people | Admin (web) |
+| `taskTemplates` | Checklist definitions | Admin (web) |
+| `fieldTemplates` | Field definitions within checklists | Admin (web) |
+| `workOrders` | Contracted work at a faena | Admin (web) |
+| `workOrderDays` | Each day of work order (assignable unit) | Auto-created from service |
+| `workOrderDayAssignments` | User assigned to a day | Admin (web) |
+| `taskInstances` | Filled checklist (syncs to mobile) | Mobile user on-demand |
+| `fieldResponses` | Individual field answers (syncs to mobile) | Mobile user on-demand |
+
+### Task Instance Creation Flow
+Task instances are NOT pre-created. They're created on-demand when mobile user starts a task:
+1. Admin creates work order → days + task templates auto-linked
+2. Admin assigns users to days
+3. Mobile syncs → gets assignments + empty templates
+4. User taps "Start Task" → creates `taskInstance` (draft)
+5. User fills fields → creates/updates `fieldResponses` (auto-save)
+6. User completes → updates `taskInstance.status`
+
+### User Management
+Users table syncs from Clerk. Web dashboard has "Sync Current User to Database" button.
+- `users.clerkId` = Clerk user ID (e.g., `user_abc123`)
+- `users._id` = Convex document ID (used for assignments)
+- Sync functions use `clerkUserId` parameter, assignments use `userId` (Convex ID)
+
+### Backend Files
+| File | Purpose |
+|------|---------|
+| `customers.ts` | Customer CRUD |
+| `faenas.ts` | Work site CRUD |
+| `services.ts` | Service template CRUD + task template linking |
+| `taskTemplates.ts` | Checklist template CRUD |
+| `fieldTemplates.ts` | Field definition CRUD |
+| `workOrders.ts` | Work order CRUD + `createFromService` |
+| `workOrderDays.ts` | Day management |
+| `assignments.ts` | User ↔ day assignments |
+| `taskInstances.ts` | Task instance CRUD + `getWithResponses` |
+| `fieldResponses.ts` | Field response CRUD |
+| `sync.ts` | Mobile sync functions |
+| `users.ts` | User management + `upsertFromClerk` |
+
+### Mobile Hooks
+| Hook | Purpose |
+|------|---------|
+| `useAssignments` | Get user's assigned work order days with task templates |
+| `useTaskInstances` | Create/update task instances with offline support |
+| `useFieldResponses` | Create/update field responses with auto-save |
+
+### Web Debug Dashboard
+`apps/web/src/app/page.tsx` contains a tabbed debug UI for all CRUD operations:
+- Customers, Faenas, Task Templates, Services, Work Orders, Users tabs
+- Work Orders tab shows days with assignment slots based on `service.requiredPeople`
+- Task instances and field responses visible when mobile users fill them
+
 ## Development Workflow
 
 ### Running the Project
@@ -20,7 +91,7 @@ Individual packages:
 2. **Backend Functions**: Add queries/mutations in `packages/backend/convex/`
 3. **SQLite Schema** (if mobile needs offline): Add to `apps/native/src/db/schema.ts`, run `npx drizzle-kit generate`
 4. **Sync Functions**: Add to `packages/backend/convex/sync.ts` for mobile sync
-5. **Native Hook**: Create hook in `apps/native/src/hooks/` following `useTasks.ts` pattern
+5. **Native Hook**: Create hook in `apps/native/src/hooks/` following `useTaskInstances.ts` pattern
 6. **Web UI**: Add components in `apps/web/src/app/`
 7. **Native UI**: Add screens in `apps/native/src/screens/`
 
@@ -157,7 +228,7 @@ Server:            clientId: "abc-123", _id: "convex_xyz" → Convex
 2. Run `npx drizzle-kit generate`
 3. Add to Convex schema with indexes: `by_client_id`, `by_user`, `by_user_and_updated`
 4. Create sync functions in `packages/backend/convex/sync.ts`
-5. Create hook using the pattern in `apps/native/src/hooks/useTasks.ts`
+5. Create hook using the pattern in `apps/native/src/hooks/useTaskInstances.ts`
 
 ## Native App Conventions
 
