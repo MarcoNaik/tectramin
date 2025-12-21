@@ -1,5 +1,40 @@
 # Tectramin Monorepo
 
+Field service application with offline-first mobile and real-time web dashboard.
+
+## Development Workflow
+
+### Running the Project
+```bash
+npm run dev  # Starts web, native, and backend concurrently
+```
+
+Individual packages:
+- Web: `cd apps/web && npm run dev`
+- Native: `cd apps/native && npx expo start`
+- Backend: `cd packages/backend && npx convex dev`
+
+### Adding New Features (Full Stack)
+
+1. **Schema First**: Define in `packages/backend/convex/schema.ts`
+2. **Backend Functions**: Add queries/mutations in `packages/backend/convex/`
+3. **SQLite Schema** (if mobile needs offline): Add to `apps/native/src/db/schema.ts`, run `npx drizzle-kit generate`
+4. **Sync Functions**: Add to `packages/backend/convex/sync.ts` for mobile sync
+5. **Native Hook**: Create hook in `apps/native/src/hooks/` following `useTasks.ts` pattern
+6. **Web UI**: Add components in `apps/web/src/app/`
+7. **Native UI**: Add screens in `apps/native/src/screens/`
+
+### File Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| React Components | PascalCase | `SyncStatusIcon.tsx` |
+| Hooks | camelCase with `use` prefix | `useTasks.ts` |
+| Providers | PascalCase with `Provider` suffix | `DatabaseProvider.tsx` |
+| Screens | PascalCase with `Screen` suffix | `HomeScreen.tsx` |
+| Convex functions | camelCase | `tasks.ts`, `sync.ts` |
+| SQLite migrations | Auto-generated | `0000_unusual_hardball.sql` |
+
 ## Architecture Overview
 
 This is a Turbo monorepo with 3 main packages:
@@ -123,6 +158,122 @@ Server:            clientId: "abc-123", _id: "convex_xyz" → Convex
 3. Add to Convex schema with indexes: `by_client_id`, `by_user`, `by_user_and_updated`
 4. Create sync functions in `packages/backend/convex/sync.ts`
 5. Create hook using the pattern in `apps/native/src/hooks/useTasks.ts`
+
+## Native App Conventions
+
+### Hook Pattern
+All data hooks follow this structure:
+```typescript
+export function useEntity(userId: string) {
+  const { db } = useDatabase();
+  const isOnline = useNetworkStatus();
+  const convex = useConvex();
+
+  const entities = useLiveQuery(
+    db.select().from(entityTable).where(eq(entityTable.userId, userId))
+  );
+
+  const createEntity = async (data: CreateData) => {
+    const clientId = uuid.v4();
+    const now = new Date();
+
+    await db.insert(entityTable).values({
+      clientId,
+      ...data,
+      syncStatus: "pending",
+    });
+
+    if (isOnline) {
+      try {
+        const serverId = await convex.mutation(api.entities.create, { clientId, ...data });
+        await db.update(entityTable).set({ serverId, syncStatus: "synced" }).where(eq(entityTable.clientId, clientId));
+      } catch {
+        await SyncQueue.add({ tableName: "entities", operation: "create", recordClientId: clientId, payload: data });
+      }
+    } else {
+      await SyncQueue.add({ tableName: "entities", operation: "create", recordClientId: clientId, payload: data });
+    }
+  };
+
+  return { entities, createEntity };
+}
+```
+
+### Sync Service Integration
+- SyncService is a singleton initialized in `SyncProvider`
+- Subscribe to status changes via `SyncService.subscribe()`
+- Trigger manual sync via `SyncService.sync()`
+- Periodic sync runs every 30 seconds when online
+
+### Required Fields for Synced Tables
+
+| Field | SQLite Type | Purpose |
+|-------|-------------|---------|
+| `clientId` | TEXT PRIMARY KEY | Offline identity, links to server |
+| `serverId` | TEXT (nullable) | Convex `_id` after first sync |
+| `userId` | TEXT | Owner (from Clerk) |
+| `createdAt` | TIMESTAMP | Creation time |
+| `updatedAt` | TIMESTAMP | Last modification time |
+| `syncStatus` | TEXT enum | "pending" or "synced" |
+
+### Convex Sync Function Pattern
+```typescript
+export const upsertEntity = mutation({
+  args: { clientId: v.string(), /* other fields */ },
+  returns: v.id("entities"),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("entities")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { ...args, updatedAt: Date.now() });
+      return existing._id;
+    }
+    return await ctx.db.insert("entities", { ...args, createdAt: Date.now(), updatedAt: Date.now() });
+  },
+});
+```
+
+## Web App Conventions
+
+### Component Structure
+- Client components: Add `"use client"` directive at top
+- Page components: Export default function with page name
+- Use Clerk's `useUser()` for authenticated user data
+
+### Convex Data Pattern (Web)
+```typescript
+"use client";
+import { api } from "@packages/backend/convex/_generated/api";
+import { useQuery, useMutation } from "convex/react";
+
+export function EntityList({ userId }: { userId: string }) {
+  const entities = useQuery(api.entities.get, { userId });
+  const createEntity = useMutation(api.entities.create);
+
+  if (!entities) return <Loading />;
+
+  return (/* render entities */);
+}
+```
+
+### Styling
+- Use Tailwind CSS utility classes
+- No separate CSS files needed
+- Responsive with Tailwind breakpoints (sm, md, lg, xl)
+
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| SQLite as UI source | Seamless offline, no loading states on mobile |
+| clientId pattern | Enables offline creates before server assignment |
+| Mobile-always-wins | Simple conflict resolution, field workers are source of truth |
+| No delete on mobile | Prevents accidental data loss, simplifies sync |
+| Periodic sync (30s) | Balance between real-time and battery life |
+| Separate sync functions | Decouples mobile sync from web CRUD operations |
 
 ---
 
