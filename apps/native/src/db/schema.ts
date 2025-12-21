@@ -1,12 +1,61 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-export const tasks = sqliteTable("tasks", {
+export const workOrderDays = sqliteTable("work_order_days", {
+  serverId: text("server_id").primaryKey(),
+  workOrderServerId: text("work_order_server_id").notNull(),
+  workOrderName: text("work_order_name").notNull(),
+  customerName: text("customer_name").notNull(),
+  faenaName: text("faena_name").notNull(),
+  dayDate: integer("day_date").notNull(),
+  dayNumber: integer("day_number").notNull(),
+  status: text("status").notNull(),
+  userId: text("user_id").notNull(),
+});
+
+export const dayTaskTemplates = sqliteTable("day_task_templates", {
+  serverId: text("server_id").primaryKey(),
+  workOrderDayServerId: text("work_order_day_server_id").notNull(),
+  taskTemplateServerId: text("task_template_server_id").notNull(),
+  taskTemplateName: text("task_template_name").notNull(),
+  order: integer("order").notNull(),
+  isRequired: integer("is_required", { mode: "boolean" }).notNull(),
+});
+
+export const fieldTemplates = sqliteTable("field_templates", {
+  serverId: text("server_id").primaryKey(),
+  taskTemplateServerId: text("task_template_server_id").notNull(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull(),
+  order: integer("order").notNull(),
+  isRequired: integer("is_required", { mode: "boolean" }).notNull(),
+  defaultValue: text("default_value"),
+  placeholder: text("placeholder"),
+});
+
+export const taskInstances = sqliteTable("task_instances", {
   clientId: text("client_id").primaryKey(),
   serverId: text("server_id"),
-  text: text("text").notNull(),
-  isCompleted: integer("is_completed", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  workOrderDayServerId: text("work_order_day_server_id").notNull(),
+  dayTaskTemplateServerId: text("day_task_template_server_id").notNull(),
+  taskTemplateServerId: text("task_template_server_id").notNull(),
+  userId: text("user_id").notNull(),
+  instanceLabel: text("instance_label"),
+  status: text("status").notNull(),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default(
+    "synced"
+  ),
+});
+
+export const fieldResponses = sqliteTable("field_responses", {
+  clientId: text("client_id").primaryKey(),
+  serverId: text("server_id"),
+  taskInstanceClientId: text("task_instance_client_id").notNull(),
+  fieldTemplateServerId: text("field_template_server_id").notNull(),
+  value: text("value"),
   userId: text("user_id").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
@@ -29,7 +78,7 @@ export const syncMetadata = sqliteTable("sync_metadata", {
   id: text("id").primaryKey(),
   tableName: text("table_name").notNull().unique(),
   lastSyncTimestamp: integer("last_sync_timestamp", { mode: "timestamp" }),
-  initialSyncComplete: integer("initial_sync_complete", { mode: "boolean" }).default(
-    false
-  ),
+  initialSyncComplete: integer("initial_sync_complete", {
+    mode: "boolean",
+  }).default(false),
 });

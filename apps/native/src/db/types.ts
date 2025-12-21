@@ -1,19 +1,50 @@
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
-import type { tasks, syncQueue, syncMetadata } from "./schema";
+import type {
+  workOrderDays,
+  dayTaskTemplates,
+  fieldTemplates,
+  taskInstances,
+  fieldResponses,
+  syncQueue,
+  syncMetadata,
+} from "./schema";
 
-export type Task = InferSelectModel<typeof tasks>;
-export type NewTask = InferInsertModel<typeof tasks>;
+export type WorkOrderDay = InferSelectModel<typeof workOrderDays>;
+export type NewWorkOrderDay = InferInsertModel<typeof workOrderDays>;
+
+export type DayTaskTemplate = InferSelectModel<typeof dayTaskTemplates>;
+export type NewDayTaskTemplate = InferInsertModel<typeof dayTaskTemplates>;
+
+export type FieldTemplate = InferSelectModel<typeof fieldTemplates>;
+export type NewFieldTemplate = InferInsertModel<typeof fieldTemplates>;
+
+export type TaskInstance = InferSelectModel<typeof taskInstances>;
+export type NewTaskInstance = InferInsertModel<typeof taskInstances>;
+
+export type FieldResponse = InferSelectModel<typeof fieldResponses>;
+export type NewFieldResponse = InferInsertModel<typeof fieldResponses>;
 
 export type SyncQueueItem = InferSelectModel<typeof syncQueue>;
 export type NewSyncQueueItem = InferInsertModel<typeof syncQueue>;
 
-export type SyncMetadata = InferSelectModel<typeof syncMetadata>;
-export type NewSyncMetadata = InferInsertModel<typeof syncMetadata>;
+export type SyncMetadataItem = InferSelectModel<typeof syncMetadata>;
+export type NewSyncMetadataItem = InferInsertModel<typeof syncMetadata>;
 
 export type SyncStatus = "pending" | "synced";
 export type SyncOperation = "create" | "update";
 
-export interface TaskInput {
-  text: string;
-  isCompleted?: boolean;
+export type TaskInstanceStatus = "draft" | "completed";
+export type FieldType = "text" | "number" | "boolean" | "date";
+
+export interface TaskInstanceInput {
+  workOrderDayServerId: string;
+  dayTaskTemplateServerId: string;
+  taskTemplateServerId: string;
+  instanceLabel?: string;
+}
+
+export interface FieldResponseInput {
+  taskInstanceClientId: string;
+  fieldTemplateServerId: string;
+  value?: string;
 }
