@@ -24,16 +24,16 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [status, setStatus] = useState<SyncStatus>(syncService.getStatus());
 
-  const serverTasks = useQuery(
-    api.tasks.get,
-    user?.id && isInitialized ? { userId: user.id } : "skip"
+  const serverAssignments = useQuery(
+    api.sync.getAssignmentsForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
   );
 
   useEffect(() => {
-    if (serverTasks && user?.id) {
+    if (serverAssignments && user?.id) {
       pullChanges(convex, user.id);
     }
-  }, [serverTasks, convex, user?.id]);
+  }, [serverAssignments, convex, user?.id]);
 
   useEffect(() => {
     if (!isLoaded || !user) return;

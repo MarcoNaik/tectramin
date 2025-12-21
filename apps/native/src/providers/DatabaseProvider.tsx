@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
-import { db, expoDb } from "../db/client";
+import { db, resetDatabase } from "../db/client";
 import migrations from "../db/migrations/migrations";
 
 interface DatabaseContextValue {
@@ -31,14 +32,42 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     console.log("[DatabaseProvider] isReady:", isReady);
   }, [isReady]);
 
+  const handleReset = () => {
+    console.log("[DatabaseProvider] Resetting database...");
+    const didReset = resetDatabase();
+    if (didReset) {
+      console.log("[DatabaseProvider] Database reset successfully");
+      Alert.alert(
+        "Database Reset",
+        "Database has been cleared. Please close and reopen the app.",
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert("Error", "Failed to reset database. Try deleting the app manually.");
+    }
+  };
+
   if (error) {
     console.error("[DatabaseProvider] Migration error:", error);
-    return null;
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Database Error</Text>
+        <Text style={styles.errorMessage}>{error.message}</Text>
+        <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+          <Text style={styles.resetButtonText}>Reset Database & Reload</Text>
+        </TouchableOpacity>
+        <Text style={styles.hint}>This will clear all local data</Text>
+      </View>
+    );
   }
 
   if (!isReady) {
     console.log("[DatabaseProvider] Database not ready yet, waiting for migrations...");
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Loading database...</Text>
+      </View>
+    );
   }
 
   console.log("[DatabaseProvider] Database ready, rendering children");
@@ -49,6 +78,49 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     </DatabaseContext.Provider>
   );
 }
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#dc2626",
+    marginBottom: 10,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+    maxWidth: 300,
+  },
+  resetButton: {
+    backgroundColor: "#dc2626",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  resetButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  hint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#999",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
 
 export function useDatabaseContext() {
   const context = useContext(DatabaseContext);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,16 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  ScrollView,
+  Switch,
 } from "react-native";
 import { useAuth, useUser, SignedIn, SignedOut, useSignIn, useSSO } from "@clerk/clerk-expo";
-import { useTasks } from "../hooks/useTasks";
+import { useAssignments, useAssignment } from "../hooks/useAssignments";
+import { useTaskInstances, useTaskInstancesByWorkOrderDay } from "../hooks/useTaskInstances";
+import { useFieldResponses } from "../hooks/useFieldResponses";
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
+import { syncService } from "../sync/SyncService";
+import type { DayTaskTemplate, FieldTemplate } from "../db/types";
 
 function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -96,38 +102,258 @@ function SignInScreen() {
   );
 }
 
-function TasksScreen() {
-  const { signOut } = useAuth();
-  const { user } = useUser();
-  const [newTask, setNewTask] = useState("");
+function FieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: FieldTemplate;
+  value: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  if (field.fieldType === "boolean") {
+    return (
+      <View style={styles.fieldRow}>
+        <Text style={styles.fieldLabel}>
+          {field.label}
+          {field.isRequired ? " *" : ""}
+        </Text>
+        <Switch
+          value={value === "true"}
+          onValueChange={(val) => onChange(val ? "true" : "false")}
+        />
+      </View>
+    );
+  }
 
-  const { tasks, createTask, toggleTask } = useTasks(user?.id ?? "");
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>
+        {field.label}
+        {field.isRequired ? " *" : ""}
+      </Text>
+      <TextInput
+        style={styles.fieldInput}
+        value={value ?? field.defaultValue ?? ""}
+        onChangeText={onChange}
+        placeholder={field.placeholder ?? ""}
+        keyboardType={field.fieldType === "number" ? "numeric" : "default"}
+      />
+    </View>
+  );
+}
 
-  const handleAddTask = async () => {
-    console.log("[HomeScreen] handleAddTask called");
-    console.log("[HomeScreen] newTask:", newTask);
-    console.log("[HomeScreen] user?.id:", user?.id);
+function TaskInstanceForm({
+  taskInstanceClientId,
+  template,
+  userId,
+  onComplete,
+}: {
+  taskInstanceClientId: string;
+  template: DayTaskTemplate & { fields: FieldTemplate[] };
+  userId: string;
+  onComplete: () => void;
+}) {
+  const { responses, upsertResponse, getResponseForField } = useFieldResponses(
+    taskInstanceClientId,
+    userId
+  );
+  const { updateTaskInstanceStatus } = useTaskInstances(userId);
 
-    if (!newTask.trim() || !user?.id) {
-      console.log("[HomeScreen] Validation failed - newTask.trim():", newTask.trim(), "user?.id:", user?.id);
-      return;
-    }
+  const handleFieldChange = async (fieldTemplateServerId: string, value: string) => {
+    await upsertResponse({
+      taskInstanceClientId,
+      fieldTemplateServerId,
+      value,
+    });
+  };
 
-    console.log("[HomeScreen] Calling createTask...");
-    try {
-      await createTask({ text: newTask });
-      console.log("[HomeScreen] createTask completed successfully");
-      setNewTask("");
-    } catch (error) {
-      console.error("[HomeScreen] Error in createTask:", error);
+  const handleComplete = async () => {
+    await updateTaskInstanceStatus(taskInstanceClientId, "completed");
+    onComplete();
+  };
+
+  return (
+    <View style={styles.formContainer}>
+      <Text style={styles.formTitle}>{template.taskTemplateName}</Text>
+      {template.fields.map((field) => (
+        <FieldInput
+          key={field.serverId}
+          field={field}
+          value={getResponseForField(field.serverId)?.value ?? undefined}
+          onChange={(value) => handleFieldChange(field.serverId, value)}
+        />
+      ))}
+      <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
+        <Text style={styles.completeButtonText}>Mark Complete</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function DayDetail({
+  workOrderDayServerId,
+  userId,
+  onBack,
+}: {
+  workOrderDayServerId: string;
+  userId: string;
+  onBack: () => void;
+}) {
+  const { assignment } = useAssignment(workOrderDayServerId);
+  const { taskInstances } = useTaskInstancesByWorkOrderDay(workOrderDayServerId);
+  const { createTaskInstance } = useTaskInstances(userId);
+  const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
+
+  if (!assignment) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  const handleStartTask = async (template: DayTaskTemplate & { fields: FieldTemplate[] }) => {
+    const existingInstance = taskInstances.find(
+      (ti) => ti.dayTaskTemplateServerId === template.serverId && ti.status !== "completed"
+    );
+
+    if (existingInstance) {
+      setActiveTaskInstanceClientId(existingInstance.clientId);
+    } else {
+      const clientId = await createTaskInstance({
+        workOrderDayServerId,
+        dayTaskTemplateServerId: template.serverId,
+        taskTemplateServerId: template.taskTemplateServerId,
+        instanceLabel: template.taskTemplateName,
+      });
+      setActiveTaskInstanceClientId(clientId);
     }
   };
+
+  const activeTemplate = activeTaskInstanceClientId
+    ? assignment.taskTemplates.find((t) =>
+        taskInstances.find(
+          (ti) =>
+            ti.clientId === activeTaskInstanceClientId &&
+            ti.dayTaskTemplateServerId === t.serverId
+        )
+      )
+    : null;
+
+  if (activeTaskInstanceClientId && activeTemplate) {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity onPress={() => setActiveTaskInstanceClientId(null)} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Back to Tasks</Text>
+        </TouchableOpacity>
+        <TaskInstanceForm
+          taskInstanceClientId={activeTaskInstanceClientId}
+          template={activeTemplate}
+          userId={userId}
+          onComplete={() => setActiveTaskInstanceClientId(null)}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>Back to Assignments</Text>
+      </TouchableOpacity>
+
+      <View style={styles.dayHeader}>
+        <Text style={styles.dayTitle}>{assignment.workOrderName}</Text>
+        <Text style={styles.daySubtitle}>
+          {assignment.customerName} - {assignment.faenaName}
+        </Text>
+        <Text style={styles.dayDate}>
+          Day {assignment.dayNumber} - {new Date(assignment.dayDate).toLocaleDateString()}
+        </Text>
+      </View>
+
+      <Text style={styles.sectionTitle}>Task Templates</Text>
+      {assignment.taskTemplates.map((template) => {
+        const instances = taskInstances.filter(
+          (ti) => ti.dayTaskTemplateServerId === template.serverId
+        );
+        const completedCount = instances.filter((i) => i.status === "completed").length;
+        const hasCompletedInstance = completedCount > 0;
+        const hasDraftInstance = instances.some((i) => i.status === "draft");
+
+        return (
+          <View key={template.serverId} style={styles.templateCard}>
+            <View style={styles.templateHeader}>
+              <Text style={styles.templateName}>{template.taskTemplateName}</Text>
+              <View style={styles.badges}>
+                {template.isRequired && (
+                  <View style={styles.requiredBadge}>
+                    <Text style={styles.requiredBadgeText}>Required</Text>
+                  </View>
+                )}
+                {hasCompletedInstance && (
+                  <View style={styles.completedBadge}>
+                    <Text style={styles.completedBadgeText}>{completedCount} done</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <Text style={styles.fieldCount}>{template.fields.length} fields</Text>
+            <TouchableOpacity
+              style={[styles.startButton, hasDraftInstance && styles.continueButton]}
+              onPress={() => handleStartTask(template)}
+            >
+              <Text style={styles.startButtonText}>
+                {hasDraftInstance ? "Continue" : hasCompletedInstance ? "Fill Again" : "Start"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function AssignmentsScreen() {
+  const { signOut } = useAuth();
+  const { user } = useUser();
+  const { assignments } = useAssignments(user?.id ?? "");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      syncService.sync();
+    }
+  }, [user?.id]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    await syncService.sync();
+    setSyncing(false);
+  };
+
+  if (selectedDay) {
+    return (
+      <DayDetail
+        workOrderDayServerId={selectedDay}
+        userId={user?.id ?? ""}
+        onBack={() => setSelectedDay(null)}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Tasks</Text>
+        <Text style={styles.headerTitle}>Assignments</Text>
         <View style={styles.headerRight}>
+          <TouchableOpacity onPress={handleSync} disabled={syncing}>
+            <Text style={[styles.syncText, syncing && styles.syncingText]}>
+              {syncing ? "Syncing..." : "Sync"}
+            </Text>
+          </TouchableOpacity>
           <SyncStatusIcon />
           <TouchableOpacity onPress={() => signOut()}>
             <Text style={styles.signOutText}>Sign Out</Text>
@@ -135,43 +361,56 @@ function TasksScreen() {
         </View>
       </View>
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={newTask}
-          onChangeText={setNewTask}
-          placeholder="Add a new task..."
-          onSubmitEditing={handleAddTask}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
-          <Text style={styles.addButtonText}>Add</Text>
-        </TouchableOpacity>
-      </View>
+      <Text style={styles.debugInfo}>User ID: {user?.id?.slice(0, 20)}...</Text>
+      <Text style={styles.debugInfo}>Assignments: {assignments.length}</Text>
 
-      <FlatList
-        data={tasks}
-        keyExtractor={(item) => item.clientId}
-        renderItem={({ item }) => (
-          <View style={styles.taskItem}>
+      {assignments.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No Assignments</Text>
+          <Text style={styles.emptyText}>
+            You haven't been assigned to any work order days yet.
+          </Text>
+          <Text style={styles.emptyText}>
+            Ask an admin to assign you from the web dashboard.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={assignments}
+          keyExtractor={(item) => item.serverId}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => toggleTask(item.clientId)}
+              style={styles.assignmentCard}
+              onPress={() => setSelectedDay(item.serverId)}
             >
-              {item.isCompleted && <View style={styles.checked} />}
-            </TouchableOpacity>
-            <Text
-              style={[styles.taskText, item.isCompleted && styles.completed]}
-            >
-              {item.text}
-            </Text>
-            {item.syncStatus === "pending" && (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingText}>pending</Text>
+              <View style={styles.assignmentHeader}>
+                <Text style={styles.assignmentTitle}>{item.workOrderName}</Text>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    item.status === "pending"
+                      ? styles.pendingStatusBadge
+                      : item.status === "in_progress"
+                      ? styles.inProgressStatusBadge
+                      : styles.completedStatusBadge,
+                  ]}
+                >
+                  <Text style={styles.statusBadgeText}>{item.status}</Text>
+                </View>
               </View>
-            )}
-          </View>
-        )}
-      />
+              <Text style={styles.assignmentSubtitle}>
+                {item.customerName} - {item.faenaName}
+              </Text>
+              <Text style={styles.assignmentDate}>
+                Day {item.dayNumber} - {new Date(item.dayDate).toLocaleDateString()}
+              </Text>
+              <Text style={styles.taskCount}>
+                {item.taskTemplates.length} tasks to complete
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 }
@@ -183,7 +422,7 @@ export default function HomeScreen() {
         <SignInScreen />
       </SignedOut>
       <SignedIn>
-        <TasksScreen />
+        <AssignmentsScreen />
       </SignedIn>
     </>
   );
@@ -285,69 +524,220 @@ const styles = StyleSheet.create({
   signOutText: {
     color: "#6b7280",
   },
-  inputRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
+  syncText: {
+    color: "#2563eb",
+    fontWeight: "500",
   },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  addButton: {
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 24,
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  taskItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    marginBottom: 8,
-    gap: 12,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: "#d1d5db",
-    borderRadius: 4,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checked: {
-    width: 14,
-    height: 14,
-    backgroundColor: "#2563eb",
-    borderRadius: 2,
-  },
-  taskText: {
-    flex: 1,
-    fontSize: 16,
-  },
-  completed: {
-    textDecorationLine: "line-through",
+  syncingText: {
     color: "#9ca3af",
   },
-  pendingBadge: {
-    backgroundColor: "#fef3c7",
+  debugInfo: {
+    fontSize: 10,
+    color: "#9ca3af",
+    marginBottom: 4,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  assignmentCard: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  assignmentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  assignmentTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  statusBadge: {
     paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  pendingStatusBadge: {
+    backgroundColor: "#fef3c7",
+  },
+  inProgressStatusBadge: {
+    backgroundColor: "#dbeafe",
+  },
+  completedStatusBadge: {
+    backgroundColor: "#d1fae5",
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#374151",
+  },
+  assignmentSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginBottom: 4,
+  },
+  assignmentDate: {
+    fontSize: 14,
+    color: "#374151",
+    marginBottom: 8,
+  },
+  taskCount: {
+    fontSize: 12,
+    color: "#2563eb",
+    fontWeight: "500",
+  },
+  backButton: {
+    marginBottom: 16,
+  },
+  backButtonText: {
+    color: "#2563eb",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  dayHeader: {
+    marginBottom: 24,
+  },
+  dayTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  daySubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginBottom: 4,
+  },
+  dayDate: {
+    fontSize: 14,
+    color: "#374151",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  templateCard: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  templateHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  templateName: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  badges: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  requiredBadge: {
+    backgroundColor: "#fee2e2",
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  pendingText: {
+  requiredBadgeText: {
     fontSize: 10,
-    color: "#d97706",
+    color: "#dc2626",
+  },
+  completedBadge: {
+    backgroundColor: "#d1fae5",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  completedBadgeText: {
+    fontSize: 10,
+    color: "#059669",
+  },
+  fieldCount: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 12,
+  },
+  startButton: {
+    backgroundColor: "#2563eb",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  continueButton: {
+    backgroundColor: "#f59e0b",
+  },
+  startButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  formContainer: {
+    flex: 1,
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 24,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 6,
+    color: "#374151",
+  },
+  fieldInput: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  completeButton: {
+    backgroundColor: "#059669",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 24,
+  },
+  completeButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
