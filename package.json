@@ -18,5 +18,8 @@
     "apps/*",
     "packages/*"
   ],
-  "packageManager": "npm@10.8.0"
+  "packageManager": "npm@10.8.0",
+  "dependencies": {
+    "react-native-worklets": "^0.5.1"
+  }
 }
