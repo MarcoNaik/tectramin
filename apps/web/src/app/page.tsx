@@ -17,7 +17,7 @@ function TaskList() {
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.trim() || !user?.id) return;
-    await createTask({ text: newTask, userId: user.id });
+    await createTask({ clientId: crypto.randomUUID(), text: newTask, userId: user.id });
     setNewTask("");
   };
 
