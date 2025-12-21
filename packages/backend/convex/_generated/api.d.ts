@@ -8,8 +8,18 @@
  * @module
  */
 
+import type * as assignments from "../assignments.js";
+import type * as customers from "../customers.js";
+import type * as faenas from "../faenas.js";
+import type * as fieldResponses from "../fieldResponses.js";
+import type * as fieldTemplates from "../fieldTemplates.js";
+import type * as services from "../services.js";
 import type * as sync from "../sync.js";
-import type * as tasks from "../tasks.js";
+import type * as taskInstances from "../taskInstances.js";
+import type * as taskTemplates from "../taskTemplates.js";
+import type * as users from "../users.js";
+import type * as workOrderDays from "../workOrderDays.js";
+import type * as workOrders from "../workOrders.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +28,18 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  assignments: typeof assignments;
+  customers: typeof customers;
+  faenas: typeof faenas;
+  fieldResponses: typeof fieldResponses;
+  fieldTemplates: typeof fieldTemplates;
+  services: typeof services;
   sync: typeof sync;
-  tasks: typeof tasks;
+  taskInstances: typeof taskInstances;
+  taskTemplates: typeof taskTemplates;
+  users: typeof users;
+  workOrderDays: typeof workOrderDays;
+  workOrders: typeof workOrders;
 }>;
 
 /**
