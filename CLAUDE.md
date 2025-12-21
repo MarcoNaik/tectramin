@@ -83,6 +83,47 @@ cd packages/backend && npx convex dev # Backend sync
 2. Run `npx convex dev` to sync and generate types
 3. Import and use in web/native apps via `api.filename.functionName`
 
+## Offline Sync Architecture (Native App)
+
+The native app uses an offline-first architecture with SQLite (Drizzle ORM) as the local database.
+
+### Key Concepts
+
+**clientId** - A client-generated UUID that:
+1. **Enables offline creates** - When offline, the app can't get a server `_id` from Convex. The `clientId` provides a stable identifier before syncing.
+2. **Links local ↔ server records** - SQLite uses `clientId` as primary key; Convex stores both `_id` and `clientId`. During sync, records match by `clientId`.
+3. **Prevents duplicates** - If a create operation retries, the server uses `clientId` to upsert instead of creating duplicates.
+
+```
+Mobile (offline):  clientId: "abc-123" → SQLite
+                            ↓ sync
+Server:            clientId: "abc-123", _id: "convex_xyz" → Convex
+```
+
+### Data Flow
+
+| Mode | Write Flow |
+|------|------------|
+| Online | UI → Convex (direct) → sync back to SQLite |
+| Offline | UI → SQLite → SyncQueue → push on reconnect |
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Mobile = create/update only | No delete on mobile; simplifies sync |
+| Mobile-always-wins | Field data is authoritative on conflict |
+| SQLite for reads | Seamless offline, no loading states |
+| Initial sync required | Ensures offline capability from start |
+
+### Adding New Synced Tables
+
+1. Add to `apps/native/src/db/schema.ts` with: `clientId`, `serverId`, `userId`, `createdAt`, `updatedAt`, `syncStatus`
+2. Run `npx drizzle-kit generate`
+3. Add to Convex schema with indexes: `by_client_id`, `by_user`, `by_user_and_updated`
+4. Create sync functions in `packages/backend/convex/sync.ts`
+5. Create hook using the pattern in `apps/native/src/hooks/useTasks.ts`
+
 ---
 
 # Convex guidelines
