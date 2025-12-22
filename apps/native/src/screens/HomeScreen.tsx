@@ -13,7 +13,10 @@ import { useAuth, useUser, SignedIn, SignedOut, useSignIn, useSSO } from "@clerk
 import { useAssignments, useAssignment } from "../hooks/useAssignments";
 import { useTaskInstances, useTaskInstancesByWorkOrderDay } from "../hooks/useTaskInstances";
 import { useFieldResponses } from "../hooks/useFieldResponses";
+import { useAttachments } from "../hooks/useAttachments";
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
+import { DatePickerField } from "../components/DatePickerField";
+import { AttachmentField } from "../components/AttachmentField";
 import { syncService } from "../sync/SyncService";
 import type { DayTaskTemplate, FieldTemplate } from "../db/types";
 
@@ -106,11 +109,20 @@ function FieldInput({
   field,
   value,
   onChange,
+  fieldResponseClientId,
+  userId,
 }: {
   field: FieldTemplate;
   value: string | undefined;
   onChange: (value: string) => void;
+  fieldResponseClientId: string | undefined;
+  userId: string;
 }) {
+  const { attachment, createAttachment, removeAttachment } = useAttachments(
+    fieldResponseClientId ?? "",
+    userId
+  );
+
   if (field.fieldType === "boolean") {
     return (
       <View style={styles.fieldRow}>
@@ -123,6 +135,51 @@ function FieldInput({
           onValueChange={(val) => onChange(val ? "true" : "false")}
         />
       </View>
+    );
+  }
+
+  if (field.fieldType === "date") {
+    return (
+      <DatePickerField
+        label={field.label}
+        isRequired={field.isRequired}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (field.fieldType === "attachment") {
+    return (
+      <AttachmentField
+        label={field.label}
+        isRequired={field.isRequired}
+        attachment={attachment}
+        onPickImage={async (uri, fileName, mimeType, fileSize) => {
+          const clientId = await createAttachment({
+            fieldResponseClientId: fieldResponseClientId ?? "",
+            uri,
+            fileName,
+            mimeType,
+            fileSize,
+          });
+          onChange(clientId);
+        }}
+        onPickDocument={async (uri, fileName, mimeType, fileSize) => {
+          const clientId = await createAttachment({
+            fieldResponseClientId: fieldResponseClientId ?? "",
+            uri,
+            fileName,
+            mimeType,
+            fileSize,
+          });
+          onChange(clientId);
+        }}
+        onRemove={async () => {
+          await removeAttachment();
+          onChange("");
+        }}
+      />
     );
   }
 
@@ -182,6 +239,8 @@ function TaskInstanceForm({
           field={field}
           value={getResponseForField(field.serverId)?.value ?? undefined}
           onChange={(value) => handleFieldChange(field.serverId, value)}
+          fieldResponseClientId={getResponseForField(field.serverId)?.clientId}
+          userId={userId}
         />
       ))}
       <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
@@ -202,7 +261,6 @@ function DayDetail({
 }) {
   const { assignment } = useAssignment(workOrderDayServerId);
   const { taskInstances } = useTaskInstancesByWorkOrderDay(workOrderDayServerId);
-  const { createTaskInstance } = useTaskInstances(userId);
   const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
 
   if (!assignment) {
@@ -213,21 +271,13 @@ function DayDetail({
     );
   }
 
-  const handleStartTask = async (template: DayTaskTemplate & { fields: FieldTemplate[] }) => {
-    const existingInstance = taskInstances.find(
-      (ti) => ti.dayTaskTemplateServerId === template.serverId && ti.status !== "completed"
+  const handleStartTask = (template: DayTaskTemplate & { fields: FieldTemplate[] }) => {
+    const instance = taskInstances.find(
+      (ti) => ti.dayTaskTemplateServerId === template.serverId
     );
 
-    if (existingInstance) {
-      setActiveTaskInstanceClientId(existingInstance.clientId);
-    } else {
-      const clientId = await createTaskInstance({
-        workOrderDayServerId,
-        dayTaskTemplateServerId: template.serverId,
-        taskTemplateServerId: template.taskTemplateServerId,
-        instanceLabel: template.taskTemplateName,
-      });
-      setActiveTaskInstanceClientId(clientId);
+    if (instance) {
+      setActiveTaskInstanceClientId(instance.clientId);
     }
   };
 
@@ -273,14 +323,12 @@ function DayDetail({
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Task Templates</Text>
+      <Text style={styles.sectionTitle}>Tasks</Text>
       {assignment.taskTemplates.map((template) => {
-        const instances = taskInstances.filter(
+        const instance = taskInstances.find(
           (ti) => ti.dayTaskTemplateServerId === template.serverId
         );
-        const completedCount = instances.filter((i) => i.status === "completed").length;
-        const hasCompletedInstance = completedCount > 0;
-        const hasDraftInstance = instances.some((i) => i.status === "draft");
+        const isCompleted = instance?.status === "completed";
 
         return (
           <View key={template.serverId} style={styles.templateCard}>
@@ -292,20 +340,21 @@ function DayDetail({
                     <Text style={styles.requiredBadgeText}>Required</Text>
                   </View>
                 )}
-                {hasCompletedInstance && (
+                {isCompleted && (
                   <View style={styles.completedBadge}>
-                    <Text style={styles.completedBadgeText}>{completedCount} done</Text>
+                    <Text style={styles.completedBadgeText}>Completed</Text>
                   </View>
                 )}
               </View>
             </View>
             <Text style={styles.fieldCount}>{template.fields.length} fields</Text>
             <TouchableOpacity
-              style={[styles.startButton, hasDraftInstance && styles.continueButton]}
+              style={[styles.startButton, isCompleted && styles.viewButton]}
               onPress={() => handleStartTask(template)}
+              disabled={!instance}
             >
               <Text style={styles.startButtonText}>
-                {hasDraftInstance ? "Continue" : hasCompletedInstance ? "Fill Again" : "Start"}
+                {isCompleted ? "View" : "Fill"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -692,6 +741,9 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: "#f59e0b",
+  },
+  viewButton: {
+    backgroundColor: "#059669",
   },
   startButtonText: {
     color: "#fff",
