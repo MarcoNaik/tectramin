@@ -64,10 +64,32 @@ export const fieldResponses = sqliteTable("field_responses", {
   ),
 });
 
+export const attachments = sqliteTable("attachments", {
+  clientId: text("client_id").primaryKey(),
+  serverId: text("server_id"),
+  fieldResponseClientId: text("field_response_client_id").notNull(),
+  localUri: text("local_uri"),
+  storageId: text("storage_id"),
+  storageUrl: text("storage_url"),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").notNull(),
+  mimeType: text("mime_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  userId: text("user_id").notNull(),
+  uploadStatus: text("upload_status", {
+    enum: ["pending", "uploading", "uploaded", "failed"],
+  }).default("pending"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default(
+    "pending"
+  ),
+});
+
 export const syncQueue = sqliteTable("sync_queue", {
   id: text("id").primaryKey(),
   tableName: text("table_name").notNull(),
-  operation: text("operation", { enum: ["create", "update"] }).notNull(),
+  operation: text("operation", { enum: ["create", "update", "upload"] }).notNull(),
   recordClientId: text("record_client_id").notNull(),
   payload: text("payload").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
