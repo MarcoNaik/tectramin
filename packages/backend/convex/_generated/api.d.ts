@@ -8,18 +8,19 @@
  * @module
  */
 
-import type * as assignments from "../assignments.js";
-import type * as customers from "../customers.js";
-import type * as faenas from "../faenas.js";
-import type * as fieldResponses from "../fieldResponses.js";
-import type * as fieldTemplates from "../fieldTemplates.js";
-import type * as services from "../services.js";
-import type * as sync from "../sync.js";
-import type * as taskInstances from "../taskInstances.js";
-import type * as taskTemplates from "../taskTemplates.js";
-import type * as users from "../users.js";
-import type * as workOrderDays from "../workOrderDays.js";
-import type * as workOrders from "../workOrders.js";
+import type * as admin_assignments from "../admin/assignments.js";
+import type * as admin_customers from "../admin/customers.js";
+import type * as admin_faenas from "../admin/faenas.js";
+import type * as admin_fieldResponses from "../admin/fieldResponses.js";
+import type * as admin_fieldTemplates from "../admin/fieldTemplates.js";
+import type * as admin_services from "../admin/services.js";
+import type * as admin_taskInstances from "../admin/taskInstances.js";
+import type * as admin_taskTemplates from "../admin/taskTemplates.js";
+import type * as admin_workOrderDays from "../admin/workOrderDays.js";
+import type * as admin_workOrders from "../admin/workOrders.js";
+import type * as mobile_sync from "../mobile/sync.js";
+import type * as shared_attachments from "../shared/attachments.js";
+import type * as shared_users from "../shared/users.js";
 
 import type {
   ApiFromModules,
@@ -28,18 +29,19 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  assignments: typeof assignments;
-  customers: typeof customers;
-  faenas: typeof faenas;
-  fieldResponses: typeof fieldResponses;
-  fieldTemplates: typeof fieldTemplates;
-  services: typeof services;
-  sync: typeof sync;
-  taskInstances: typeof taskInstances;
-  taskTemplates: typeof taskTemplates;
-  users: typeof users;
-  workOrderDays: typeof workOrderDays;
-  workOrders: typeof workOrders;
+  "admin/assignments": typeof admin_assignments;
+  "admin/customers": typeof admin_customers;
+  "admin/faenas": typeof admin_faenas;
+  "admin/fieldResponses": typeof admin_fieldResponses;
+  "admin/fieldTemplates": typeof admin_fieldTemplates;
+  "admin/services": typeof admin_services;
+  "admin/taskInstances": typeof admin_taskInstances;
+  "admin/taskTemplates": typeof admin_taskTemplates;
+  "admin/workOrderDays": typeof admin_workOrderDays;
+  "admin/workOrders": typeof admin_workOrders;
+  "mobile/sync": typeof mobile_sync;
+  "shared/attachments": typeof shared_attachments;
+  "shared/users": typeof shared_users;
 }>;
 
 /**
