@@ -74,7 +74,7 @@ export function useTaskInstances(userId: string) {
 
       if (networkMonitor.getIsOnline()) {
         try {
-          const result = await convex.mutation(api.sync.upsertTaskInstance, payload);
+          const result = await convex.mutation(api.mobile.sync.upsertTaskInstance, payload);
           await db
             .update(taskInstances)
             .set({ serverId: result.serverId, syncStatus: "synced" })
@@ -128,7 +128,7 @@ export function useTaskInstances(userId: string) {
 
       if (networkMonitor.getIsOnline() && instance.serverId) {
         try {
-          await convex.mutation(api.sync.upsertTaskInstance, payload);
+          await convex.mutation(api.mobile.sync.upsertTaskInstance, payload);
           await db
             .update(taskInstances)
             .set({ syncStatus: "synced" })
