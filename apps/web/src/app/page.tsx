@@ -20,9 +20,9 @@ function TabButton({ tab, active, onClick, children }: { tab: Tab; active: boole
 }
 
 function CustomersTab() {
-  const customers = useQuery(api.customers.list);
-  const createCustomer = useMutation(api.customers.create);
-  const removeCustomer = useMutation(api.customers.remove);
+  const customers = useQuery(api.admin.customers.list);
+  const createCustomer = useMutation(api.admin.customers.create);
+  const removeCustomer = useMutation(api.admin.customers.remove);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
@@ -58,10 +58,10 @@ function CustomersTab() {
 }
 
 function FaenasTab() {
-  const customers = useQuery(api.customers.list);
-  const allFaenas = useQuery(api.faenas.list);
-  const createFaena = useMutation(api.faenas.create);
-  const removeFaena = useMutation(api.faenas.remove);
+  const customers = useQuery(api.admin.customers.list);
+  const allFaenas = useQuery(api.admin.faenas.list);
+  const createFaena = useMutation(api.admin.faenas.create);
+  const removeFaena = useMutation(api.admin.faenas.remove);
   const [selectedCustomerId, setSelectedCustomerId] = useState<Id<"customers"> | "">("");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -113,11 +113,11 @@ function FaenasTab() {
 }
 
 function TaskTemplatesTab() {
-  const templates = useQuery(api.taskTemplates.list);
-  const createTemplate = useMutation(api.taskTemplates.create);
-  const removeTemplate = useMutation(api.taskTemplates.remove);
-  const createField = useMutation(api.fieldTemplates.create);
-  const removeField = useMutation(api.fieldTemplates.remove);
+  const templates = useQuery(api.admin.taskTemplates.list);
+  const createTemplate = useMutation(api.admin.taskTemplates.create);
+  const removeTemplate = useMutation(api.admin.taskTemplates.remove);
+  const createField = useMutation(api.admin.fieldTemplates.create);
+  const removeField = useMutation(api.admin.fieldTemplates.remove);
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -127,7 +127,7 @@ function TaskTemplatesTab() {
   const [newFieldType, setNewFieldType] = useState("text");
   const [newFieldRequired, setNewFieldRequired] = useState(false);
 
-  const templateWithFields = useQuery(api.taskTemplates.getWithFields, expandedTemplate ? { id: expandedTemplate } : "skip");
+  const templateWithFields = useQuery(api.admin.taskTemplates.getWithFields, expandedTemplate ? { id: expandedTemplate } : "skip");
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -195,6 +195,7 @@ function TaskTemplatesTab() {
                     <option value="number">Number</option>
                     <option value="boolean">Boolean</option>
                     <option value="date">Date</option>
+                    <option value="attachment">Attachment</option>
                   </select>
                   <label className="flex items-center gap-1 text-sm">
                     <input type="checkbox" checked={newFieldRequired} onChange={(e) => setNewFieldRequired(e.target.checked)} />
@@ -212,12 +213,12 @@ function TaskTemplatesTab() {
 }
 
 function ServicesTab() {
-  const services = useQuery(api.services.list);
-  const templates = useQuery(api.taskTemplates.listActive);
-  const createService = useMutation(api.services.create);
-  const removeService = useMutation(api.services.remove);
-  const addTaskTemplate = useMutation(api.services.addTaskTemplate);
-  const removeTaskTemplate = useMutation(api.services.removeTaskTemplate);
+  const services = useQuery(api.admin.services.list);
+  const templates = useQuery(api.admin.taskTemplates.listActive);
+  const createService = useMutation(api.admin.services.create);
+  const removeService = useMutation(api.admin.services.remove);
+  const addTaskTemplate = useMutation(api.admin.services.addTaskTemplate);
+  const removeTaskTemplate = useMutation(api.admin.services.removeTaskTemplate);
 
   const [name, setName] = useState("");
   const [defaultDays, setDefaultDays] = useState("3");
@@ -226,7 +227,7 @@ function ServicesTab() {
   const [selectedTemplate, setSelectedTemplate] = useState<Id<"taskTemplates"> | "">("");
   const [selectedDayNumber, setSelectedDayNumber] = useState<string>("all");
 
-  const serviceWithTemplates = useQuery(api.services.getWithTaskTemplates, expandedService ? { id: expandedService } : "skip");
+  const serviceWithTemplates = useQuery(api.admin.services.getWithTaskTemplates, expandedService ? { id: expandedService } : "skip");
   const currentService = services?.find((s) => s._id === expandedService);
 
   const handleCreate = async () => {
@@ -310,16 +311,16 @@ function ServicesTab() {
 }
 
 function WorkOrdersTab() {
-  const workOrders = useQuery(api.workOrders.list);
-  const customers = useQuery(api.customers.list);
-  const faenas = useQuery(api.faenas.list);
-  const services = useQuery(api.services.listActive);
-  const users = useQuery(api.users.list);
-  const createFromService = useMutation(api.workOrders.createFromService);
-  const removeWorkOrder = useMutation(api.workOrders.remove);
-  const updateStatus = useMutation(api.workOrders.updateStatus);
-  const assign = useMutation(api.assignments.assign);
-  const unassign = useMutation(api.assignments.unassign);
+  const workOrders = useQuery(api.admin.workOrders.list);
+  const customers = useQuery(api.admin.customers.list);
+  const faenas = useQuery(api.admin.faenas.list);
+  const services = useQuery(api.admin.services.listActive);
+  const users = useQuery(api.shared.users.list);
+  const createFromService = useMutation(api.admin.workOrders.createFromService);
+  const removeWorkOrder = useMutation(api.admin.workOrders.remove);
+  const updateStatus = useMutation(api.admin.workOrders.updateStatus);
+  const assign = useMutation(api.admin.assignments.assign);
+  const unassign = useMutation(api.admin.assignments.unassign);
 
   const [selectedCustomer, setSelectedCustomer] = useState<Id<"customers"> | "">("");
   const [selectedFaena, setSelectedFaena] = useState<Id<"faenas"> | "">("");
@@ -327,7 +328,7 @@ function WorkOrdersTab() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [expandedWO, setExpandedWO] = useState<Id<"workOrders"> | null>(null);
 
-  const woDetails = useQuery(api.workOrders.getWithDetails, expandedWO ? { id: expandedWO } : "skip");
+  const woDetails = useQuery(api.admin.workOrders.getWithDetails, expandedWO ? { id: expandedWO } : "skip");
 
   const customerFaenas = faenas?.filter((f) => f.customerId === selectedCustomer) ?? [];
 
@@ -412,8 +413,8 @@ function DayRow({ day, users, assign, unassign, requiredPeople }: {
   unassign: any;
   requiredPeople: number;
 }) {
-  const assignments = useQuery(api.assignments.listByWorkOrderDay, { workOrderDayId: day._id });
-  const taskInstances = useQuery(api.taskInstances.listByWorkOrderDay, { workOrderDayId: day._id });
+  const assignments = useQuery(api.admin.assignments.listByWorkOrderDay, { workOrderDayId: day._id });
+  const taskInstances = useQuery(api.admin.taskInstances.listByWorkOrderDay, { workOrderDayId: day._id });
   const [selectedUsers, setSelectedUsers] = useState<Record<number, Id<"users"> | "">>({});
   const [error, setError] = useState("");
   const [expandedInstance, setExpandedInstance] = useState<Id<"taskInstances"> | null>(null);
@@ -521,7 +522,7 @@ function DayRow({ day, users, assign, unassign, requiredPeople }: {
 }
 
 function TaskInstanceDetails({ instanceId }: { instanceId: Id<"taskInstances"> }) {
-  const data = useQuery(api.taskInstances.getWithResponses, { id: instanceId });
+  const data = useQuery(api.admin.taskInstances.getWithResponses, { id: instanceId });
 
   if (!data) return <div className="p-2 text-xs text-gray-500">Loading...</div>;
 
@@ -551,9 +552,9 @@ function TaskInstanceDetails({ instanceId }: { instanceId: Id<"taskInstances"> }
 
 function UsersTab() {
   const { user } = useUser();
-  const users = useQuery(api.users.list);
-  const upsertFromClerk = useMutation(api.users.upsertFromClerk);
-  const updateRole = useMutation(api.users.updateRole);
+  const users = useQuery(api.shared.users.list);
+  const upsertFromClerk = useMutation(api.shared.users.upsertFromClerk);
+  const updateRole = useMutation(api.shared.users.updateRole);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [testName, setTestName] = useState("");
   const [testEmail, setTestEmail] = useState("");
