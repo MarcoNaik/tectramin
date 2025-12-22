@@ -51,7 +51,7 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
 
         if (networkMonitor.getIsOnline()) {
           try {
-            await convex.mutation(api.sync.upsertFieldResponse, payload);
+            await convex.mutation(api.mobile.sync.upsertFieldResponse, payload);
             await db
               .update(fieldResponses)
               .set({ syncStatus: "synced" })
@@ -103,7 +103,7 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
         if (networkMonitor.getIsOnline()) {
           try {
             const result = await convex.mutation(
-              api.sync.upsertFieldResponse,
+              api.mobile.sync.upsertFieldResponse,
               payload
             );
             await db
