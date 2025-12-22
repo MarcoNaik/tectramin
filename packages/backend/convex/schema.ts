@@ -158,4 +158,22 @@ export default defineSchema({
     .index("by_task_instance", ["taskInstanceId"])
     .index("by_user_and_updated", ["userId", "updatedAt"])
     .index("by_task_instance_client_id", ["taskInstanceClientId"]),
+
+  attachments: defineTable({
+    clientId: v.string(),
+    fieldResponseId: v.optional(v.id("fieldResponses")),
+    fieldResponseClientId: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.string(),
+    fileType: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    userId: v.string(),
+    uploadStatus: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_field_response_client_id", ["fieldResponseClientId"])
+    .index("by_user_and_updated", ["userId", "updatedAt"]),
 });
