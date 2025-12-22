@@ -1,9 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { useConvex, useQuery } from "convex/react";
 import { useUser } from "@clerk/clerk-expo";
+import { eq, and } from "drizzle-orm";
 import { api } from "@packages/backend/convex/_generated/api";
 import { syncService } from "../sync/SyncService";
-import { pullChanges } from "../sync/SyncPull";
+import { db } from "../db/client";
+import {
+  workOrderDays,
+  dayTaskTemplates,
+  fieldTemplates,
+  taskInstances,
+  fieldResponses,
+  attachments,
+} from "../db/schema";
 import type { SyncStatus } from "../sync/types";
 
 interface SyncContextValue {
@@ -23,24 +32,295 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const { user, isLoaded } = useUser();
   const [isInitialized, setIsInitialized] = useState(false);
   const [status, setStatus] = useState<SyncStatus>(syncService.getStatus());
+  const prevAssignmentsRef = useRef<string | null>(null);
+  const prevInstancesRef = useRef<string | null>(null);
+  const prevResponsesRef = useRef<string | null>(null);
+  const prevAttachmentsRef = useRef<string | null>(null);
 
   const serverAssignments = useQuery(
-    api.sync.getAssignmentsForUser,
+    api.mobile.sync.getAssignmentsForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverTaskInstances = useQuery(
+    api.mobile.sync.getTaskInstancesForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverFieldResponses = useQuery(
+    api.mobile.sync.getFieldResponsesForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverAttachments = useQuery(
+    api.mobile.sync.getAttachmentsForUser,
     user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
   );
 
   useEffect(() => {
-    if (serverAssignments && user?.id) {
-      pullChanges(convex, user.id);
-    }
-  }, [serverAssignments, convex, user?.id]);
+    if (!serverAssignments || !user?.id) return;
+
+    const newHash = JSON.stringify(serverAssignments);
+    if (prevAssignmentsRef.current === newHash) return;
+    prevAssignmentsRef.current = newHash;
+
+    const syncAssignments = async () => {
+      for (const assignment of serverAssignments) {
+        await db
+          .insert(workOrderDays)
+          .values({
+            serverId: assignment.workOrderDayServerId,
+            workOrderServerId: assignment.workOrderServerId,
+            workOrderName: assignment.workOrderName,
+            customerName: assignment.customerName,
+            faenaName: assignment.faenaName,
+            dayDate: assignment.dayDate,
+            dayNumber: assignment.dayNumber,
+            status: assignment.status,
+            userId: user.id,
+          })
+          .onConflictDoUpdate({
+            target: workOrderDays.serverId,
+            set: {
+              workOrderName: assignment.workOrderName,
+              customerName: assignment.customerName,
+              faenaName: assignment.faenaName,
+              status: assignment.status,
+            },
+          });
+
+        for (const tt of assignment.taskTemplates) {
+          await db
+            .insert(dayTaskTemplates)
+            .values({
+              serverId: tt.dayTaskTemplateServerId,
+              workOrderDayServerId: assignment.workOrderDayServerId,
+              taskTemplateServerId: tt.taskTemplateServerId,
+              taskTemplateName: tt.taskTemplateName,
+              order: tt.order,
+              isRequired: tt.isRequired,
+            })
+            .onConflictDoUpdate({
+              target: dayTaskTemplates.serverId,
+              set: {
+                taskTemplateName: tt.taskTemplateName,
+                order: tt.order,
+                isRequired: tt.isRequired,
+              },
+            });
+
+          for (const field of tt.fields) {
+            await db
+              .insert(fieldTemplates)
+              .values({
+                serverId: field.fieldTemplateServerId,
+                taskTemplateServerId: tt.taskTemplateServerId,
+                label: field.label,
+                fieldType: field.fieldType,
+                order: field.order,
+                isRequired: field.isRequired,
+                defaultValue: field.defaultValue,
+                placeholder: field.placeholder,
+              })
+              .onConflictDoUpdate({
+                target: fieldTemplates.serverId,
+                set: {
+                  label: field.label,
+                  fieldType: field.fieldType,
+                  order: field.order,
+                  isRequired: field.isRequired,
+                  defaultValue: field.defaultValue,
+                  placeholder: field.placeholder,
+                },
+              });
+          }
+        }
+      }
+    };
+
+    syncAssignments();
+  }, [serverAssignments, user?.id]);
+
+  useEffect(() => {
+    if (!serverTaskInstances || !user?.id) return;
+
+    const newHash = JSON.stringify(serverTaskInstances);
+    if (prevInstancesRef.current === newHash) return;
+    prevInstancesRef.current = newHash;
+
+    const syncInstances = async () => {
+      for (const instance of serverTaskInstances) {
+        const local = await db
+          .select()
+          .from(taskInstances)
+          .where(eq(taskInstances.clientId, instance.clientId))
+          .limit(1);
+
+        if (local.length > 0 && local[0].syncStatus === "pending") {
+          continue;
+        }
+
+        const duplicates = await db
+          .select()
+          .from(taskInstances)
+          .where(
+            and(
+              eq(taskInstances.workOrderDayServerId, instance.workOrderDayServerId),
+              eq(taskInstances.dayTaskTemplateServerId, instance.dayTaskTemplateServerId),
+              eq(taskInstances.userId, instance.userId)
+            )
+          );
+
+        for (const dup of duplicates) {
+          if (dup.clientId !== instance.clientId) {
+            await db.delete(taskInstances).where(eq(taskInstances.clientId, dup.clientId));
+          }
+        }
+
+        if (local.length > 0) {
+          await db
+            .update(taskInstances)
+            .set({
+              serverId: instance.serverId,
+              status: instance.status,
+              instanceLabel: instance.instanceLabel,
+              startedAt: instance.startedAt ? new Date(instance.startedAt) : null,
+              completedAt: instance.completedAt ? new Date(instance.completedAt) : null,
+              updatedAt: new Date(instance.updatedAt),
+              syncStatus: "synced",
+            })
+            .where(eq(taskInstances.clientId, instance.clientId));
+        } else {
+          await db.insert(taskInstances).values({
+            clientId: instance.clientId,
+            serverId: instance.serverId,
+            workOrderDayServerId: instance.workOrderDayServerId,
+            dayTaskTemplateServerId: instance.dayTaskTemplateServerId,
+            taskTemplateServerId: instance.taskTemplateServerId,
+            userId: instance.userId,
+            instanceLabel: instance.instanceLabel,
+            status: instance.status,
+            startedAt: instance.startedAt ? new Date(instance.startedAt) : null,
+            completedAt: instance.completedAt ? new Date(instance.completedAt) : null,
+            createdAt: new Date(instance.createdAt),
+            updatedAt: new Date(instance.updatedAt),
+            syncStatus: "synced",
+          });
+        }
+      }
+    };
+
+    syncInstances();
+  }, [serverTaskInstances, user?.id]);
+
+  useEffect(() => {
+    if (!serverFieldResponses || !user?.id) return;
+
+    const newHash = JSON.stringify(serverFieldResponses);
+    if (prevResponsesRef.current === newHash) return;
+    prevResponsesRef.current = newHash;
+
+    const syncResponses = async () => {
+      for (const response of serverFieldResponses) {
+        const local = await db
+          .select()
+          .from(fieldResponses)
+          .where(eq(fieldResponses.clientId, response.clientId))
+          .limit(1);
+
+        if (local.length > 0 && local[0].syncStatus === "pending") {
+          continue;
+        }
+
+        if (local.length > 0) {
+          await db
+            .update(fieldResponses)
+            .set({
+              serverId: response.serverId,
+              value: response.value,
+              updatedAt: new Date(response.updatedAt),
+              syncStatus: "synced",
+            })
+            .where(eq(fieldResponses.clientId, response.clientId));
+        } else {
+          await db.insert(fieldResponses).values({
+            clientId: response.clientId,
+            serverId: response.serverId,
+            taskInstanceClientId: response.taskInstanceClientId,
+            fieldTemplateServerId: response.fieldTemplateServerId,
+            value: response.value,
+            userId: response.userId,
+            createdAt: new Date(response.createdAt),
+            updatedAt: new Date(response.updatedAt),
+            syncStatus: "synced",
+          });
+        }
+      }
+    };
+
+    syncResponses();
+  }, [serverFieldResponses, user?.id]);
+
+  useEffect(() => {
+    if (!serverAttachments || !user?.id) return;
+
+    const newHash = JSON.stringify(serverAttachments);
+    if (prevAttachmentsRef.current === newHash) return;
+    prevAttachmentsRef.current = newHash;
+
+    const syncAttachmentData = async () => {
+      for (const attachment of serverAttachments) {
+        const local = await db
+          .select()
+          .from(attachments)
+          .where(eq(attachments.clientId, attachment.clientId))
+          .limit(1);
+
+        if (local.length > 0 && local[0].syncStatus === "pending") {
+          continue;
+        }
+
+        if (local.length > 0) {
+          await db
+            .update(attachments)
+            .set({
+              serverId: attachment.serverId,
+              storageId: attachment.storageId,
+              storageUrl: attachment.storageUrl,
+              uploadStatus: attachment.uploadStatus as "pending" | "uploading" | "uploaded" | "failed",
+              updatedAt: new Date(attachment.updatedAt),
+              syncStatus: "synced",
+            })
+            .where(eq(attachments.clientId, attachment.clientId));
+        } else {
+          await db.insert(attachments).values({
+            clientId: attachment.clientId,
+            serverId: attachment.serverId,
+            fieldResponseClientId: attachment.fieldResponseClientId,
+            storageId: attachment.storageId,
+            storageUrl: attachment.storageUrl,
+            fileName: attachment.fileName,
+            fileType: attachment.fileType,
+            mimeType: attachment.mimeType,
+            fileSize: attachment.fileSize,
+            userId: attachment.userId,
+            uploadStatus: attachment.uploadStatus as "pending" | "uploading" | "uploaded" | "failed",
+            createdAt: new Date(attachment.createdAt),
+            updatedAt: new Date(attachment.updatedAt),
+            syncStatus: "synced",
+          });
+        }
+      }
+    };
+
+    syncAttachmentData();
+  }, [serverAttachments, user?.id]);
 
   useEffect(() => {
     if (!isLoaded || !user) return;
 
-    syncService.initialize(convex, user.id).then(() => {
-      setIsInitialized(true);
-    });
+    syncService.initialize(convex);
+    setIsInitialized(true);
 
     const unsubscribe = syncService.subscribe(setStatus);
 
