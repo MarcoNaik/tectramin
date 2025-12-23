@@ -1533,6 +1533,48 @@ type WorkOrderDayGridData = {
   }>;
 };
 
+type GridSpan =
+  | { type: "empty"; dayTimestamp: number }
+  | { type: "workOrder"; days: WorkOrderDayGridData[]; workOrderId: Id<"workOrders"> };
+
+function groupDaysIntoSpans(
+  daysInRange: number[],
+  cellMap: Map<string, WorkOrderDayGridData>,
+  faenaId: Id<"faenas">
+): GridSpan[] {
+  const spans: GridSpan[] = [];
+  let i = 0;
+
+  while (i < daysInRange.length) {
+    const day = daysInRange[i];
+    const key = `${faenaId}-${day}`;
+    const cellData = cellMap.get(key);
+
+    if (!cellData) {
+      spans.push({ type: "empty", dayTimestamp: day });
+      i++;
+    } else {
+      const workOrderDays: WorkOrderDayGridData[] = [cellData];
+      const workOrderId = cellData.workOrderId;
+      let j = i + 1;
+      while (j < daysInRange.length) {
+        const nextKey = `${faenaId}-${daysInRange[j]}`;
+        const nextCell = cellMap.get(nextKey);
+        if (nextCell && nextCell.workOrderId === workOrderId) {
+          workOrderDays.push(nextCell);
+          j++;
+        } else {
+          break;
+        }
+      }
+      spans.push({ type: "workOrder", days: workOrderDays, workOrderId });
+      i = j;
+    }
+  }
+
+  return spans;
+}
+
 function GridCellExpandedDetails({
   workOrderDayId,
   requiredPeople,
@@ -1628,30 +1670,30 @@ function GridCellExpandedDetails({
   };
 
   return (
-    <div className="mt-3 pt-2 border-t space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="mt-3 pt-3 border-t-2 border-black space-y-3" onClick={(e) => e.stopPropagation()}>
       {error && (
-        <div className="text-xs text-red-600 bg-red-50 p-1.5 rounded">{error}</div>
+        <div className="text-xs text-black bg-white border-2 border-black p-2 font-medium">{error}</div>
       )}
 
       <div>
-        <div className="text-xs font-medium text-gray-600 mb-1">
-          Assigned ({assignments?.length ?? 0}/{requiredPeople}):
+        <div className="text-xs font-bold text-black border-b-2 border-black pb-1 mb-2">
+          Assigned ({assignments?.length ?? 0}/{requiredPeople})
         </div>
         {!assignments ? (
-          <div className="text-xs text-gray-400">Loading...</div>
+          <div className="text-xs text-gray-500">Loading...</div>
         ) : assignments.length === 0 ? (
-          <div className="text-xs text-gray-400 italic">No one assigned</div>
+          <div className="text-xs text-gray-500">No one assigned</div>
         ) : (
           <div className="flex flex-wrap gap-1">
             {assignments.map((a) => (
               <span
                 key={a._id}
-                className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1"
+                className="text-xs border-2 border-black bg-white px-2 py-1 flex items-center gap-1 font-medium"
               >
                 {a.userFullName || a.userEmail}
                 <button
                   onClick={(e) => handleUnassign(e, a.userId)}
-                  className="text-blue-500 hover:text-red-500 font-bold"
+                  className="text-black hover:text-red-500 font-bold"
                 >
                   ×
                 </button>
@@ -1666,7 +1708,7 @@ function GridCellExpandedDetails({
               value={selectedUser}
               onChange={(e) => setSelectedUser(e.target.value as Id<"users"> | "")}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 border px-1.5 py-1 rounded text-xs"
+              className="flex-1 border-2 border-black px-2 py-1 text-xs bg-white outline-none focus:border-blue-500"
             >
               <option value="">Select user...</option>
               {availableUsers.map((u) => (
@@ -1678,7 +1720,7 @@ function GridCellExpandedDetails({
             <button
               onClick={handleAssign}
               disabled={!selectedUser || isAssigning}
-              className="bg-green-600 text-white px-2 py-1 rounded text-xs disabled:opacity-50"
+              className="border-2 border-black bg-blue-500 text-white px-3 py-1 text-xs font-bold disabled:opacity-50 hover:bg-blue-600"
             >
               {isAssigning ? "..." : "Add"}
             </button>
@@ -1686,28 +1728,28 @@ function GridCellExpandedDetails({
         )}
 
         {slotsNeeded === 0 && (
-          <div className="text-xs text-green-600 mt-1">All slots filled</div>
+          <div className="text-xs text-black font-bold mt-1">✓ All slots filled</div>
         )}
       </div>
 
       <div>
-        <div className="text-xs font-medium text-gray-600 mb-1">Tasks ({tasks.length}):</div>
+        <div className="text-xs font-bold text-black border-b-2 border-black pb-1 mb-2">Tasks ({tasks.length})</div>
         {taskError && (
-          <div className="text-xs text-red-600 bg-red-50 p-1.5 rounded mb-1">{taskError}</div>
+          <div className="text-xs text-black bg-white border-2 border-black p-2 font-medium mb-1">{taskError}</div>
         )}
         {tasks.length === 0 ? (
-          <div className="text-xs text-gray-400 italic">No tasks</div>
+          <div className="text-xs text-gray-500">No tasks</div>
         ) : (
           <div className="space-y-1">
             {tasks.map((task) => (
               <div
                 key={task.linkId}
-                className="flex items-center justify-between text-xs bg-gray-100 px-2 py-1 rounded"
+                className="flex items-center justify-between text-xs border-2 border-black bg-white px-2 py-1"
               >
-                <span className="truncate">{task.name}</span>
+                <span className="truncate font-medium">{task.name}</span>
                 <button
                   onClick={(e) => handleRemoveTask(e, task.taskTemplateId)}
-                  className="text-gray-500 hover:text-red-500 font-bold ml-1 flex-shrink-0"
+                  className="text-black hover:text-red-500 font-bold ml-1 flex-shrink-0"
                 >
                   ×
                 </button>
@@ -1722,7 +1764,7 @@ function GridCellExpandedDetails({
               value={selectedTask}
               onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 border px-1.5 py-1 rounded text-xs"
+              className="flex-1 border-2 border-black px-2 py-1 text-xs bg-white outline-none focus:border-blue-500"
             >
               <option value="">Add task...</option>
               {availableTasks.map((t) => (
@@ -1734,7 +1776,7 @@ function GridCellExpandedDetails({
             <button
               onClick={handleAddTask}
               disabled={!selectedTask || isAddingTask}
-              className="bg-green-600 text-white px-2 py-1 rounded text-xs disabled:opacity-50"
+              className="border-2 border-black bg-blue-500 text-white px-3 py-1 text-xs font-bold disabled:opacity-50 hover:bg-blue-600"
             >
               {isAddingTask ? "..." : "Add"}
             </button>
@@ -1759,72 +1801,56 @@ function GridCell({
   if (!data) {
     return (
       <div
-        className="w-40 flex-shrink-0 h-32 border-b border-r bg-gray-50 p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+        className="w-40 flex-shrink-0 h-32 border-2 border-black border-dashed bg-white p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-solid transition-colors group"
         onClick={onEmptyClick}
       >
-        <span className="text-gray-300 text-xs group-hover:text-blue-500">+ Add Work Order</span>
+        <span className="text-gray-400 text-xs font-bold group-hover:text-blue-500">+ Add Work Order</span>
       </div>
     );
   }
 
-  const statusColors: Record<string, string> = {
-    draft: "bg-yellow-100 text-yellow-700",
-    scheduled: "bg-blue-100 text-blue-700",
-    in_progress: "bg-purple-100 text-purple-700",
-    completed: "bg-green-100 text-green-700",
-    cancelled: "bg-red-100 text-red-700",
-    pending: "bg-gray-100 text-gray-700",
+  const statusIcons: Record<string, string> = {
+    draft: "○",
+    scheduled: "◐",
+    in_progress: "►",
+    completed: "✓",
+    cancelled: "✕",
+    pending: "…",
   };
-
-  const progressPercent = data.taskCount > 0
-    ? Math.round((data.completedTaskCount / data.taskCount) * 100)
-    : 0;
 
   return (
     <div
-      className={`flex-shrink-0 border-b border-r p-2 cursor-pointer transition-all hover:bg-blue-50 ${
-        isExpanded ? "w-72 bg-white shadow-lg z-20" : "w-40 h-32"
+      className={`flex-shrink-0 border-2 border-black bg-white p-3 cursor-pointer transition-all hover:bg-blue-50 ${
+        isExpanded ? "w-72 shadow-[4px_4px_0px_0px_#000] z-20" : "w-40 h-32"
       }`}
       onClick={onToggle}
     >
-      <div className="text-sm font-medium truncate" title={data.workOrderName}>
+      <div className="text-sm font-semibold truncate text-black" title={data.workOrderName}>
         {data.workOrderName}
       </div>
 
-      <div className="flex gap-1 mt-1">
-        <span className={`text-xs px-1.5 py-0.5 rounded ${statusColors[data.workOrderStatus] || statusColors.pending}`}>
-          {data.workOrderStatus.replace("_", " ")}
-        </span>
-        <span className={`text-xs px-1.5 py-0.5 rounded ${statusColors[data.dayStatus] || statusColors.pending}`}>
-          D{data.dayNumber}
-        </span>
+      <div className="flex items-center gap-2 mt-1">
+        <span className="text-base">{statusIcons[data.workOrderStatus] || statusIcons.pending}</span>
+        <span className="text-xs font-bold border border-black px-1">D{data.dayNumber}</span>
       </div>
 
-      <div className="text-xs text-gray-600 mt-1">
+      <div className="text-xs text-gray-500 mt-1">
         {data.assignmentCount}/{data.requiredPeople} people
       </div>
 
-      <div className="mt-1">
-        <div className="h-1.5 bg-gray-200 rounded overflow-hidden">
-          <div
-            className="h-full bg-green-500 transition-all"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <div className="text-xs text-gray-500 mt-0.5">
-          {data.completedTaskCount}/{data.taskCount} tasks
-        </div>
+      <div className="text-xs text-gray-500 mt-0.5">
+        {data.completedTaskCount}/{data.taskCount} tasks
       </div>
 
       {!isExpanded && data.assignedUsers.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-0.5">
-          {data.assignedUsers.slice(0, 2).map((user, i) => (
-            <span key={i} className="text-xs bg-blue-100 text-blue-700 px-1 rounded truncate max-w-[60px]">
-              {user.fullName?.split(" ")[0] || user.email.split("@")[0]}
+        <div className="mt-1 flex flex-wrap gap-1">
+          {data.assignedUsers.slice(0, 3).map((user, i) => (
+            <span key={i} className="w-5 h-5 border-2 border-black text-xs font-bold flex items-center justify-center bg-white">
+              {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
             </span>
           ))}
-          {data.assignedUsers.length > 2 && (
-            <span className="text-xs text-gray-400">+{data.assignedUsers.length - 2}</span>
+          {data.assignedUsers.length > 3 && (
+            <span className="text-xs font-bold text-gray-600">+{data.assignedUsers.length - 3}</span>
           )}
         </div>
       )}
@@ -1840,193 +1866,1000 @@ function GridCell({
   );
 }
 
-function BulkAssignSection({
+function WorkOrderSpan({
   days,
+  onSpanClick,
 }: {
-  days: Array<{ _id: Id<"workOrderDays">; dayDate: number; dayNumber: number }>;
+  days: WorkOrderDayGridData[];
+  onSpanClick: (workOrderId: Id<"workOrders">) => void;
 }) {
-  const users = useQuery(api.shared.users.list);
-  const assign = useMutation(api.admin.assignments.assign);
-
-  const [selectedUsers, setSelectedUsers] = useState<Set<Id<"users">>>(new Set());
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [result, setResult] = useState<{ success: number; failed: number } | null>(null);
-
-  const toggleUser = (userId: Id<"users">) => {
-    setSelectedUsers((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
-        next.add(userId);
-      }
-      return next;
-    });
-    setResult(null);
+  const statusIcons: Record<string, string> = {
+    draft: "○",
+    scheduled: "◐",
+    in_progress: "►",
+    completed: "✓",
+    cancelled: "✕",
+    pending: "…",
   };
 
-  const handleBulkAssign = async () => {
-    if (selectedUsers.size === 0) return;
+  const firstDay = days[0];
+  const spanWidth = days.length * 160;
 
-    setIsAssigning(true);
-    setResult(null);
-    let success = 0;
-    let failed = 0;
-
-    for (const day of days) {
-      for (const userId of selectedUsers) {
-        try {
-          await assign({ workOrderDayId: day._id, userId });
-          success++;
-        } catch {
-          failed++;
-        }
+  const renderAssignmentSlots = (day: WorkOrderDayGridData) => {
+    const slots = [];
+    for (let i = 0; i < day.requiredPeople; i++) {
+      const user = day.assignedUsers[i];
+      if (user) {
+        slots.push(
+          <span key={i} className="w-5 h-5 border-2 border-black text-xs font-bold flex items-center justify-center bg-white">
+            {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+          </span>
+        );
+      } else {
+        slots.push(
+          <span key={i} className="w-5 h-5 border-2 border-dashed border-gray-300 text-xs flex items-center justify-center">
+          </span>
+        );
       }
     }
-
-    setResult({ success, failed });
-    setSelectedUsers(new Set());
-    setIsAssigning(false);
+    return slots;
   };
 
-  if (!users || users.length === 0) return null;
-
   return (
-    <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-      <div className="text-sm font-medium text-purple-900 mb-2">
-        Quick Assign to All {days.length} Days
+    <div
+      className="flex-shrink-0 border-2 border-black bg-white h-32 overflow-hidden cursor-pointer hover:shadow-[2px_2px_0px_0px_#000] transition-shadow"
+      style={{ width: spanWidth }}
+      onClick={() => onSpanClick(firstDay.workOrderId)}
+    >
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-black">
+        <span className="text-base">{statusIcons[firstDay.workOrderStatus] || statusIcons.pending}</span>
+        <div className="text-sm font-bold truncate text-black flex-1" title={firstDay.workOrderName}>
+          {firstDay.workOrderName}
+        </div>
       </div>
-      <div className="text-xs text-purple-700 mb-3">
-        Select users to assign to every day at once:
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-3">
-        {users.map((u) => (
-          <label
-            key={u._id}
-            className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
-              selectedUsers.has(u._id)
-                ? "bg-purple-600 text-white"
-                : "bg-white border border-purple-200 text-purple-700 hover:bg-purple-100"
+      <div className="flex h-[96px]">
+        {days.map((day, idx) => (
+          <div
+            key={day._id}
+            className={`w-40 flex-shrink-0 p-3 flex flex-col justify-center gap-2 ${
+              idx < days.length - 1 ? "border-r border-dashed border-gray-300" : ""
             }`}
           >
-            <input
-              type="checkbox"
-              checked={selectedUsers.has(u._id)}
-              onChange={() => toggleUser(u._id)}
-              className="sr-only"
-            />
-            {u.fullName || u.email}
-          </label>
+            <div className="flex flex-wrap gap-1">
+              {renderAssignmentSlots(day)}
+            </div>
+            {day.taskCount > 0 && (
+              <div className="text-[10px] text-gray-400">{day.taskCount} task{day.taskCount !== 1 ? "s" : ""}</div>
+            )}
+          </div>
         ))}
       </div>
-
-      {result && (
-        <div className={`text-xs mb-2 ${result.failed > 0 ? "text-yellow-700" : "text-green-700"}`}>
-          Assigned {result.success} times{result.failed > 0 && `, ${result.failed} already assigned`}
-        </div>
-      )}
-
-      <button
-        onClick={handleBulkAssign}
-        disabled={selectedUsers.size === 0 || isAssigning}
-        className="w-full px-3 py-1.5 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {isAssigning
-          ? "Assigning..."
-          : `Assign ${selectedUsers.size} User${selectedUsers.size !== 1 ? "s" : ""} to All Days`}
-      </button>
     </div>
   );
 }
 
-function WorkOrderDayAssignment({
-  day,
+function EmptyCell({ onClick }: { onClick: () => void }) {
+  return (
+    <div
+      className="w-40 flex-shrink-0 h-32 border-r border-b border-gray-200 bg-gray-50/50 p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors group"
+      onClick={onClick}
+    >
+      <span className="text-transparent text-xs font-bold group-hover:text-blue-500 transition-colors">+ Add</span>
+    </div>
+  );
+}
+
+type UserData = {
+  _id: Id<"users">;
+  fullName?: string;
+  email: string;
+};
+
+function DroppableSlot({
+  id,
+  user,
+  onRemove,
+}: {
+  id: string;
+  user?: UserData;
+  onRemove?: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  if (user) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="w-12 h-12 border-2 border-black bg-white font-bold flex items-center justify-center relative group text-sm"
+      >
+        {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+        {onRemove && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-xs hidden group-hover:flex items-center justify-center rounded-full"
+          >
+            ×
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-12 h-12 border-2 border-dashed transition-colors ${
+        isOver ? "border-blue-500 bg-blue-50" : "border-gray-300"
+      }`}
+    />
+  );
+}
+
+function DraggableUserCard({ user }: { user: UserData }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `user-${user._id}`,
+    data: { type: "user", userId: user._id },
+  });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`border-2 border-black p-2 bg-white cursor-grab select-none ${
+        isDragging ? "opacity-50 shadow-[4px_4px_0px_0px_#000] z-50" : "hover:shadow-[2px_2px_0px_0px_#000]"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="w-8 h-8 border-2 border-black font-bold flex items-center justify-center text-sm bg-gray-50">
+          {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+        </span>
+        <span className="font-medium text-sm truncate max-w-[120px]">{user.fullName || user.email}</span>
+      </div>
+    </div>
+  );
+}
+
+function SharedAssignmentRow({
+  sharedUsers,
   requiredPeople,
+  allUsers,
+  onRemoveShared,
+}: {
+  sharedUsers: Array<Id<"users">>;
+  requiredPeople: number;
+  allUsers: UserData[];
+  onRemoveShared: (userId: Id<"users">) => void;
+}) {
+  const slots: Array<React.ReactNode> = [];
+  for (let i = 0; i < requiredPeople; i++) {
+    const userId = sharedUsers[i];
+    const user = userId ? allUsers.find((u) => u._id === userId) : undefined;
+    slots.push(
+      <DroppableSlot
+        key={`shared-${i}`}
+        id={`shared-slot-${i}`}
+        user={user}
+        onRemove={userId ? () => onRemoveShared(userId) : undefined}
+      />
+    );
+  }
+
+  return (
+    <div className="border-b-2 border-black p-4 bg-gray-50">
+      <div className="text-sm font-bold mb-2">All Days</div>
+      <div className="text-xs text-gray-500 mb-3">Drop here to assign to every day</div>
+      <div className="flex gap-2 flex-wrap">{slots}</div>
+    </div>
+  );
+}
+
+function DayColumn({
+  day,
+  sharedUserCount,
+  requiredPeople,
+  dayUsers,
+  allUsers,
+  onRemove,
 }: {
   day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
+  sharedUserCount: number;
   requiredPeople: number;
+  dayUsers: Array<Id<"users">>;
+  allUsers: UserData[];
+  onRemove: (dayId: Id<"workOrderDays">, userId: Id<"users">) => void;
 }) {
-  const users = useQuery(api.shared.users.list);
-  const assignments = useQuery(api.admin.assignments.listByWorkOrderDay, { workOrderDayId: day._id });
-  const assign = useMutation(api.admin.assignments.assign);
-  const unassign = useMutation(api.admin.assignments.unassign);
+  const availableSlots = Math.max(0, requiredPeople - sharedUserCount);
+  const slots: Array<React.ReactNode> = [];
 
-  const [selectedUser, setSelectedUser] = useState<Id<"users"> | "">("");
-  const [isAssigning, setIsAssigning] = useState(false);
+  for (let i = 0; i < availableSlots; i++) {
+    const userId = dayUsers[i];
+    const user = userId ? allUsers.find((u) => u._id === userId) : undefined;
+    slots.push(
+      <DroppableSlot
+        key={`day-${day._id}-${i}`}
+        id={`day-${day._id}-slot-${i}`}
+        user={user}
+        onRemove={userId ? () => onRemove(day._id, userId) : undefined}
+      />
+    );
+  }
 
-  const assignedUserIds = new Set(assignments?.map((a) => a.userId) ?? []);
-  const availableUsers = users?.filter((u) => !assignedUserIds.has(u._id)) ?? [];
-  const assignmentCount = assignments?.length ?? 0;
-  const isFull = assignmentCount >= requiredPeople;
+  const dateStr = new Date(day.dayDate).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
-  const handleAssign = async () => {
-    if (!selectedUser) return;
-    setIsAssigning(true);
-    try {
-      await assign({ workOrderDayId: day._id, userId: selectedUser });
-      setSelectedUser("");
-    } catch {
-    } finally {
-      setIsAssigning(false);
+  return (
+    <div className="flex-shrink-0 w-32 border-r border-gray-200 p-3">
+      <div className="text-xs font-bold text-gray-600 mb-3">{dateStr}</div>
+      <div className="flex flex-wrap gap-2">{slots}</div>
+      {availableSlots === 0 && (
+        <div className="text-xs text-gray-400 italic">Filled by shared</div>
+      )}
+    </div>
+  );
+}
+
+function ClickableUserSlot({
+  id,
+  user,
+  onRemove,
+  onClick,
+}: {
+  id: string;
+  user?: UserData;
+  onRemove?: () => void;
+  onClick?: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  if (user) {
+    return (
+      <div
+        ref={setNodeRef}
+        className="w-12 h-12 border-2 border-black bg-white font-bold flex items-center justify-center relative group text-sm cursor-pointer hover:bg-blue-50"
+        onClick={onClick}
+      >
+        {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+        {onRemove && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-xs hidden group-hover:flex items-center justify-center rounded-full"
+          >
+            ×
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-12 h-12 border-2 border-dashed transition-colors ${
+        isOver ? "border-blue-500 bg-blue-50" : "border-gray-300"
+      }`}
+    />
+  );
+}
+
+function DayColumnWithClick({
+  day,
+  sharedUserCount,
+  requiredPeople,
+  dayUsers,
+  allUsers,
+  onRemove,
+  onUserClick,
+}: {
+  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
+  sharedUserCount: number;
+  requiredPeople: number;
+  dayUsers: Array<Id<"users">>;
+  allUsers: UserData[];
+  onRemove: (dayId: Id<"workOrderDays">, userId: Id<"users">) => void;
+  onUserClick: (userId: Id<"users">, userName: string) => void;
+}) {
+  const availableSlots = Math.max(0, requiredPeople - sharedUserCount);
+  const slots: Array<React.ReactNode> = [];
+
+  for (let i = 0; i < availableSlots; i++) {
+    const userId = dayUsers[i];
+    const user = userId ? allUsers.find((u) => u._id === userId) : undefined;
+    slots.push(
+      <ClickableUserSlot
+        key={`day-${day._id}-${i}`}
+        id={`day-${day._id}-slot-${i}`}
+        user={user}
+        onRemove={userId ? () => onRemove(day._id, userId) : undefined}
+        onClick={user ? () => onUserClick(userId, user.fullName || user.email) : undefined}
+      />
+    );
+  }
+
+  const dateStr = new Date(day.dayDate).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div className="flex-shrink-0 w-32 border-r border-gray-200 p-3">
+      <div className="text-xs font-bold text-gray-600 mb-3">{dateStr}</div>
+      <div className="flex flex-wrap gap-2">{slots}</div>
+      {availableSlots === 0 && (
+        <div className="text-xs text-gray-400 italic">Filled by shared</div>
+      )}
+    </div>
+  );
+}
+
+type TaskTemplateData = {
+  _id: Id<"taskTemplates">;
+  name: string;
+};
+
+function DraggableTaskCard({ template }: { template: TaskTemplateData }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `task-${template._id}`,
+    data: { type: "task", taskTemplateId: template._id, taskName: template.name },
+  });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`border-2 border-black p-2 bg-white cursor-grab select-none ${
+        isDragging ? "opacity-50 shadow-[4px_4px_0px_0px_#000] z-50" : "hover:shadow-[2px_2px_0px_0px_#000]"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="w-8 h-8 border-2 border-black font-bold flex items-center justify-center text-sm bg-gray-50">
+          {template.name[0]?.toUpperCase()}
+        </span>
+        <span className="font-medium text-sm truncate max-w-[120px]">{template.name}</span>
+      </div>
+    </div>
+  );
+}
+
+function TasksTabContent({
+  days,
+}: {
+  days: Array<{ _id: Id<"workOrderDays">; dayDate: number; dayNumber: number }>;
+}) {
+  const allTaskTemplates = useQuery(api.admin.taskTemplates.list);
+  const activeTemplates = allTaskTemplates?.filter((t) => t.isActive) ?? [];
+  const addTask = useMutation(api.admin.workOrderDays.addTaskTemplate);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (errorMessage) {
+      const timer = setTimeout(() => setErrorMessage(null), 3000);
+      return () => clearTimeout(timer);
     }
-  };
+  }, [errorMessage]);
 
-  const handleUnassign = async (userId: Id<"users">) => {
-    try {
-      await unassign({ workOrderDayId: day._id, userId });
-    } catch {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskTemplateId = active.data.current?.taskTemplateId as Id<"taskTemplates">;
+    const taskName = active.data.current?.taskName as string;
+    if (!taskTemplateId) return;
+
+    const overId = over.id.toString();
+    if (overId.startsWith("task-day-")) {
+      const dayId = overId.replace("task-day-", "") as Id<"workOrderDays">;
+      try {
+        await addTask({ workOrderDayId: dayId, taskTemplateId });
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("already assigned")) {
+          setErrorMessage(`"${taskName}" is already assigned to this day`);
+        } else {
+          setErrorMessage("Failed to add task");
+        }
+      }
     }
   };
 
   return (
-    <div className="p-3 bg-gray-50 rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-sm font-medium">
-          Day {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <div className="flex-1 flex overflow-hidden relative">
+        {errorMessage && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-4 py-2 border-2 border-black shadow-[4px_4px_0px_0px_#000] text-sm font-medium animate-pulse">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="w-56 border-r-2 border-black flex flex-col">
+          <div className="p-3 border-b border-gray-200 bg-gray-50">
+            <div className="text-sm font-bold">Available Tasks</div>
+            <div className="text-xs text-gray-500">Drag to add to a day</div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {activeTemplates.map((template) => (
+              <DraggableTaskCard key={template._id} template={template} />
+            ))}
+            {activeTemplates.length === 0 && (
+              <div className="text-xs text-gray-400 italic text-center py-4">
+                No active task templates
+              </div>
+            )}
+          </div>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded ${isFull ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-          {assignmentCount}/{requiredPeople}
-        </span>
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b-2 border-black">
+            <div className="text-sm font-bold">Day Tasks</div>
+            <div className="text-xs text-gray-500">Drop tasks on each day</div>
+          </div>
+
+          <div className="flex-1 overflow-x-auto">
+            <div className="flex min-w-max">
+              {days.map((day) => (
+                <TaskDayColumnDroppable key={day._id} day={day} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </DndContext>
+  );
+}
+
+function TaskDayColumnDroppable({
+  day,
+}: {
+  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
+}) {
+  const dayData = useQuery(api.admin.workOrderDays.getWithTaskTemplates, { id: day._id });
+  const removeTask = useMutation(api.admin.workOrderDays.removeTaskTemplate);
+  const { setNodeRef, isOver } = useDroppable({
+    id: `task-day-${day._id}`,
+  });
+
+  const dayTasks = dayData?.taskTemplates ?? [];
+
+  const handleRemoveTask = (taskTemplateId: Id<"taskTemplates">) => {
+    removeTask({ workOrderDayId: day._id, taskTemplateId });
+  };
+
+  const dateStr = new Date(day.dayDate).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex-shrink-0 w-48 border-r border-gray-200 p-3 min-h-[200px] transition-colors ${
+        isOver ? "bg-blue-50" : ""
+      }`}
+    >
+      <div className="text-xs font-bold text-gray-600 mb-3">{dateStr}</div>
+      <div className="space-y-2">
+        {dayTasks.map((task) => (
+          <div
+            key={task._id}
+            className="border-2 border-black bg-white p-2 flex items-center justify-between group"
+          >
+            <span className="text-sm truncate">{task.taskTemplateName}</span>
+            <button
+              onClick={() => handleRemoveTask(task.taskTemplateId)}
+              className="text-gray-400 hover:text-red-500 font-bold ml-1 opacity-0 group-hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {dayTasks.length === 0 && (
+          <div className={`text-xs italic text-center py-4 border-2 border-dashed rounded transition-colors ${
+            isOver ? "border-blue-400 text-blue-500" : "border-gray-300 text-gray-400"
+          }`}>
+            {isOver ? "Drop here" : "Drop tasks here"}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AssignmentDetailPanel({
+  detail,
+  onClose,
+}: {
+  detail: {
+    dayId: Id<"workOrderDays">;
+    userId: Id<"users">;
+    userName: string;
+    dayNumber: number;
+    dayDate: number;
+  };
+  onClose: () => void;
+}) {
+  const taskInstances = useQuery(api.admin.taskInstances.listByWorkOrderDay, {
+    workOrderDayId: detail.dayId,
+  });
+  const users = useQuery(api.shared.users.list);
+
+  const user = users?.find((u) => u._id === detail.userId);
+  const userClerkId = user?.clerkId;
+
+  const userTaskInstances = useMemo(() => {
+    if (!taskInstances || !userClerkId) return [];
+    return taskInstances.filter((t) => t.userId === userClerkId);
+  }, [taskInstances, userClerkId]);
+
+  const dateStr = new Date(detail.dayDate).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="w-80 border-l-2 border-black flex flex-col bg-white">
+      <div className="p-4 border-b-2 border-black flex items-center justify-between bg-gray-50">
+        <div>
+          <div className="text-sm font-bold">{detail.userName}</div>
+          <div className="text-xs text-gray-500">Day {detail.dayNumber} • {dateStr}</div>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-6 h-6 border-2 border-black flex items-center justify-center font-bold hover:bg-gray-100 text-sm"
+        >
+          ×
+        </button>
       </div>
 
-      {assignments && assignments.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {assignments.map((a) => (
-            <span
-              key={a._id}
-              className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded flex items-center gap-1"
-            >
-              {a.userFullName || a.userEmail}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="text-sm font-bold mb-3">Task Instances</div>
+        {!taskInstances ? (
+          <div className="text-xs text-gray-400">Loading...</div>
+        ) : userTaskInstances.length === 0 ? (
+          <div className="text-xs text-gray-400 italic">
+            No tasks completed by this user yet
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {userTaskInstances.map((instance) => (
+              <TaskInstanceCard key={instance._id} instance={instance} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TaskInstanceCard({
+  instance,
+}: {
+  instance: {
+    _id: Id<"taskInstances">;
+    taskTemplateName: string;
+    status: string;
+    responseCount: number;
+    fieldCount: number;
+    completedAt?: number;
+  };
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const details = useQuery(
+    api.admin.taskInstances.getWithResponses,
+    isExpanded ? { id: instance._id } : "skip"
+  );
+
+  const statusColors: Record<string, string> = {
+    draft: "bg-yellow-100 border-yellow-500 text-yellow-700",
+    completed: "bg-green-100 border-green-500 text-green-700",
+  };
+
+  return (
+    <div className="border-2 border-black bg-white">
+      <div
+        className="p-3 cursor-pointer hover:bg-gray-50"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-sm">{instance.taskTemplateName}</div>
+          <span className={`text-xs px-2 py-0.5 border rounded ${statusColors[instance.status] || "bg-gray-100"}`}>
+            {instance.status}
+          </span>
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          {instance.responseCount}/{instance.fieldCount} fields filled
+        </div>
+        {instance.completedAt && (
+          <div className="text-xs text-gray-400 mt-0.5">
+            Completed {new Date(instance.completedAt).toLocaleTimeString()}
+          </div>
+        )}
+      </div>
+
+      {isExpanded && details && (
+        <div className="border-t border-gray-200 p-3 bg-gray-50">
+          {details.fields.length === 0 ? (
+            <div className="text-xs text-gray-400 italic">No fields</div>
+          ) : (
+            <div className="space-y-2">
+              {details.fields.map((field) => (
+                <div key={field._id} className="text-xs">
+                  <div className="font-medium text-gray-600">{field.label}</div>
+                  <div className="text-gray-800 mt-0.5">
+                    {field.response?.value || <span className="text-gray-400 italic">Not answered</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type ModalTab = "people" | "tasks";
+
+type AssignmentDetailView = {
+  dayId: Id<"workOrderDays">;
+  userId: Id<"users">;
+  userName: string;
+  dayNumber: number;
+  dayDate: number;
+} | null;
+
+function WorkOrderAssignmentModal({
+  isOpen,
+  onClose,
+  workOrderId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  workOrderId: Id<"workOrders"> | null;
+}) {
+  const workOrderDetails = useQuery(
+    api.admin.workOrders.getWithDetails,
+    workOrderId ? { id: workOrderId } : "skip"
+  );
+  const users = useQuery(api.shared.users.list);
+  const assign = useMutation(api.admin.assignments.assign);
+  const unassign = useMutation(api.admin.assignments.unassign);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const [activeTab, setActiveTab] = useState<ModalTab>("people");
+  const [sharedUsers, setSharedUsers] = useState<Array<Id<"users">>>([]);
+  const [dayAssignments, setDayAssignments] = useState<Map<Id<"workOrderDays">, Array<Id<"users">>>>(new Map());
+  const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetailView>(null);
+
+  const requiredPeople = workOrderDetails?.service?.requiredPeople ?? 1;
+  const allUsers: UserData[] = users ?? [];
+  const days = workOrderDetails?.days ?? [];
+
+  useEffect(() => {
+    if (!workOrderDetails || !users) return;
+
+    const userAssignmentCounts = new Map<Id<"users">, number>();
+    const newDayAssignments = new Map<Id<"workOrderDays">, Array<Id<"users">>>();
+
+    for (const day of workOrderDetails.days) {
+      const dayUserIds: Array<Id<"users">> = [];
+      if (day.assignments) {
+        for (const a of day.assignments) {
+          dayUserIds.push(a.userId);
+          userAssignmentCounts.set(a.userId, (userAssignmentCounts.get(a.userId) ?? 0) + 1);
+        }
+      }
+      newDayAssignments.set(day._id, dayUserIds);
+    }
+
+    const totalDays = workOrderDetails.days.length;
+    const newSharedUsers: Array<Id<"users">> = [];
+    for (const [userId, count] of userAssignmentCounts) {
+      if (count === totalDays) {
+        newSharedUsers.push(userId);
+      }
+    }
+
+    for (const sharedUserId of newSharedUsers) {
+      for (const [dayId, dayUserIds] of newDayAssignments) {
+        const filtered = dayUserIds.filter((id) => id !== sharedUserId);
+        newDayAssignments.set(dayId, filtered);
+      }
+    }
+
+    setSharedUsers(newSharedUsers);
+    setDayAssignments(newDayAssignments);
+  }, [workOrderDetails, users]);
+
+  const sharedUserIds = new Set(sharedUsers);
+  const availableUsers = allUsers.filter((u) => !sharedUserIds.has(u._id));
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || !workOrderDetails) return;
+
+    const userId = active.data.current?.userId as Id<"users">;
+    if (!userId) return;
+
+    const overId = over.id.toString();
+
+    if (overId.startsWith("shared-slot-")) {
+      setSharedUsers((prev) => [...prev, userId]);
+      setDayAssignments((prev) => {
+        const updated = new Map(prev);
+        for (const [dayId, dayUserIds] of updated) {
+          updated.set(dayId, dayUserIds.filter((id) => id !== userId));
+        }
+        return updated;
+      });
+      for (const day of workOrderDetails.days) {
+        assign({ workOrderDayId: day._id, userId });
+      }
+    } else if (overId.startsWith("day-")) {
+      const parts = overId.split("-");
+      const dayId = parts[1] as Id<"workOrderDays">;
+      setDayAssignments((prev) => {
+        const updated = new Map(prev);
+        const current = updated.get(dayId) ?? [];
+        if (current.includes(userId)) return prev;
+        updated.set(dayId, [...current, userId]);
+        return updated;
+      });
+      assign({ workOrderDayId: dayId, userId });
+    }
+  };
+
+  const handleRemoveShared = (userId: Id<"users">) => {
+    if (!workOrderDetails) return;
+    setSharedUsers((prev) => prev.filter((id) => id !== userId));
+    for (const day of workOrderDetails.days) {
+      unassign({ workOrderDayId: day._id, userId });
+    }
+  };
+
+  const handleRemoveFromDay = (dayId: Id<"workOrderDays">, userId: Id<"users">) => {
+    setDayAssignments((prev) => {
+      const updated = new Map(prev);
+      const current = updated.get(dayId) ?? [];
+      updated.set(dayId, current.filter((id) => id !== userId));
+      return updated;
+    });
+    unassign({ workOrderDayId: dayId, userId });
+  };
+
+  if (!isOpen || !workOrderId) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_#000] w-[90%] h-[90vh] flex flex-col">
+          <div className="p-4 border-b-2 border-black bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-lg font-bold">Manage Work Order</h3>
+                {workOrderDetails && (
+                  <div className="text-sm text-gray-600">
+                    {workOrderDetails.workOrder.name} • {workOrderDetails.faena.name} • {workOrderDetails.customer.name}
+                  </div>
+                )}
+                {workOrderDetails && (
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {days.length} days • {requiredPeople} people per day
+                  </div>
+                )}
+              </div>
               <button
-                onClick={() => handleUnassign(a.userId)}
-                className="text-blue-500 hover:text-red-500 font-bold"
+                onClick={onClose}
+                className="w-8 h-8 border-2 border-black flex items-center justify-center font-bold hover:bg-gray-100"
               >
                 ×
               </button>
-            </span>
+            </div>
+            <div className="flex border-2 border-black">
+              <button
+                onClick={() => { setActiveTab("people"); setAssignmentDetail(null); }}
+                className={`flex-1 px-4 py-2 text-sm font-bold transition-colors ${
+                  activeTab === "people"
+                    ? "bg-black text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                }`}
+              >
+                People
+              </button>
+              <button
+                onClick={() => { setActiveTab("tasks"); setAssignmentDetail(null); }}
+                className={`flex-1 px-4 py-2 text-sm font-bold border-l-2 border-black transition-colors ${
+                  activeTab === "tasks"
+                    ? "bg-black text-white"
+                    : "bg-white text-black hover:bg-gray-100"
+                }`}
+              >
+                Tasks
+              </button>
+            </div>
+          </div>
+
+          {workOrderDetails ? (
+            <div className="flex-1 flex overflow-hidden">
+              {activeTab === "people" ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <div className="flex-1 flex overflow-hidden">
+                    <div className="w-56 border-r-2 border-black flex flex-col">
+                      <div className="p-3 border-b border-gray-200 bg-gray-50">
+                        <div className="text-sm font-bold">Available</div>
+                        <div className="text-xs text-gray-500">Drag to assign</div>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        {availableUsers.map((user) => (
+                          <DraggableUserCard key={user._id} user={user} />
+                        ))}
+                        {availableUsers.length === 0 && (
+                          <div className="text-xs text-gray-400 italic text-center py-4">
+                            All users assigned
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      <SharedAssignmentRow
+                        sharedUsers={sharedUsers}
+                        requiredPeople={requiredPeople}
+                        allUsers={allUsers}
+                        onRemoveShared={handleRemoveShared}
+                      />
+
+                      <div className="flex-1 overflow-x-auto">
+                        <div className="flex min-w-max">
+                          {days.map((day) => (
+                            <DayColumnWithClick
+                              key={day._id}
+                              day={day}
+                              sharedUserCount={sharedUsers.length}
+                              requiredPeople={requiredPeople}
+                              dayUsers={dayAssignments.get(day._id) ?? []}
+                              allUsers={allUsers}
+                              onRemove={handleRemoveFromDay}
+                              onUserClick={(userId, userName) => {
+                                setAssignmentDetail({
+                                  dayId: day._id,
+                                  userId,
+                                  userName,
+                                  dayNumber: day.dayNumber,
+                                  dayDate: day.dayDate,
+                                });
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DndContext>
+              ) : (
+                <TasksTabContent days={days} />
+              )}
+
+              {assignmentDetail && (
+                <AssignmentDetailPanel
+                  detail={assignmentDetail}
+                  onClose={() => setAssignmentDetail(null)}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-gray-500">Loading...</div>
+            </div>
+          )}
+
+          <div className="p-4 border-t-2 border-black">
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 border-2 border-black bg-blue-500 text-white font-bold hover:bg-blue-600"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WorkOrderDayTasks({
+  day,
+}: {
+  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
+}) {
+  const allTaskTemplates = useQuery(api.admin.taskTemplates.list);
+  const dayData = useQuery(api.admin.workOrderDays.getWithTaskTemplates, { id: day._id });
+  const addTask = useMutation(api.admin.workOrderDays.addTaskTemplate);
+  const removeTask = useMutation(api.admin.workOrderDays.removeTaskTemplate);
+
+  const [selectedTask, setSelectedTask] = useState<Id<"taskTemplates"> | "">("");
+
+  const dayTasks = dayData?.taskTemplates ?? [];
+  const assignedTaskIds = new Set(dayTasks.map((t) => t.taskTemplateId));
+  const availableTasks = allTaskTemplates?.filter((t) => !assignedTaskIds.has(t._id) && t.isActive) ?? [];
+
+  const handleAddTask = async () => {
+    if (!selectedTask) return;
+    try {
+      await addTask({ workOrderDayId: day._id, taskTemplateId: selectedTask });
+      setSelectedTask("");
+    } catch {}
+  };
+
+  const handleRemoveTask = async (taskTemplateId: Id<"taskTemplates">) => {
+    try {
+      await removeTask({ workOrderDayId: day._id, taskTemplateId });
+    } catch {}
+  };
+
+  return (
+    <div className="p-3 bg-gray-50 border border-gray-200">
+      <div className="text-xs font-bold mb-2">
+        Day {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+      </div>
+      {dayTasks.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {dayTasks.map((task) => (
+            <div key={task._id} className="flex items-center justify-between text-xs bg-white border px-2 py-1">
+              <span>{task.taskTemplateName}</span>
+              <button onClick={() => handleRemoveTask(task.taskTemplateId)} className="text-gray-400 hover:text-red-500 font-bold">×</button>
+            </div>
           ))}
         </div>
       )}
-
-      {!isFull && availableUsers.length > 0 && (
+      {availableTasks.length > 0 && (
         <div className="flex gap-1">
           <select
-            value={selectedUser}
-            onChange={(e) => setSelectedUser(e.target.value as Id<"users"> | "")}
-            className="flex-1 border px-2 py-1 rounded text-xs"
+            value={selectedTask}
+            onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
+            className="flex-1 border px-2 py-1 text-xs"
           >
-            <option value="">Add person...</option>
-            {availableUsers.map((u) => (
-              <option key={u._id} value={u._id}>
-                {u.fullName || u.email}
-              </option>
+            <option value="">Add task...</option>
+            {availableTasks.map((t) => (
+              <option key={t._id} value={t._id}>{t.name}</option>
             ))}
           </select>
           <button
-            onClick={handleAssign}
-            disabled={!selectedUser || isAssigning}
-            className="bg-green-600 text-white px-2 py-1 rounded text-xs disabled:opacity-50"
+            onClick={handleAddTask}
+            disabled={!selectedTask}
+            className="border-2 border-black bg-white px-2 py-1 text-xs font-bold hover:bg-gray-100 disabled:opacity-50"
           >
             Add
           </button>
@@ -2041,11 +2874,13 @@ function WorkOrderDrawer({
   onClose,
   faena,
   startDate,
+  onCreatedAndAssign,
 }: {
   isOpen: boolean;
   onClose: () => void;
   faena: { _id: Id<"faenas">; name: string; customerName: string } | null;
   startDate: number;
+  onCreatedAndAssign?: (workOrderId: Id<"workOrders">) => void;
 }) {
   const services = useQuery(api.admin.services.listActive);
   const customers = useQuery(api.admin.customers.list);
@@ -2058,17 +2893,10 @@ function WorkOrderDrawer({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"form" | "assign">("form");
-  const [createdWorkOrderId, setCreatedWorkOrderId] = useState<Id<"workOrders"> | null>(null);
 
   const selectedServiceData = services?.find((s) => s._id === selectedService);
   const faenaData = faenas?.find((f) => f._id === faena?._id);
   const customerId = faenaData?.customerId;
-
-  const workOrderDetails = useQuery(
-    api.admin.workOrders.getWithDetails,
-    createdWorkOrderId ? { id: createdWorkOrderId } : "skip"
-  );
 
   const formatDateForInput = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -2100,8 +2928,6 @@ function WorkOrderDrawer({
     setEndDate("");
     setNotes("");
     setError("");
-    setMode("form");
-    setCreatedWorkOrderId(null);
   };
 
   const handleClose = () => {
@@ -2126,11 +2952,9 @@ function WorkOrderDrawer({
         notes: notes.trim() || undefined,
       });
 
-      if (andAssign) {
-        setCreatedWorkOrderId(workOrderId);
-        setMode("assign");
-      } else {
-        handleClose();
+      handleClose();
+      if (andAssign && onCreatedAndAssign) {
+        onCreatedAndAssign(workOrderId);
       }
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : "Failed to create work order";
@@ -2147,171 +2971,120 @@ function WorkOrderDrawer({
       <div className="fixed inset-0 bg-black/30 z-40" onClick={handleClose} />
       <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-xl z-50 flex flex-col">
         <div className="p-4 border-b flex items-center justify-between">
-          <h3 className="text-lg font-semibold">
-            {mode === "form" ? "Create Work Order" : "Assign People"}
-          </h3>
+          <h3 className="text-lg font-semibold">Create Work Order</h3>
           <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 text-xl">×</button>
         </div>
 
-        {mode === "form" ? (
-          <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="text-sm font-medium text-blue-900">{faena?.name}</div>
-                <div className="text-xs text-blue-700">{faena?.customerName}</div>
-                <div className="text-xs text-blue-600 mt-1">
-                  Starting: {new Date(startDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-                </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="text-sm font-medium text-blue-900">{faena?.name}</div>
+            <div className="text-xs text-blue-700">{faena?.customerName}</div>
+            <div className="text-xs text-blue-600 mt-1">
+              Starting: {new Date(startDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Service *</label>
+            <select
+              value={selectedService}
+              onChange={(e) => handleServiceChange(e.target.value as Id<"services"> | "")}
+              className="w-full border px-3 py-2 rounded-lg text-sm"
+            >
+              <option value="">Select a service...</option>
+              {services?.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name} ({s.defaultDays} days, {s.requiredPeople} people)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter work order name"
+              className="w-full border px-3 py-2 rounded-lg text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={startDateStr}
+                disabled
+                className="w-full border px-3 py-2 rounded-lg text-sm bg-gray-100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDateStr}
+                className="w-full border px-3 py-2 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+
+          {selectedServiceData && (
+            <div className="bg-gray-50 p-3 rounded-lg text-sm">
+              <div className="font-medium text-gray-700">Service Details</div>
+              <div className="text-gray-600 mt-1">
+                Default duration: {selectedServiceData.defaultDays} days
               </div>
-
-              {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Service *</label>
-                <select
-                  value={selectedService}
-                  onChange={(e) => handleServiceChange(e.target.value as Id<"services"> | "")}
-                  className="w-full border px-3 py-2 rounded-lg text-sm"
-                >
-                  <option value="">Select a service...</option>
-                  {services?.map((s) => (
-                    <option key={s._id} value={s._id}>
-                      {s.name} ({s.defaultDays} days, {s.requiredPeople} people)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Name *</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter work order name"
-                  className="w-full border px-3 py-2 rounded-lg text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input
-                    type="date"
-                    value={startDateStr}
-                    disabled
-                    className="w-full border px-3 py-2 rounded-lg text-sm bg-gray-100"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    min={startDateStr}
-                    className="w-full border px-3 py-2 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-
-              {selectedServiceData && (
-                <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                  <div className="font-medium text-gray-700">Service Details</div>
-                  <div className="text-gray-600 mt-1">
-                    Default duration: {selectedServiceData.defaultDays} days
-                  </div>
-                  <div className="text-gray-600">
-                    Required people: {selectedServiceData.requiredPeople} per day
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional notes..."
-                  rows={3}
-                  className="w-full border px-3 py-2 rounded-lg text-sm resize-none"
-                />
+              <div className="text-gray-600">
+                Required people: {selectedServiceData.requiredPeople} per day
               </div>
             </div>
+          )}
 
-            <div className="p-4 border-t space-y-2">
-              <button
-                onClick={() => handleSubmit(true)}
-                disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? "Creating..." : "Create & Assign People"}
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleClose}
-                  className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleSubmit(false)}
-                  disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
-                  className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Create Only
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {workOrderDetails ? (
-                <>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <div className="text-sm font-medium text-green-900">{workOrderDetails.workOrder.name}</div>
-                    <div className="text-xs text-green-700">{workOrderDetails.faena.name} • {workOrderDetails.customer.name}</div>
-                    <div className="text-xs text-green-600 mt-1">
-                      {workOrderDetails.days.length} days • {workOrderDetails.service?.requiredPeople ?? 1} people per day
-                    </div>
-                  </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes..."
+              rows={3}
+              className="w-full border px-3 py-2 rounded-lg text-sm resize-none"
+            />
+          </div>
+        </div>
 
-                  <BulkAssignSection days={workOrderDetails.days} />
-
-                  <div className="text-sm font-medium text-gray-700">
-                    Or assign individually per day:
-                  </div>
-
-                  <div className="space-y-3">
-                    {workOrderDetails.days.map((day) => (
-                      <WorkOrderDayAssignment
-                        key={day._id}
-                        day={day}
-                        requiredPeople={workOrderDetails.service?.requiredPeople ?? 1}
-                      />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-gray-500">Loading work order details...</div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t">
-              <button
-                onClick={handleClose}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                Done
-              </button>
-            </div>
-          </>
-        )}
+        <div className="p-4 border-t space-y-2">
+          <button
+            onClick={() => handleSubmit(true)}
+            disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? "Creating..." : "Create & Assign People"}
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleClose}
+              className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleSubmit(false)}
+              disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
+              className="flex-1 px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Create Only
+            </button>
+          </div>
+        </div>
       </div>
     </>
   );
@@ -2537,7 +3310,7 @@ function DashboardGridTab() {
     end.setDate(end.getDate() + 30);
     return { start: today.getTime(), end: end.getTime() };
   });
-  const [expandedCellId, setExpandedCellId] = useState<Id<"workOrderDays"> | null>(null);
+  const [editingWorkOrderId, setEditingWorkOrderId] = useState<Id<"workOrders"> | null>(null);
   const [faenaDrawerOpen, setFaenaDrawerOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
@@ -2649,53 +3422,53 @@ function DashboardGridTab() {
       <div className="flex items-center justify-between">
         <button
           onClick={goToPrevWeek}
-          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium"
+          className="border-2 border-black px-4 py-2 font-bold bg-white hover:bg-blue-500 hover:text-white transition-colors"
         >
           ← Prev Week
         </button>
-        <span className="text-sm font-medium text-gray-700">{formatDateRange()}</span>
+        <span className="text-lg font-bold text-black">{formatDateRange()}</span>
         <button
           onClick={goToNextWeek}
-          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-sm font-medium"
+          className="border-2 border-black px-4 py-2 font-bold bg-white hover:bg-blue-500 hover:text-white transition-colors"
         >
           Next Week →
         </button>
       </div>
 
-      <div className="flex border rounded-lg overflow-hidden" style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
-        <div className="w-48 flex-shrink-0 border-r bg-white z-10 overflow-y-auto">
-          <div className="h-14 border-b bg-gray-100 p-2 font-medium text-sm flex items-center sticky top-0">
+      <div className="flex border-2 border-black overflow-hidden" style={{ height: "calc(100vh - 280px)", minHeight: "400px" }}>
+        <div className="w-48 flex-shrink-0 border-r-2 border-black bg-white z-10 overflow-y-auto">
+          <div className="h-14 border-b-2 border-black bg-white p-2 font-bold text-sm flex items-center sticky top-0">
             Faenas
           </div>
           {gridData.faenas.map((faena) => (
-            <div key={faena._id} className="h-32 p-2 border-b flex flex-col justify-center">
-              <div className="font-medium text-sm truncate" title={faena.name}>{faena.name}</div>
+            <div key={faena._id} className="h-32 p-3 border-b-2 border-black flex flex-col justify-center">
+              <div className="font-bold text-base truncate text-black" title={faena.name}>{faena.name}</div>
               <div className="text-xs text-gray-500 truncate" title={faena.customerName}>{faena.customerName}</div>
             </div>
           ))}
           <div
-            className="h-16 p-2 border-b flex items-center justify-center cursor-pointer hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+            className="h-16 p-2 border-b border-gray-200 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors group"
             onClick={() => setFaenaDrawerOpen(true)}
           >
-            <span className="text-sm font-medium">+ Add Faena</span>
+            <span className="text-sm text-gray-300 group-hover:text-blue-500 font-medium transition-colors">+ Add Faena</span>
           </div>
         </div>
 
         <div className="flex-1 overflow-x-auto overflow-y-auto">
           <div className="inline-flex flex-col min-w-full">
-            <div className="flex sticky top-0 bg-gray-100 z-5">
+            <div className="flex sticky top-0 bg-white z-5">
               {daysInRange.map((day) => {
                 const { weekday, day: dayNum, month } = formatDayHeader(day);
                 const isToday = new Date(day).toDateString() === new Date().toDateString();
                 return (
                   <div
                     key={day}
-                    className={`w-40 flex-shrink-0 h-14 border-b border-r p-2 text-center ${
-                      isToday ? "bg-blue-100" : ""
+                    className={`w-40 flex-shrink-0 h-14 border-b-2 border-r-2 border-black p-2 text-center ${
+                      isToday ? "bg-blue-500 text-white" : "bg-white"
                     }`}
                   >
-                    <div className="text-xs text-gray-500">{weekday}</div>
-                    <div className={`text-sm font-medium ${isToday ? "text-blue-600" : ""}`}>
+                    <div className={`text-xs font-bold ${isToday ? "text-white" : "text-black"}`}>{weekday}</div>
+                    <div className={`text-sm font-bold ${isToday ? "text-white" : "text-black"}`}>
                       {month} {dayNum}
                     </div>
                   </div>
@@ -2703,37 +3476,40 @@ function DashboardGridTab() {
               })}
             </div>
 
-            {gridData.faenas.map((faena) => (
-              <div key={faena._id} className="flex">
-                {daysInRange.map((day) => {
-                  const key = `${faena._id}-${day}`;
-                  const cellData = cellMap.get(key);
-                  return (
-                    <GridCell
-                      key={key}
-                      data={cellData}
-                      isExpanded={expandedCellId === cellData?._id}
-                      onToggle={() => {
-                        if (cellData) {
-                          setExpandedCellId(expandedCellId === cellData._id ? null : cellData._id);
-                        }
-                      }}
-                      onEmptyClick={() => openDrawer(faena, day)}
-                    />
-                  );
-                })}
-              </div>
-            ))}
+            {gridData.faenas.map((faena) => {
+              const spans = groupDaysIntoSpans(daysInRange, cellMap, faena._id);
+              return (
+                <div key={faena._id} className="flex">
+                  {spans.map((span, spanIndex) => {
+                    if (span.type === "empty") {
+                      return (
+                        <EmptyCell
+                          key={`empty-${span.dayTimestamp}`}
+                          onClick={() => openDrawer(faena, span.dayTimestamp)}
+                        />
+                      );
+                    }
+                    return (
+                      <WorkOrderSpan
+                        key={`span-${spanIndex}-${span.workOrderId}`}
+                        days={span.days}
+                        onSpanClick={(workOrderId) => setEditingWorkOrderId(workOrderId)}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
             <div className="flex h-16">
               {daysInRange.map((day) => (
-                <div key={day} className="w-40 flex-shrink-0 border-b border-r bg-gray-50" />
+                <div key={day} className="w-40 flex-shrink-0 border-r border-b border-gray-200 bg-gray-50/30" />
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="text-xs text-gray-500 text-center">
+      <div className="text-xs text-gray-600 text-center font-medium">
         Showing {gridData.faenas.length} faenas • {gridData.workOrderDays.length} work order days in range
       </div>
 
@@ -2742,11 +3518,18 @@ function DashboardGridTab() {
         onClose={closeDrawer}
         faena={drawerState.faena}
         startDate={drawerState.startDate}
+        onCreatedAndAssign={(workOrderId) => setEditingWorkOrderId(workOrderId)}
       />
 
       <FaenaDrawer
         isOpen={faenaDrawerOpen}
         onClose={() => setFaenaDrawerOpen(false)}
+      />
+
+      <WorkOrderAssignmentModal
+        isOpen={editingWorkOrderId !== null}
+        onClose={() => setEditingWorkOrderId(null)}
+        workOrderId={editingWorkOrderId}
       />
     </div>
   );
