@@ -89,6 +89,72 @@ export const listByUser = query({
   },
 });
 
+export const listByDayAndUser = query({
+  args: {
+    workOrderDayId: v.id("workOrderDays"),
+    userId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("taskInstances"),
+      clientId: v.string(),
+      workOrderDayId: v.id("workOrderDays"),
+      taskTemplateId: v.id("taskTemplates"),
+      taskTemplateName: v.string(),
+      userId: v.string(),
+      instanceLabel: v.optional(v.string()),
+      status: v.string(),
+      startedAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      responseCount: v.number(),
+      fieldCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const instances = await ctx.db
+      .query("taskInstances")
+      .withIndex("by_work_order_day_and_user", (q) =>
+        q.eq("workOrderDayId", args.workOrderDayId).eq("userId", args.userId)
+      )
+      .collect();
+
+    return Promise.all(
+      instances.map(async (instance) => {
+        const template = await ctx.db.get(instance.taskTemplateId);
+
+        const fields = await ctx.db
+          .query("fieldTemplates")
+          .withIndex("by_task_template", (q) => q.eq("taskTemplateId", instance.taskTemplateId))
+          .collect();
+
+        const responses = await ctx.db
+          .query("fieldResponses")
+          .withIndex("by_task_instance", (q) => q.eq("taskInstanceId", instance._id))
+          .collect();
+
+        return {
+          _id: instance._id,
+          clientId: instance.clientId,
+          workOrderDayId: instance.workOrderDayId,
+          taskTemplateId: instance.taskTemplateId,
+          taskTemplateName: template?.name ?? "Unknown",
+          userId: instance.userId,
+          instanceLabel: instance.instanceLabel,
+          status: instance.status,
+          startedAt: instance.startedAt,
+          completedAt: instance.completedAt,
+          createdAt: instance.createdAt,
+          updatedAt: instance.updatedAt,
+          responseCount: responses.length,
+          fieldCount: fields.length,
+        };
+      })
+    );
+  },
+});
+
 export const get = query({
   args: { id: v.id("taskInstances") },
   returns: v.union(taskInstanceValidator, v.null()),

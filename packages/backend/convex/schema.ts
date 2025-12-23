@@ -144,6 +144,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_and_updated", ["userId", "updatedAt"])
     .index("by_work_order_day", ["workOrderDayId"])
+    .index("by_work_order_day_and_user", ["workOrderDayId", "userId"])
     .index("by_status", ["status"]),
 
   fieldResponses: defineTable({
