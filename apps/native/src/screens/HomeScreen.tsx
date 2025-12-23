@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,17 +8,27 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  Dimensions,
 } from "react-native";
 import { useAuth, useUser, SignedIn, SignedOut, useSignIn, useSSO } from "@clerk/clerk-expo";
-import { useAssignments, useAssignment } from "../hooks/useAssignments";
-import { useTaskInstances, useTaskInstancesByWorkOrderDay } from "../hooks/useTaskInstances";
+import { useAssignments } from "../hooks/useAssignments";
+import { useTaskInstances } from "../hooks/useTaskInstances";
 import { useFieldResponses } from "../hooks/useFieldResponses";
 import { useAttachments } from "../hooks/useAttachments";
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
 import { DatePickerField } from "../components/DatePickerField";
 import { AttachmentField } from "../components/AttachmentField";
 import { syncService } from "../sync/SyncService";
+import {
+  generateMonthDays,
+  formatMonthYear,
+  formatFullDate,
+  type DayData,
+} from "../utils/dateUtils";
 import type { DayTaskTemplate, FieldTemplate } from "../db/types";
+import type { AssignmentWithTemplates } from "../hooks/useAssignments";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -123,63 +133,94 @@ function FieldInput({
     userId
   );
 
+  if (field.fieldType === "displayText") {
+    const isHeader = field.displayStyle === "header";
+    return (
+      <View style={styles.fieldContainer}>
+        <Text style={isHeader ? styles.displayHeader : styles.displayText}>
+          {field.label}
+        </Text>
+        {field.subheader && (
+          <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+        )}
+      </View>
+    );
+  }
+
   if (field.fieldType === "boolean") {
     return (
-      <View style={styles.fieldRow}>
-        <Text style={styles.fieldLabel}>
-          {field.label}
-          {field.isRequired ? " *" : ""}
-        </Text>
-        <Switch
-          value={value === "true"}
-          onValueChange={(val) => onChange(val ? "true" : "false")}
-        />
+      <View style={styles.fieldContainer}>
+        <View style={styles.fieldRow}>
+          <View>
+            <Text style={styles.fieldLabel}>
+              {field.label}
+              {field.isRequired ? " *" : ""}
+            </Text>
+            {field.subheader && (
+              <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+            )}
+          </View>
+          <Switch
+            value={value === "true"}
+            onValueChange={(val) => onChange(val ? "true" : "false")}
+          />
+        </View>
       </View>
     );
   }
 
   if (field.fieldType === "date") {
     return (
-      <DatePickerField
-        label={field.label}
-        isRequired={field.isRequired}
-        value={value}
-        onChange={onChange}
-      />
+      <View style={styles.fieldContainer}>
+        <DatePickerField
+          label={field.label}
+          isRequired={field.isRequired}
+          value={value}
+          onChange={onChange}
+        />
+        {field.subheader && (
+          <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+        )}
+      </View>
     );
   }
 
   if (field.fieldType === "attachment") {
     return (
-      <AttachmentField
-        label={field.label}
-        isRequired={field.isRequired}
-        attachment={attachment}
-        onPickImage={async (uri, fileName, mimeType, fileSize) => {
-          const clientId = await createAttachment({
-            fieldResponseClientId: fieldResponseClientId ?? "",
-            uri,
-            fileName,
-            mimeType,
-            fileSize,
-          });
-          onChange(clientId);
-        }}
-        onPickDocument={async (uri, fileName, mimeType, fileSize) => {
-          const clientId = await createAttachment({
-            fieldResponseClientId: fieldResponseClientId ?? "",
-            uri,
-            fileName,
-            mimeType,
-            fileSize,
-          });
-          onChange(clientId);
-        }}
-        onRemove={async () => {
-          await removeAttachment();
-          onChange("");
-        }}
-      />
+      <View style={styles.fieldContainer}>
+        <AttachmentField
+          label={field.label}
+          isRequired={field.isRequired}
+          attachment={attachment}
+          onPickImage={async (uri, fileName, mimeType, fileSize) => {
+            const clientId = await createAttachment({
+              fieldResponseClientId: fieldResponseClientId ?? "",
+              uri,
+              fileName,
+              mimeType,
+              fileSize,
+            });
+            onChange(clientId);
+          }}
+          onPickDocument={async (uri, fileName, mimeType, fileSize) => {
+            const clientId = await createAttachment({
+              fieldResponseClientId: fieldResponseClientId ?? "",
+              uri,
+              fileName,
+              mimeType,
+              fileSize,
+            });
+            onChange(clientId);
+          }}
+          onRemove={async () => {
+            await removeAttachment();
+            onChange("");
+          }}
+        />
+        {field.subheader && (
+          <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+        )}
+      </View>
     );
   }
 
@@ -189,6 +230,9 @@ function FieldInput({
         {field.label}
         {field.isRequired ? " *" : ""}
       </Text>
+      {field.subheader && (
+        <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+      )}
       <TextInput
         style={styles.fieldInput}
         value={value ?? field.defaultValue ?? ""}
@@ -250,80 +294,41 @@ function TaskInstanceForm({
   );
 }
 
-function DayDetail({
-  workOrderDayServerId,
-  userId,
-  onBack,
+function AssignmentTaskGroup({
+  assignment,
+  taskInstances,
+  onSelectTask,
 }: {
-  workOrderDayServerId: string;
-  userId: string;
-  onBack: () => void;
+  assignment: AssignmentWithTemplates;
+  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; status: string }>;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
 }) {
-  const { assignment } = useAssignment(workOrderDayServerId);
-  const { taskInstances } = useTaskInstancesByWorkOrderDay(workOrderDayServerId);
-  const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
-
-  if (!assignment) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-
-  const handleStartTask = (template: DayTaskTemplate & { fields: FieldTemplate[] }) => {
-    const instance = taskInstances.find(
-      (ti) => ti.dayTaskTemplateServerId === template.serverId
-    );
-
-    if (instance) {
-      setActiveTaskInstanceClientId(instance.clientId);
-    }
-  };
-
-  const activeTemplate = activeTaskInstanceClientId
-    ? assignment.taskTemplates.find((t) =>
-        taskInstances.find(
-          (ti) =>
-            ti.clientId === activeTaskInstanceClientId &&
-            ti.dayTaskTemplateServerId === t.serverId
-        )
-      )
-    : null;
-
-  if (activeTaskInstanceClientId && activeTemplate) {
-    return (
-      <View style={styles.container}>
-        <TouchableOpacity onPress={() => setActiveTaskInstanceClientId(null)} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Back to Tasks</Text>
-        </TouchableOpacity>
-        <TaskInstanceForm
-          taskInstanceClientId={activeTaskInstanceClientId}
-          template={activeTemplate}
-          userId={userId}
-          onComplete={() => setActiveTaskInstanceClientId(null)}
-        />
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={onBack} style={styles.backButton}>
-        <Text style={styles.backButtonText}>Back to Assignments</Text>
-      </TouchableOpacity>
-
-      <View style={styles.dayHeader}>
-        <Text style={styles.dayTitle}>{assignment.workOrderName}</Text>
-        <Text style={styles.daySubtitle}>
+    <View style={styles.assignmentGroup}>
+      <View style={styles.assignmentGroupHeader}>
+        <View style={styles.assignmentGroupTitleRow}>
+          <Text style={styles.assignmentGroupTitle}>{assignment.workOrderName}</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              assignment.status === "pending"
+                ? styles.pendingStatusBadge
+                : assignment.status === "in_progress"
+                  ? styles.inProgressStatusBadge
+                  : styles.completedStatusBadge,
+            ]}
+          >
+            <Text style={styles.statusBadgeText}>{assignment.status}</Text>
+          </View>
+        </View>
+        <Text style={styles.assignmentGroupSubtitle}>
           {assignment.customerName} - {assignment.faenaName}
         </Text>
-        <Text style={styles.dayDate}>
-          Day {assignment.dayNumber} - {new Date(assignment.dayDate).toLocaleDateString()}
+        <Text style={styles.assignmentGroupDate}>
+          Day {assignment.dayNumber}
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Tasks</Text>
       {assignment.taskTemplates.map((template) => {
         const instance = taskInstances.find(
           (ti) => ti.dayTaskTemplateServerId === template.serverId
@@ -331,36 +336,99 @@ function DayDetail({
         const isCompleted = instance?.status === "completed";
 
         return (
-          <View key={template.serverId} style={styles.templateCard}>
-            <View style={styles.templateHeader}>
-              <Text style={styles.templateName}>{template.taskTemplateName}</Text>
-              <View style={styles.badges}>
-                {template.isRequired && (
-                  <View style={styles.requiredBadge}>
-                    <Text style={styles.requiredBadgeText}>Required</Text>
+          <View key={template.serverId} style={styles.taskCard}>
+            <View style={styles.taskCardContent}>
+              <View style={styles.taskCardInfo}>
+                <Text style={styles.taskCardName}>{template.taskTemplateName}</Text>
+                <View style={styles.taskCardMeta}>
+                  <Text style={styles.fieldCount}>{template.fields.length} fields</Text>
+                  <View style={styles.badges}>
+                    {template.isRequired && (
+                      <View style={styles.requiredBadge}>
+                        <Text style={styles.requiredBadgeText}>Required</Text>
+                      </View>
+                    )}
+                    {isCompleted && (
+                      <View style={styles.completedBadge}>
+                        <Text style={styles.completedBadgeText}>Completed</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-                {isCompleted && (
-                  <View style={styles.completedBadge}>
-                    <Text style={styles.completedBadgeText}>Completed</Text>
-                  </View>
-                )}
+                </View>
               </View>
+              <TouchableOpacity
+                style={[styles.taskButton, isCompleted && styles.viewButton]}
+                onPress={() => instance && onSelectTask(instance.clientId, template)}
+                disabled={!instance}
+              >
+                <Text style={styles.taskButtonText}>
+                  {isCompleted ? "View" : "Fill"}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.fieldCount}>{template.fields.length} fields</Text>
-            <TouchableOpacity
-              style={[styles.startButton, isCompleted && styles.viewButton]}
-              onPress={() => handleStartTask(template)}
-              disabled={!instance}
-            >
-              <Text style={styles.startButtonText}>
-                {isCompleted ? "View" : "Fill"}
-              </Text>
-            </TouchableOpacity>
           </View>
         );
       })}
-    </ScrollView>
+    </View>
+  );
+}
+
+function EmptyDayState() {
+  return (
+    <View style={styles.emptyDayContainer}>
+      <Text style={styles.emptyDayTitle}>No Assignments</Text>
+      <Text style={styles.emptyDayText}>
+        You have no assignments scheduled for this day.
+      </Text>
+    </View>
+  );
+}
+
+function DayPage({
+  day,
+  taskInstances,
+  onSelectTask,
+}: {
+  day: DayData;
+  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; status: string; workOrderDayServerId: string }>;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+}) {
+  return (
+    <View style={styles.dayPage}>
+      <View style={styles.dateHeader}>
+        <Text style={styles.dayOfWeek}>{day.dayOfWeek}</Text>
+        <Text style={styles.fullDate}>{formatFullDate(day.date)}</Text>
+        {day.isToday && (
+          <View style={styles.todayBadge}>
+            <Text style={styles.todayBadgeText}>Today</Text>
+          </View>
+        )}
+      </View>
+
+      {day.assignments.length === 0 ? (
+        <EmptyDayState />
+      ) : (
+        <ScrollView
+          style={styles.assignmentsList}
+          contentContainerStyle={styles.assignmentsContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {day.assignments.map((assignment) => {
+            const assignmentTaskInstances = taskInstances.filter(
+              (ti) => ti.workOrderDayServerId === assignment.serverId
+            );
+            return (
+              <AssignmentTaskGroup
+                key={assignment.serverId}
+                assignment={assignment}
+                taskInstances={assignmentTaskInstances}
+                onSelectTask={onSelectTask}
+              />
+            );
+          })}
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -368,8 +436,51 @@ function AssignmentsScreen() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const { assignments } = useAssignments(user?.id ?? "");
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const { taskInstances, updateTaskInstanceStatus } = useTaskInstances(user?.id ?? "");
+  const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
+  const [activeTemplate, setActiveTemplate] = useState<(DayTaskTemplate & { fields: FieldTemplate[] }) | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [currentMonth] = useState(() => new Date());
+  const flatListRef = useRef<FlatList<DayData>>(null);
+
+  const { days, todayIndex } = useMemo(() => {
+    return generateMonthDays(currentMonth, assignments);
+  }, [currentMonth, assignments]);
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<DayData> | null | undefined, index: number) => ({
+      length: SCREEN_WIDTH,
+      offset: SCREEN_WIDTH * index,
+      index,
+    }),
+    []
+  );
+
+  const handleSelectTask = useCallback(
+    (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => {
+      setActiveTaskInstanceClientId(taskInstanceClientId);
+      setActiveTemplate(template);
+    },
+    []
+  );
+
+  const renderDay = useCallback(
+    ({ item }: { item: DayData }) => (
+      <DayPage
+        day={item}
+        taskInstances={taskInstances}
+        onSelectTask={handleSelectTask}
+      />
+    ),
+    [taskInstances, handleSelectTask]
+  );
+
+  const scrollToToday = useCallback(() => {
+    flatListRef.current?.scrollToIndex({
+      index: todayIndex,
+      animated: true,
+    });
+  }, [todayIndex]);
 
   useEffect(() => {
     if (user?.id) {
@@ -383,20 +494,40 @@ function AssignmentsScreen() {
     setSyncing(false);
   };
 
-  if (selectedDay) {
+  if (activeTaskInstanceClientId && activeTemplate) {
     return (
-      <DayDetail
-        workOrderDayServerId={selectedDay}
-        userId={user?.id ?? ""}
-        onBack={() => setSelectedDay(null)}
-      />
+      <View style={styles.container}>
+        <TouchableOpacity
+          onPress={() => {
+            setActiveTaskInstanceClientId(null);
+            setActiveTemplate(null);
+          }}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>Back to Tasks</Text>
+        </TouchableOpacity>
+        <TaskInstanceForm
+          taskInstanceClientId={activeTaskInstanceClientId}
+          template={activeTemplate}
+          userId={user?.id ?? ""}
+          onComplete={() => {
+            setActiveTaskInstanceClientId(null);
+            setActiveTemplate(null);
+          }}
+        />
+      </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Assignments</Text>
+      <View style={styles.calendarHeader}>
+        <View style={styles.calendarHeaderLeft}>
+          <Text style={styles.monthTitle}>{formatMonthYear(currentMonth)}</Text>
+          <TouchableOpacity style={styles.todayButton} onPress={scrollToToday}>
+            <Text style={styles.todayButtonText}>Today</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity onPress={handleSync} disabled={syncing}>
             <Text style={[styles.syncText, syncing && styles.syncingText]}>
@@ -410,56 +541,20 @@ function AssignmentsScreen() {
         </View>
       </View>
 
-      <Text style={styles.debugInfo}>User ID: {user?.id?.slice(0, 20)}...</Text>
-      <Text style={styles.debugInfo}>Assignments: {assignments.length}</Text>
-
-      {assignments.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No Assignments</Text>
-          <Text style={styles.emptyText}>
-            You haven't been assigned to any work order days yet.
-          </Text>
-          <Text style={styles.emptyText}>
-            Ask an admin to assign you from the web dashboard.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={assignments}
-          keyExtractor={(item) => item.serverId}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.assignmentCard}
-              onPress={() => setSelectedDay(item.serverId)}
-            >
-              <View style={styles.assignmentHeader}>
-                <Text style={styles.assignmentTitle}>{item.workOrderName}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    item.status === "pending"
-                      ? styles.pendingStatusBadge
-                      : item.status === "in_progress"
-                      ? styles.inProgressStatusBadge
-                      : styles.completedStatusBadge,
-                  ]}
-                >
-                  <Text style={styles.statusBadgeText}>{item.status}</Text>
-                </View>
-              </View>
-              <Text style={styles.assignmentSubtitle}>
-                {item.customerName} - {item.faenaName}
-              </Text>
-              <Text style={styles.assignmentDate}>
-                Day {item.dayNumber} - {new Date(item.dayDate).toLocaleDateString()}
-              </Text>
-              <Text style={styles.taskCount}>
-                {item.taskTemplates.length} tasks to complete
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+      <FlatList
+        ref={flatListRef}
+        data={days}
+        renderItem={renderDay}
+        keyExtractor={(item) => item.dateKey}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        getItemLayout={getItemLayout}
+        initialScrollIndex={todayIndex}
+        windowSize={3}
+        maxToRenderPerBatch={3}
+        removeClippedSubviews
+      />
     </View>
   );
 }
@@ -480,7 +575,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    paddingTop: 16,
     backgroundColor: "#fff",
   },
   centered: {
@@ -602,25 +697,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 4,
   },
-  assignmentCard: {
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  assignmentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  assignmentTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-  },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -640,21 +716,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#374151",
   },
-  assignmentSubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 4,
-  },
-  assignmentDate: {
-    fontSize: 14,
-    color: "#374151",
-    marginBottom: 8,
-  },
-  taskCount: {
-    fontSize: 12,
-    color: "#2563eb",
-    fontWeight: "500",
-  },
   backButton: {
     marginBottom: 16,
   },
@@ -662,47 +723,6 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontSize: 14,
     fontWeight: "500",
-  },
-  dayHeader: {
-    marginBottom: 24,
-  },
-  dayTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  daySubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 4,
-  },
-  dayDate: {
-    fontSize: 14,
-    color: "#374151",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  templateCard: {
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  templateHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  templateName: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
   },
   badges: {
     flexDirection: "row",
@@ -731,23 +751,9 @@ const styles = StyleSheet.create({
   fieldCount: {
     fontSize: 12,
     color: "#6b7280",
-    marginBottom: 12,
-  },
-  startButton: {
-    backgroundColor: "#2563eb",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  continueButton: {
-    backgroundColor: "#f59e0b",
   },
   viewButton: {
     backgroundColor: "#059669",
-  },
-  startButtonText: {
-    color: "#fff",
-    fontWeight: "600",
   },
   formContainer: {
     flex: 1,
@@ -772,6 +778,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     color: "#374151",
   },
+  fieldSubheader: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  displayHeader: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  displayText: {
+    fontSize: 14,
+    color: "#374151",
+  },
   fieldInput: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -790,6 +811,168 @@ const styles = StyleSheet.create({
   completeButtonText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  calendarHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  calendarHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  monthTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  todayButton: {
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  todayButtonText: {
+    color: "#2563eb",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  dayPage: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  dateHeader: {
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    marginBottom: 16,
+  },
+  dayOfWeek: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  fullDate: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111827",
+    marginTop: 4,
+  },
+  todayBadge: {
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  todayBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  assignmentsList: {
+    flex: 1,
+  },
+  assignmentsContent: {
+    paddingBottom: 24,
+  },
+  emptyDayContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  emptyDayTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  emptyDayText: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  assignmentGroup: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    overflow: "hidden",
+  },
+  assignmentGroupHeader: {
+    padding: 12,
+    backgroundColor: "#f3f4f6",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  assignmentGroupTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  assignmentGroupTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111827",
+    flex: 1,
+  },
+  assignmentGroupSubtitle: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginBottom: 2,
+  },
+  assignmentGroupDate: {
+    fontSize: 12,
+    color: "#9ca3af",
+  },
+  taskCard: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  taskCardContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+  },
+  taskCardInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  taskCardName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 4,
+  },
+  taskCardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  taskButton: {
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  taskButtonText: {
+    color: "#fff",
+    fontSize: 13,
     fontWeight: "600",
   },
 });
