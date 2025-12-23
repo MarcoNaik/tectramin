@@ -10,6 +10,7 @@
 
 import type * as admin_assignments from "../admin/assignments.js";
 import type * as admin_customers from "../admin/customers.js";
+import type * as admin_dashboardGrid from "../admin/dashboardGrid.js";
 import type * as admin_faenas from "../admin/faenas.js";
 import type * as admin_fieldResponses from "../admin/fieldResponses.js";
 import type * as admin_fieldTemplates from "../admin/fieldTemplates.js";
@@ -31,6 +32,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "admin/assignments": typeof admin_assignments;
   "admin/customers": typeof admin_customers;
+  "admin/dashboardGrid": typeof admin_dashboardGrid;
   "admin/faenas": typeof admin_faenas;
   "admin/fieldResponses": typeof admin_fieldResponses;
   "admin/fieldTemplates": typeof admin_fieldTemplates;
