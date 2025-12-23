@@ -153,6 +153,8 @@ export const getAssignmentsForUser = query({
               isRequired: v.boolean(),
               defaultValue: v.optional(v.string()),
               placeholder: v.optional(v.string()),
+              subheader: v.optional(v.string()),
+              displayStyle: v.optional(v.string()),
             })
           ),
         })
@@ -215,6 +217,8 @@ export const getAssignmentsForUser = query({
                   isRequired: f.isRequired,
                   defaultValue: f.defaultValue,
                   placeholder: f.placeholder,
+                  subheader: f.subheader,
+                  displayStyle: f.displayStyle,
                 })),
             };
           })
