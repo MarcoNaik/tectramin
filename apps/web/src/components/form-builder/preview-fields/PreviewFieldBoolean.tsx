@@ -25,7 +25,7 @@ export function PreviewFieldBoolean({
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50 ring-2 ring-blue-300" : "hover:bg-gray-50"}`}
+      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"}`}
     >
       <div className="flex items-center justify-between">
         {editingProperty === "label" ? (
@@ -38,7 +38,7 @@ export function PreviewFieldBoolean({
         ) : (
           <label
             className="text-sm font-medium text-gray-700 cursor-pointer hover:text-blue-600"
-            onClick={(e) => { e.stopPropagation(); onEditLabel(); }}
+            onClick={(e) => { e.stopPropagation(); onSelect(); onEditLabel(); }}
           >
             {field.label}
             {field.isRequired && <span className="text-red-500 ml-1">*</span>}

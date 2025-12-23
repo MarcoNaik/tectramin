@@ -27,7 +27,7 @@ export function PreviewFieldNumber({
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50 ring-2 ring-blue-300" : "hover:bg-gray-50"}`}
+      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"}`}
     >
       {editingProperty === "label" ? (
         <InlineTextEditor
@@ -39,7 +39,7 @@ export function PreviewFieldNumber({
       ) : (
         <label
           className="block text-sm font-medium text-gray-700 mb-1.5 cursor-pointer hover:text-blue-600"
-          onClick={(e) => { e.stopPropagation(); onEditLabel(); }}
+          onClick={(e) => { e.stopPropagation(); onSelect(); onEditLabel(); }}
         >
           {field.label}
           {field.isRequired && <span className="text-red-500 ml-1">*</span>}
@@ -60,7 +60,7 @@ export function PreviewFieldNumber({
       ) : (
         <div
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-gray-400 cursor-pointer hover:border-blue-400"
-          onClick={(e) => { e.stopPropagation(); onEditPlaceholder(); }}
+          onClick={(e) => { e.stopPropagation(); onSelect(); onEditPlaceholder(); }}
         >
           {field.placeholder || "0"}
         </div>

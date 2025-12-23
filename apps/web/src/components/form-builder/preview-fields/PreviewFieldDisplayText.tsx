@@ -17,7 +17,7 @@ export function PreviewFieldDisplayText({
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50 ring-2 ring-blue-300" : "hover:bg-gray-50"}`}
+      className={`cursor-pointer rounded-lg p-2 -m-2 transition-colors ${isSelected ? "bg-blue-50/70" : "hover:bg-gray-50"}`}
     >
       <div className={isHeader ? "text-lg font-semibold text-gray-900" : "text-sm text-gray-700"}>
         {field.label}
