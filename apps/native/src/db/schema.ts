@@ -30,6 +30,8 @@ export const fieldTemplates = sqliteTable("field_templates", {
   isRequired: integer("is_required", { mode: "boolean" }).notNull(),
   defaultValue: text("default_value"),
   placeholder: text("placeholder"),
+  subheader: text("subheader"),
+  displayStyle: text("display_style"),
 });
 
 export const taskInstances = sqliteTable("task_instances", {
