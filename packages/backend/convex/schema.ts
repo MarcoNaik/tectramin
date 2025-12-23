@@ -63,6 +63,8 @@ export default defineSchema({
     isRequired: v.boolean(),
     defaultValue: v.optional(v.string()),
     placeholder: v.optional(v.string()),
+    subheader: v.optional(v.string()),
+    displayStyle: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_task_template", ["taskTemplateId"]),
 
