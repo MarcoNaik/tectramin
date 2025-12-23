@@ -121,6 +121,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
                 isRequired: field.isRequired,
                 defaultValue: field.defaultValue,
                 placeholder: field.placeholder,
+                subheader: field.subheader,
+                displayStyle: field.displayStyle,
               })
               .onConflictDoUpdate({
                 target: fieldTemplates.serverId,
@@ -131,6 +133,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
                   isRequired: field.isRequired,
                   defaultValue: field.defaultValue,
                   placeholder: field.placeholder,
+                  subheader: field.subheader,
+                  displayStyle: field.displayStyle,
                 },
               });
           }
