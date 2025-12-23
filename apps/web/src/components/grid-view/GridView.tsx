@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
@@ -118,7 +118,7 @@ function WorkOrderSpan({
   };
 
   const firstDay = days[0];
-  const spanWidth = days.length * 160;
+  const spanWidth = days.length * 160 - 4;
 
   const renderAssignmentSlots = (day: WorkOrderDayGridData) => {
     const slots = [];
@@ -142,7 +142,7 @@ function WorkOrderSpan({
 
   return (
     <div
-      className="flex-shrink-0 border-2 border-black bg-white h-32 overflow-hidden cursor-pointer hover:shadow-[2px_2px_0px_0px_#000] transition-shadow"
+      className="flex-shrink-0 border-2 border-black bg-white h-[calc(8rem-4px)] overflow-hidden cursor-pointer hover:shadow-[2px_2px_0px_0px_#000] transition-shadow m-[2px]"
       style={{ width: spanWidth }}
       onClick={() => onSpanClick(firstDay.workOrderId)}
     >
@@ -156,7 +156,7 @@ function WorkOrderSpan({
         {days.map((day, idx) => (
           <div
             key={day._id}
-            className={`w-40 flex-shrink-0 p-3 flex flex-col justify-center gap-2 ${
+            className={`flex-1 p-3 flex flex-col justify-center gap-2 ${
               idx < days.length - 1 ? "border-r border-dashed border-gray-300" : ""
             }`}
           >
@@ -176,7 +176,7 @@ function WorkOrderSpan({
 function EmptyCell({ onClick }: { onClick: () => void }) {
   return (
     <div
-      className="w-40 flex-shrink-0 h-32 border-r border-b border-gray-200 bg-gray-50/50 p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors group"
+      className="w-40 flex-shrink-0 h-32 border-r border-b border-gray-200 bg-gray-50/50 p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-2 hover:border-blue-500 transition-all group"
       onClick={onClick}
     >
       <span className="text-transparent text-xs font-bold group-hover:text-blue-500 transition-colors">+ Add</span>
@@ -1243,14 +1243,69 @@ function FaenaDrawer({
   );
 }
 
+type WeekChunk = { start: number; end: number };
+
+function getWeekChunkKey(chunk: WeekChunk): string {
+  return `${chunk.start}-${chunk.end}`;
+}
+
+function useThrottle<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
+  const lastRun = useRef(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  return ((...args: unknown[]) => {
+    const now = Date.now();
+    if (now - lastRun.current >= delay) {
+      lastRun.current = now;
+      fn(...args);
+    } else if (!timeoutRef.current) {
+      timeoutRef.current = setTimeout(() => {
+        lastRun.current = Date.now();
+        timeoutRef.current = null;
+        fn(...args);
+      }, delay - (now - lastRun.current));
+    }
+  }) as T;
+}
+
+function WeekDataLoader({
+  chunk,
+  onData,
+}: {
+  chunk: WeekChunk;
+  onData: (key: string, data: { faenas: Array<{ _id: Id<"faenas">; name: string; customerName: string; isActive: boolean }>; workOrderDays: WorkOrderDayGridData[] } | undefined) => void;
+}) {
+  const data = useQuery(api.admin.dashboardGrid.getGridData, {
+    startDate: chunk.start,
+    endDate: chunk.end,
+  });
+
+  const key = getWeekChunkKey(chunk);
+
+  useEffect(() => {
+    onData(key, data);
+  }, [key, data, onData]);
+
+  return null;
+}
+
 export function GridView() {
-  const [dateRange, setDateRange] = useState(() => {
+  const [weekChunks, setWeekChunks] = useState<WeekChunk[]>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - 7);
     const end = new Date(today);
-    end.setDate(end.getDate() + 30);
-    return { start: today.getTime(), end: end.getTime() };
+    end.setDate(end.getDate() + 7);
+    return [{ start: start.getTime(), end: end.getTime() }];
   });
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitialScrolled = useRef(false);
+  const isLoadingRef = useRef(false);
+  const chunkDataRef = useRef<Map<string, { faenas: Array<{ _id: Id<"faenas">; name: string; customerName: string; isActive: boolean }>; workOrderDays: WorkOrderDayGridData[] }>>(new Map());
+  const [, forceUpdate] = useState(0);
+
   const [editingWorkOrderId, setEditingWorkOrderId] = useState<Id<"workOrders"> | null>(null);
   const [faenaDrawerOpen, setFaenaDrawerOpen] = useState(false);
   const [drawerState, setDrawerState] = useState<{
@@ -1267,10 +1322,39 @@ export function GridView() {
     setDrawerState({ isOpen: false, faena: null, startDate: 0 });
   };
 
-  const gridData = useQuery(api.admin.dashboardGrid.getGridData, {
-    startDate: dateRange.start,
-    endDate: dateRange.end,
-  });
+  const handleChunkData = useCallback((key: string, data: { faenas: Array<{ _id: Id<"faenas">; name: string; customerName: string; isActive: boolean }>; workOrderDays: WorkOrderDayGridData[] } | undefined) => {
+    if (data) {
+      const prev = chunkDataRef.current.get(key);
+      if (!prev || JSON.stringify(prev) !== JSON.stringify(data)) {
+        chunkDataRef.current.set(key, data);
+        forceUpdate((n) => n + 1);
+      }
+    }
+  }, []);
+
+  const gridData = useMemo(() => {
+    if (chunkDataRef.current.size === 0) return null;
+
+    const allFaenas = new Map<string, { _id: Id<"faenas">; name: string; customerName: string; isActive: boolean }>();
+    const allWorkOrderDays: WorkOrderDayGridData[] = [];
+
+    chunkDataRef.current.forEach((data) => {
+      data.faenas.forEach((f) => allFaenas.set(f._id, f));
+      allWorkOrderDays.push(...data.workOrderDays);
+    });
+
+    return {
+      faenas: Array.from(allFaenas.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      workOrderDays: allWorkOrderDays,
+    };
+  }, [chunkDataRef.current.size, weekChunks]);
+
+  const dateRange = useMemo(() => {
+    if (weekChunks.length === 0) return { start: 0, end: 0 };
+    const starts = weekChunks.map((c) => c.start);
+    const ends = weekChunks.map((c) => c.end);
+    return { start: Math.min(...starts), end: Math.max(...ends) };
+  }, [weekChunks]);
 
   const daysInRange = useMemo(() => {
     const days: number[] = [];
@@ -1297,19 +1381,83 @@ export function GridView() {
     return map;
   }, [gridData?.workOrderDays]);
 
-  const goToPrevWeek = () => {
-    setDateRange((prev) => ({
-      start: prev.start - 7 * 24 * 60 * 60 * 1000,
-      end: prev.end - 7 * 24 * 60 * 60 * 1000,
-    }));
+  const loadMoreRight = () => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+
+    setWeekChunks((prev) => {
+      const lastChunk = prev[prev.length - 1];
+      const newStart = lastChunk.end + 24 * 60 * 60 * 1000;
+      const newEnd = newStart + 6 * 24 * 60 * 60 * 1000;
+      return [...prev, { start: newStart, end: newEnd }];
+    });
+
+    setTimeout(() => {
+      isLoadingRef.current = false;
+    }, 300);
   };
 
-  const goToNextWeek = () => {
-    setDateRange((prev) => ({
-      start: prev.start + 7 * 24 * 60 * 60 * 1000,
-      end: prev.end + 7 * 24 * 60 * 60 * 1000,
-    }));
+  const loadMoreLeft = () => {
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+
+    const scrollContainer = scrollContainerRef.current;
+    const currentScrollLeft = scrollContainer?.scrollLeft ?? 0;
+
+    setWeekChunks((prev) => {
+      const firstChunk = prev[0];
+      const newEnd = firstChunk.start - 24 * 60 * 60 * 1000;
+      const newStart = newEnd - 6 * 24 * 60 * 60 * 1000;
+      return [{ start: newStart, end: newEnd }, ...prev];
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (scrollContainer) {
+          scrollContainer.scrollLeft = currentScrollLeft + (7 * 160);
+        }
+        setTimeout(() => {
+          isLoadingRef.current = false;
+        }, 300);
+      });
+    });
   };
+
+  const checkScrollPosition = () => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || !hasInitialScrolled.current || isLoadingRef.current) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+    const scrollRight = scrollWidth - scrollLeft - clientWidth;
+
+    if (scrollRight < 400) {
+      loadMoreRight();
+    }
+
+    if (scrollLeft < 400) {
+      loadMoreLeft();
+    }
+  };
+
+  const throttledScrollCheck = useThrottle(checkScrollPosition, 150);
+
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || !gridData) return;
+
+    if (!hasInitialScrolled.current) {
+      hasInitialScrolled.current = true;
+      const dayWidth = 160;
+      const todayIndex = 7;
+      const centerOffset = (scrollContainer.clientWidth / 2) - (dayWidth / 2);
+      const scrollPosition = (todayIndex * dayWidth) - centerOffset;
+      scrollContainer.scrollLeft = Math.max(0, scrollPosition);
+    }
+
+    const handleScroll = () => throttledScrollCheck();
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener("scroll", handleScroll);
+  }, [gridData, throttledScrollCheck]);
 
   const formatDayHeader = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -1319,27 +1467,33 @@ export function GridView() {
     return { weekday, day, month };
   };
 
-  const formatDateRange = () => {
-    const start = new Date(dateRange.start);
-    const end = new Date(dateRange.end);
-    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-  };
+  const chunkLoaders = weekChunks.map((chunk) => (
+    <WeekDataLoader
+      key={getWeekChunkKey(chunk)}
+      chunk={chunk}
+      onData={handleChunkData}
+    />
+  ));
 
   if (!gridData) {
     return (
-      <div className="space-y-4 p-4">
-        <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mx-auto" />
-        <div className="flex h-[500px]">
-          <div className="w-48 flex-shrink-0 bg-gray-100 animate-pulse" />
-          <div className="flex-1 bg-gray-50 animate-pulse" />
+      <>
+        {chunkLoaders}
+        <div className="space-y-4 p-4">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-64 mx-auto" />
+          <div className="flex h-[500px]">
+            <div className="w-48 flex-shrink-0 bg-gray-100 animate-pulse" />
+            <div className="flex-1 bg-gray-50 animate-pulse" />
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (gridData.faenas.length === 0) {
     return (
       <>
+        {chunkLoaders}
         <div className="text-center py-12 text-gray-500">
           <div className="text-lg font-bold">No faenas found</div>
           <div className="text-sm mt-1">Create a faena to get started</div>
@@ -1359,30 +1513,16 @@ export function GridView() {
   }
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
-      <div className="flex items-center justify-between px-4">
-        <button
-          onClick={goToPrevWeek}
-          className="border-2 border-black px-4 py-2 font-bold bg-white hover:bg-blue-500 hover:text-white transition-colors"
-        >
-          ← Prev Week
-        </button>
-        <span className="text-lg font-bold text-black">{formatDateRange()}</span>
-        <button
-          onClick={goToNextWeek}
-          className="border-2 border-black px-4 py-2 font-bold bg-white hover:bg-blue-500 hover:text-white transition-colors"
-        >
-          Next Week →
-        </button>
-      </div>
-
-      <div className="flex border-2 border-black overflow-hidden flex-1" style={{ minHeight: "400px" }}>
-        <div className="w-48 flex-shrink-0 border-r-2 border-black bg-white z-10 overflow-y-auto">
-          <div className="h-14 border-b-2 border-black bg-white p-2 font-bold text-sm flex items-center sticky top-0">
+    <>
+      {chunkLoaders}
+      <div className="h-full flex flex-col">
+      <div className="flex overflow-hidden flex-1" style={{ minHeight: "400px" }}>
+        <div className="w-48 flex-shrink-0 border-r border-gray-200 bg-white z-10 overflow-y-auto">
+          <div className="h-14 border-b border-gray-200 bg-white p-2 font-bold text-sm flex items-center sticky top-0">
             Faenas
           </div>
           {gridData.faenas.map((faena) => (
-            <div key={faena._id} className="h-32 p-3 border-b-2 border-black flex flex-col justify-center">
+            <div key={faena._id} className="h-32 p-3 border-b border-gray-200 flex flex-col justify-center">
               <div className="font-bold text-base truncate text-black" title={faena.name}>{faena.name}</div>
               <div className="text-xs text-gray-500 truncate" title={faena.customerName}>{faena.customerName}</div>
             </div>
@@ -1395,7 +1535,7 @@ export function GridView() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-x-auto overflow-y-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-x-auto overflow-y-auto">
           <div className="inline-flex flex-col min-w-full">
             <div className="flex sticky top-0 bg-white z-5">
               {daysInRange.map((day) => {
@@ -1404,7 +1544,7 @@ export function GridView() {
                 return (
                   <div
                     key={day}
-                    className={`w-40 flex-shrink-0 h-14 border-b-2 border-r-2 border-black p-2 text-center ${
+                    className={`w-40 flex-shrink-0 h-14 border-b border-r border-gray-200 p-2 text-center ${
                       isToday ? "bg-blue-500 text-white" : "bg-white"
                     }`}
                   >
@@ -1420,24 +1560,39 @@ export function GridView() {
             {gridData.faenas.map((faena) => {
               const spans = groupDaysIntoSpans(daysInRange, cellMap, faena._id);
               return (
-                <div key={faena._id} className="flex">
-                  {spans.map((span, spanIndex) => {
-                    if (span.type === "empty") {
+                <div key={faena._id} className="relative h-32">
+                  <div className="absolute inset-0 flex">
+                    {daysInRange.map((day) => (
+                      <div
+                        key={day}
+                        className="w-40 flex-shrink-0 h-full border-r border-b border-gray-200 bg-gray-50/50 cursor-pointer hover:bg-blue-50 transition-colors group flex items-center justify-center"
+                        onClick={() => openDrawer(faena, day)}
+                      >
+                        <span className="text-xs font-bold text-transparent group-hover:text-blue-500 transition-colors">+ Add Work Order</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="absolute inset-0 flex pointer-events-none">
+                    {spans.map((span, spanIndex) => {
+                      if (span.type === "empty") {
+                        const emptyIndex = daysInRange.indexOf(span.dayTimestamp);
+                        return (
+                          <div
+                            key={`empty-${span.dayTimestamp}`}
+                            className="w-40 flex-shrink-0"
+                          />
+                        );
+                      }
                       return (
-                        <EmptyCell
-                          key={`empty-${span.dayTimestamp}`}
-                          onClick={() => openDrawer(faena, span.dayTimestamp)}
-                        />
+                        <div key={`span-${spanIndex}-${span.workOrderId}`} className="pointer-events-auto">
+                          <WorkOrderSpan
+                            days={span.days}
+                            onSpanClick={(workOrderId) => setEditingWorkOrderId(workOrderId)}
+                          />
+                        </div>
                       );
-                    }
-                    return (
-                      <WorkOrderSpan
-                        key={`span-${spanIndex}-${span.workOrderId}`}
-                        days={span.days}
-                        onSpanClick={(workOrderId) => setEditingWorkOrderId(workOrderId)}
-                      />
-                    );
-                  })}
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -1450,9 +1605,6 @@ export function GridView() {
         </div>
       </div>
 
-      <div className="text-xs text-gray-600 text-center font-medium px-4">
-        Showing {gridData.faenas.length} faenas • {gridData.workOrderDays.length} work order days in range
-      </div>
 
       <WorkOrderDrawer
         isOpen={drawerState.isOpen}
@@ -1472,6 +1624,7 @@ export function GridView() {
         onClose={() => setEditingWorkOrderId(null)}
         workOrderId={editingWorkOrderId}
       />
-    </div>
+      </div>
+    </>
   );
 }
