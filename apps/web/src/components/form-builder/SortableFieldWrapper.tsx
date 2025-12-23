@@ -30,21 +30,21 @@ export function SortableFieldWrapper({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="mb-4">
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         <button
           {...listeners}
-          className="mt-1 p-1 cursor-grab hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+          className="mt-1 -ml-2 cursor-grab text-gray-300 hover:text-gray-400 flex-shrink-0"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="9" cy="5" r="1" fill="currentColor" />
-            <circle cx="15" cy="5" r="1" fill="currentColor" />
-            <circle cx="9" cy="12" r="1" fill="currentColor" />
-            <circle cx="15" cy="12" r="1" fill="currentColor" />
-            <circle cx="9" cy="19" r="1" fill="currentColor" />
-            <circle cx="15" cy="19" r="1" fill="currentColor" />
+          <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+            <circle cx="2" cy="2" r="1.5" />
+            <circle cx="8" cy="2" r="1.5" />
+            <circle cx="2" cy="8" r="1.5" />
+            <circle cx="8" cy="8" r="1.5" />
+            <circle cx="2" cy="14" r="1.5" />
+            <circle cx="8" cy="14" r="1.5" />
           </svg>
         </button>
-        <div className="flex-1">{children}</div>
+        <div className="flex-1 min-w-0">{children}</div>
       </div>
     </div>
   );
