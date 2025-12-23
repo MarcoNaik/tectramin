@@ -108,6 +108,14 @@ export const getWithDetails = query({
           assignmentCount: v.number(),
           taskCount: v.number(),
           completedTaskCount: v.number(),
+          assignments: v.array(
+            v.object({
+              _id: v.id("workOrderDayAssignments"),
+              userId: v.id("users"),
+              userFullName: v.optional(v.string()),
+              userEmail: v.string(),
+            })
+          ),
         })
       ),
     }),
@@ -159,6 +167,18 @@ export const getWithDetails = query({
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
           .collect();
 
+        const assignmentDetails = await Promise.all(
+          assignments.map(async (a) => {
+            const user = await ctx.db.get(a.userId);
+            return {
+              _id: a._id,
+              userId: a.userId,
+              userFullName: user?.fullName,
+              userEmail: user?.email ?? "Unknown",
+            };
+          })
+        );
+
         return {
           _id: day._id,
           dayDate: day.dayDate,
@@ -167,6 +187,7 @@ export const getWithDetails = query({
           assignmentCount: assignments.length,
           taskCount: taskTemplates.length,
           completedTaskCount: taskInstances.filter((t) => t.status === "completed").length,
+          assignments: assignmentDetails,
         };
       })
     );
