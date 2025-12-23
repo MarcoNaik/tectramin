@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx turbo run build --filter=web-app",
+  "ignoreCommand": "npx turbo-ignore"
+}
