@@ -33,7 +33,7 @@ export function FieldEditor({
   if (!selectedField) {
     return (
       <div className="w-72 flex-shrink-0">
-        <div className="border-2 border-black bg-gray-50 h-full flex items-center justify-center p-6">
+        <div className="border-l border-gray-200 bg-gray-50 h-full flex items-center justify-center p-6">
           <p className="text-gray-400 text-center text-sm font-medium">
             Select a field to edit its properties
           </p>
@@ -44,8 +44,8 @@ export function FieldEditor({
 
   return (
     <div className="w-72 flex-shrink-0">
-      <div className="border-2 border-black bg-white h-full flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b-2 border-black">
+      <div className="border-l border-gray-200 bg-white h-full flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-gray-200">
           <h3 className="font-bold text-gray-900">Edit Field</h3>
           <button
             onClick={onClose}
@@ -124,7 +124,7 @@ export function FieldEditor({
             </label>
           </div>
         </div>
-        <div className="p-4 border-t-2 border-black">
+        <div className="p-4 border-t border-gray-200">
           <button
             onClick={() => onDelete(selectedField._id)}
             className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-bold"

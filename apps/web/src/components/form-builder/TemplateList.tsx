@@ -20,8 +20,8 @@ export function TemplateList({
   onSelectTemplate,
 }: TemplateListProps) {
   return (
-    <div className="w-64 flex-shrink-0 border-2 border-black overflow-hidden flex flex-col bg-white">
-      <div className="p-3 bg-gray-50 border-b-2 border-black font-bold text-gray-900">
+    <div className="w-64 flex-shrink-0 border-r border-gray-200 overflow-hidden flex flex-col bg-white">
+      <div className="p-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-900">
         Task Templates ({templates?.length ?? 0})
       </div>
       <div className="overflow-y-auto flex-1">
@@ -29,7 +29,7 @@ export function TemplateList({
           <div
             key={t._id}
             onClick={() => onSelectTemplate(t._id)}
-            className={`p-3 border-b-2 border-black cursor-pointer transition-colors ${
+            className={`p-3 border-b border-gray-200 cursor-pointer transition-colors ${
               selectedTemplateId === t._id
                 ? "bg-blue-500 text-white"
                 : "hover:bg-gray-50"

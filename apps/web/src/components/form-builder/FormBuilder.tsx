@@ -145,7 +145,7 @@ export function FormBuilder() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-6 h-full">
+      <div className="flex h-full">
         <TemplateList
           templates={templates}
           selectedTemplateId={selectedTemplateId}
