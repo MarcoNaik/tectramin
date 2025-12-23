@@ -63,15 +63,30 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
 
   return (
     <div
-      className={`h-full bg-white border-r-2 border-black flex flex-col transition-all duration-200 ${
+      className={`h-full bg-white border-2 border-black flex flex-col transition-all duration-200 ${
         isCollapsed ? "w-16" : "w-48"
       }`}
     >
-      <div className="p-4 border-b-2 border-black">
+      <div className="p-4 border-b-2 border-black flex items-center justify-between">
         {isCollapsed ? (
-          <span className="font-bold text-xl block text-center">T</span>
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex justify-center hover:bg-gray-100 transition-colors rounded p-1"
+            title="Expand sidebar"
+          >
+            <CollapseIcon collapsed={isCollapsed} />
+          </button>
         ) : (
-          <span className="font-bold text-xl">Tectramin</span>
+          <>
+            <span className="font-bold text-xl">Tectramin</span>
+            <button
+              onClick={onToggleCollapse}
+              className="p-1 hover:bg-gray-100 transition-colors rounded"
+              title="Collapse sidebar"
+            >
+              <CollapseIcon collapsed={isCollapsed} />
+            </button>
+          </>
         )}
       </div>
 
@@ -99,19 +114,6 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
           );
         })}
       </nav>
-
-      <div className="border-t-2 border-black p-3">
-        <button
-          onClick={onToggleCollapse}
-          className="w-full flex items-center gap-3 px-1 py-2 hover:bg-gray-100 transition-colors"
-          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <CollapseIcon collapsed={isCollapsed} />
-          {!isCollapsed && (
-            <span className="text-sm text-gray-600">Collapse</span>
-          )}
-        </button>
-      </div>
 
       <div className="border-t-2 border-black p-3">
         <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>

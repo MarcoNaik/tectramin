@@ -12,23 +12,16 @@ export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="h-screen flex bg-gray-100">
+    <div className="h-screen flex gap-4 p-4 bg-gray-100">
       <Sidebar
         activeView={activeView}
         onViewChange={setActiveView}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden bg-white border-2 border-black">
         {activeView === "gridView" && <GridView />}
-        {activeView === "formBuilder" && (
-          <div className="h-full p-4">
-            <h2 className="text-2xl font-bold mb-4">Form Builder</h2>
-            <div className="bg-white border-2 border-black h-[calc(100%-60px)]">
-              <FormBuilder />
-            </div>
-          </div>
-        )}
+        {activeView === "formBuilder" && <FormBuilder />}
         {activeView === "debug" && <DebugView />}
       </main>
     </div>
