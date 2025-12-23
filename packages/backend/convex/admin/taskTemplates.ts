@@ -23,6 +23,8 @@ const fieldTemplateValidator = v.object({
   isRequired: v.boolean(),
   defaultValue: v.optional(v.string()),
   placeholder: v.optional(v.string()),
+  subheader: v.optional(v.string()),
+  displayStyle: v.optional(v.string()),
   createdAt: v.number(),
 });
 
