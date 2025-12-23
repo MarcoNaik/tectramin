@@ -43,7 +43,7 @@ export function InlineTextEditor({
       onChange={(e) => setEditValue(e.target.value)}
       onBlur={() => onSave(editValue)}
       onKeyDown={handleKeyDown}
-      className={`border-2 border-blue-500 rounded px-2 py-1 text-sm outline-none ${className || ""}`}
+      className={`bg-transparent border-none outline-none text-sm w-full ${className || ""}`}
       placeholder={placeholder}
     />
   );
