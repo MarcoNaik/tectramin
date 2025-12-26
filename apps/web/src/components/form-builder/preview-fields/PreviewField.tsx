@@ -7,6 +7,8 @@ import { PreviewFieldBoolean } from "./PreviewFieldBoolean";
 import { PreviewFieldDate } from "./PreviewFieldDate";
 import { PreviewFieldAttachment } from "./PreviewFieldAttachment";
 import { PreviewFieldDisplayText } from "./PreviewFieldDisplayText";
+import { PreviewFieldSelect } from "./PreviewFieldSelect";
+import { PreviewFieldUserSelect } from "./PreviewFieldUserSelect";
 
 interface PreviewFieldProps {
   field: FieldTemplateData;
@@ -52,6 +54,10 @@ export function PreviewField({
       return <PreviewFieldAttachment {...commonProps} />;
     case "displayText":
       return <PreviewFieldDisplayText field={field} onSelect={onSelect} isSelected={isSelected} />;
+    case "select":
+      return <PreviewFieldSelect {...commonProps} />;
+    case "userSelect":
+      return <PreviewFieldUserSelect {...commonProps} />;
     default:
       return <PreviewFieldText {...commonProps} onEditPlaceholder={onEditPlaceholder} />;
   }
