@@ -9,19 +9,25 @@ import {
   ScrollView,
   Switch,
   Dimensions,
+  Alert,
+  RefreshControl,
+  Modal,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth, useUser, SignedIn, SignedOut, useSignIn, useSSO } from "@clerk/clerk-expo";
 import { useAssignments } from "../hooks/useAssignments";
 import { useTaskInstances } from "../hooks/useTaskInstances";
 import { useFieldResponses } from "../hooks/useFieldResponses";
 import { useAttachments } from "../hooks/useAttachments";
+import { useUsers } from "../hooks/useUsers";
+import { useFieldConditions } from "../hooks/useFieldConditions";
+import { getVisibleFields, getVisibleRequiredFields } from "../utils/conditionEvaluator";
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
 import { DatePickerField } from "../components/DatePickerField";
 import { AttachmentField } from "../components/AttachmentField";
 import { syncService } from "../sync/SyncService";
 import {
   generateMonthDays,
-  formatMonthYear,
   formatFullDate,
   type DayData,
 } from "../utils/dateUtils";
@@ -29,6 +35,182 @@ import type { DayTaskTemplate, FieldTemplate } from "../db/types";
 import type { AssignmentWithTemplates } from "../hooks/useAssignments";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+function parseSelectOptions(displayStyle: string | null | undefined): SelectOption[] {
+  if (!displayStyle) return [];
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((opt): opt is SelectOption =>
+        typeof opt === "object" && opt !== null && typeof opt.value === "string" && typeof opt.label === "string"
+      );
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function SelectField({
+  field,
+  value,
+  onChange,
+}: {
+  field: FieldTemplate;
+  value: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const options = parseSelectOptions(field.displayStyle);
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>
+        {field.label}
+        {field.isRequired ? " *" : ""}
+      </Text>
+      {field.subheader && (
+        <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+      )}
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={selectedOption ? styles.selectButtonText : styles.selectButtonPlaceholder}>
+          {selectedOption ? selectedOption.label : "Select an option..."}
+        </Text>
+        <Text style={styles.selectButtonChevron}>▼</Text>
+      </TouchableOpacity>
+
+      <OptionPickerModal
+        visible={modalVisible}
+        options={options}
+        selectedValue={value}
+        onSelect={(val) => {
+          onChange(val);
+          setModalVisible(false);
+        }}
+        onClose={() => setModalVisible(false)}
+        title={field.label}
+      />
+    </View>
+  );
+}
+
+function UserSelectField({
+  field,
+  value,
+  onChange,
+}: {
+  field: FieldTemplate;
+  value: string | undefined;
+  onChange: (value: string) => void;
+}) {
+  const [modalVisible, setModalVisible] = useState(false);
+  const { users: userList } = useUsers();
+  const options: SelectOption[] = userList.map((u) => ({
+    value: u.serverId,
+    label: u.fullName || u.email,
+  }));
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>
+        {field.label}
+        {field.isRequired ? " *" : ""}
+      </Text>
+      {field.subheader && (
+        <Text style={styles.fieldSubheader}>{field.subheader}</Text>
+      )}
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setModalVisible(true)}
+      >
+        <Text style={selectedOption ? styles.selectButtonText : styles.selectButtonPlaceholder}>
+          {selectedOption ? selectedOption.label : "Select a user..."}
+        </Text>
+        <Text style={styles.selectButtonChevron}>▼</Text>
+      </TouchableOpacity>
+
+      <OptionPickerModal
+        visible={modalVisible}
+        options={options}
+        selectedValue={value}
+        onSelect={(val) => {
+          onChange(val);
+          setModalVisible(false);
+        }}
+        onClose={() => setModalVisible(false)}
+        title={field.label}
+      />
+    </View>
+  );
+}
+
+function OptionPickerModal({
+  visible,
+  options,
+  selectedValue,
+  onSelect,
+  onClose,
+  title,
+}: {
+  visible: boolean;
+  options: SelectOption[];
+  selectedValue: string | undefined;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+  title: string;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.optionsList}>
+            {options.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.optionItem,
+                  selectedValue === opt.value && styles.optionItemSelected,
+                ]}
+                onPress={() => onSelect(opt.value)}
+              >
+                <Text style={[
+                  styles.optionItemText,
+                  selectedValue === opt.value && styles.optionItemTextSelected,
+                ]}>
+                  {opt.label}
+                </Text>
+                {selectedValue === opt.value && (
+                  <Text style={styles.optionItemCheck}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -121,12 +303,14 @@ function FieldInput({
   onChange,
   fieldResponseClientId,
   userId,
+  ensureFieldResponse,
 }: {
   field: FieldTemplate;
   value: string | undefined;
   onChange: (value: string) => void;
   fieldResponseClientId: string | undefined;
   userId: string;
+  ensureFieldResponse: () => Promise<string>;
 }) {
   const { attachment, createAttachment, removeAttachment } = useAttachments(
     fieldResponseClientId ?? "",
@@ -193,8 +377,9 @@ function FieldInput({
           isRequired={field.isRequired}
           attachment={attachment}
           onPickImage={async (uri, fileName, mimeType, fileSize) => {
+            const responseClientId = fieldResponseClientId || await ensureFieldResponse();
             const clientId = await createAttachment({
-              fieldResponseClientId: fieldResponseClientId ?? "",
+              fieldResponseClientId: responseClientId,
               uri,
               fileName,
               mimeType,
@@ -203,8 +388,9 @@ function FieldInput({
             onChange(clientId);
           }}
           onPickDocument={async (uri, fileName, mimeType, fileSize) => {
+            const responseClientId = fieldResponseClientId || await ensureFieldResponse();
             const clientId = await createAttachment({
-              fieldResponseClientId: fieldResponseClientId ?? "",
+              fieldResponseClientId: responseClientId,
               uri,
               fileName,
               mimeType,
@@ -221,6 +407,26 @@ function FieldInput({
           <Text style={styles.fieldSubheader}>{field.subheader}</Text>
         )}
       </View>
+    );
+  }
+
+  if (field.fieldType === "select") {
+    return (
+      <SelectField
+        field={field}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (field.fieldType === "userSelect") {
+    return (
+      <UserSelectField
+        field={field}
+        value={value}
+        onChange={onChange}
+      />
     );
   }
 
@@ -260,6 +466,12 @@ function TaskInstanceForm({
     userId
   );
   const { updateTaskInstanceStatus } = useTaskInstances(userId);
+  const { conditions } = useFieldConditions();
+
+  const visibleFields = useMemo(
+    () => getVisibleFields(template.fields, conditions, responses),
+    [template.fields, conditions, responses]
+  );
 
   const handleFieldChange = async (fieldTemplateServerId: string, value: string) => {
     await upsertResponse({
@@ -269,7 +481,30 @@ function TaskInstanceForm({
     });
   };
 
+  const createEnsureFieldResponse = (fieldTemplateServerId: string) => async () => {
+    const responseClientId = await upsertResponse({
+      taskInstanceClientId,
+      fieldTemplateServerId,
+      value: "",
+    });
+    return responseClientId;
+  };
+
   const handleComplete = async () => {
+    const visibleRequired = getVisibleRequiredFields(template.fields, conditions, responses);
+    const incompleteRequired = visibleRequired.filter((field) => {
+      const response = getResponseForField(field.serverId);
+      return !response?.value || response.value.trim() === "";
+    });
+
+    if (incompleteRequired.length > 0) {
+      Alert.alert(
+        "Required Fields",
+        `Please fill in: ${incompleteRequired.map((f) => f.label).join(", ")}`
+      );
+      return;
+    }
+
     await updateTaskInstanceStatus(taskInstanceClientId, "completed");
     onComplete();
   };
@@ -277,7 +512,7 @@ function TaskInstanceForm({
   return (
     <View style={styles.formContainer}>
       <Text style={styles.formTitle}>{template.taskTemplateName}</Text>
-      {template.fields.map((field) => (
+      {visibleFields.map((field) => (
         <FieldInput
           key={field.serverId}
           field={field}
@@ -285,6 +520,7 @@ function TaskInstanceForm({
           onChange={(value) => handleFieldChange(field.serverId, value)}
           fieldResponseClientId={getResponseForField(field.serverId)?.clientId}
           userId={userId}
+          ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
         />
       ))}
       <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
@@ -298,10 +534,12 @@ function AssignmentTaskGroup({
   assignment,
   taskInstances,
   onSelectTask,
+  onCreateAndSelectTask,
 }: {
   assignment: AssignmentWithTemplates;
-  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; status: string }>;
+  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; workOrderDayServerId: string; status: string }>;
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
 }) {
   return (
     <View style={styles.assignmentGroup}>
@@ -331,7 +569,9 @@ function AssignmentTaskGroup({
 
       {assignment.taskTemplates.map((template) => {
         const instance = taskInstances.find(
-          (ti) => ti.dayTaskTemplateServerId === template.serverId
+          (ti) =>
+            ti.dayTaskTemplateServerId === template.serverId &&
+            ti.workOrderDayServerId === assignment.serverId
         );
         const isCompleted = instance?.status === "completed";
 
@@ -358,8 +598,13 @@ function AssignmentTaskGroup({
               </View>
               <TouchableOpacity
                 style={[styles.taskButton, isCompleted && styles.viewButton]}
-                onPress={() => instance && onSelectTask(instance.clientId, template)}
-                disabled={!instance}
+                onPress={() => {
+                  if (instance) {
+                    onSelectTask(instance.clientId, template);
+                  } else {
+                    onCreateAndSelectTask(template, assignment.serverId);
+                  }
+                }}
               >
                 <Text style={styles.taskButtonText}>
                   {isCompleted ? "View" : "Fill"}
@@ -388,55 +633,68 @@ function DayPage({
   day,
   taskInstances,
   onSelectTask,
+  onCreateAndSelectTask,
+  refreshing,
+  onRefresh,
 }: {
   day: DayData;
   taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; status: string; workOrderDayServerId: string }>;
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
+  refreshing: boolean;
+  onRefresh: () => void;
 }) {
   return (
     <View style={styles.dayPage}>
-      <View style={styles.dateHeader}>
-        <Text style={styles.dayOfWeek}>{day.dayOfWeek}</Text>
-        <Text style={styles.fullDate}>{formatFullDate(day.date)}</Text>
-        {day.isToday && (
-          <View style={styles.todayBadge}>
-            <Text style={styles.todayBadgeText}>Today</Text>
+      <ScrollView
+        style={styles.dayScrollView}
+        contentContainerStyle={styles.dayScrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+        }
+      >
+        <View style={styles.dateHeader}>
+          <Text style={styles.dayOfWeek}>{day.dayOfWeek}</Text>
+          <Text style={styles.fullDate}>{formatFullDate(day.date)}</Text>
+          {day.isToday && (
+            <View style={styles.todayBadge}>
+              <Text style={styles.todayBadgeText}>Today</Text>
+            </View>
+          )}
+        </View>
+
+        {day.assignments.length === 0 ? (
+          <EmptyDayState />
+        ) : (
+          <View style={styles.assignmentsList}>
+            {day.assignments.map((assignment) => {
+              const assignmentTaskInstances = taskInstances.filter(
+                (ti) => ti.workOrderDayServerId === assignment.serverId
+              );
+              return (
+                <AssignmentTaskGroup
+                  key={assignment.serverId}
+                  assignment={assignment}
+                  taskInstances={assignmentTaskInstances}
+                  onSelectTask={onSelectTask}
+                  onCreateAndSelectTask={onCreateAndSelectTask}
+                />
+              );
+            })}
           </View>
         )}
-      </View>
-
-      {day.assignments.length === 0 ? (
-        <EmptyDayState />
-      ) : (
-        <ScrollView
-          style={styles.assignmentsList}
-          contentContainerStyle={styles.assignmentsContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {day.assignments.map((assignment) => {
-            const assignmentTaskInstances = taskInstances.filter(
-              (ti) => ti.workOrderDayServerId === assignment.serverId
-            );
-            return (
-              <AssignmentTaskGroup
-                key={assignment.serverId}
-                assignment={assignment}
-                taskInstances={assignmentTaskInstances}
-                onSelectTask={onSelectTask}
-              />
-            );
-          })}
-        </ScrollView>
-      )}
+      </ScrollView>
     </View>
   );
 }
 
 function AssignmentsScreen() {
+  const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
   const { user } = useUser();
   const { assignments } = useAssignments(user?.id ?? "");
-  const { taskInstances, updateTaskInstanceStatus } = useTaskInstances(user?.id ?? "");
+  const { taskInstances, createTaskInstance } = useTaskInstances(user?.id ?? "");
   const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<(DayTaskTemplate & { fields: FieldTemplate[] }) | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -464,23 +722,51 @@ function AssignmentsScreen() {
     []
   );
 
+  const handleCreateAndSelectTask = useCallback(
+    async (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => {
+      if (!user?.id) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+      try {
+        const clientId = await createTaskInstance({
+          workOrderDayServerId,
+          dayTaskTemplateServerId: template.serverId,
+          taskTemplateServerId: template.taskTemplateServerId,
+        });
+        if (clientId) {
+          setActiveTaskInstanceClientId(clientId);
+          setActiveTemplate(template);
+        } else {
+          Alert.alert("Error", "Failed to create task instance - no ID returned");
+        }
+      } catch (error) {
+        console.error("Failed to create task instance:", error);
+        Alert.alert("Error", `Failed to create task instance: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    },
+    [createTaskInstance, user?.id]
+  );
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    await syncService.sync();
+    setSyncing(false);
+  }, []);
+
   const renderDay = useCallback(
     ({ item }: { item: DayData }) => (
       <DayPage
         day={item}
         taskInstances={taskInstances}
         onSelectTask={handleSelectTask}
+        onCreateAndSelectTask={handleCreateAndSelectTask}
+        refreshing={syncing}
+        onRefresh={handleSync}
       />
     ),
-    [taskInstances, handleSelectTask]
+    [taskInstances, handleSelectTask, handleCreateAndSelectTask, syncing, handleSync]
   );
-
-  const scrollToToday = useCallback(() => {
-    flatListRef.current?.scrollToIndex({
-      index: todayIndex,
-      animated: true,
-    });
-  }, [todayIndex]);
 
   useEffect(() => {
     if (user?.id) {
@@ -488,15 +774,9 @@ function AssignmentsScreen() {
     }
   }, [user?.id]);
 
-  const handleSync = async () => {
-    setSyncing(true);
-    await syncService.sync();
-    setSyncing(false);
-  };
-
   if (activeTaskInstanceClientId && activeTemplate) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <TouchableOpacity
           onPress={() => {
             setActiveTaskInstanceClientId(null);
@@ -506,39 +786,36 @@ function AssignmentsScreen() {
         >
           <Text style={styles.backButtonText}>Back to Tasks</Text>
         </TouchableOpacity>
-        <TaskInstanceForm
-          taskInstanceClientId={activeTaskInstanceClientId}
-          template={activeTemplate}
-          userId={user?.id ?? ""}
-          onComplete={() => {
-            setActiveTaskInstanceClientId(null);
-            setActiveTemplate(null);
-          }}
-        />
+        <ScrollView
+          style={styles.formScrollView}
+          contentContainerStyle={styles.formScrollContent}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          <TaskInstanceForm
+            taskInstanceClientId={activeTaskInstanceClientId}
+            template={activeTemplate}
+            userId={user?.id ?? ""}
+            onComplete={() => {
+              setActiveTaskInstanceClientId(null);
+              setActiveTemplate(null);
+            }}
+          />
+        </ScrollView>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.calendarHeader}>
-        <View style={styles.calendarHeaderLeft}>
-          <Text style={styles.monthTitle}>{formatMonthYear(currentMonth)}</Text>
-          <TouchableOpacity style={styles.todayButton} onPress={scrollToToday}>
-            <Text style={styles.todayButtonText}>Today</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={handleSync} disabled={syncing}>
-            <Text style={[styles.syncText, syncing && styles.syncingText]}>
-              {syncing ? "Syncing..." : "Sync"}
-            </Text>
-          </TouchableOpacity>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.appHeader}>
+        <View style={styles.headerLeft}>
           <SyncStatusIcon />
-          <TouchableOpacity onPress={() => signOut()}>
-            <Text style={styles.signOutText}>Sign Out</Text>
-          </TouchableOpacity>
         </View>
+        <Text style={styles.appTitle}>Tectramin</Text>
+        <TouchableOpacity style={styles.headerRight} onPress={() => signOut()}>
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -575,7 +852,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 16,
     backgroundColor: "#fff",
   },
   centered: {
@@ -660,20 +936,31 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
   },
-  headerRight: {
+  appHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  appTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#111827",
+  },
+  headerLeft: {
+    width: 60,
+    alignItems: "flex-start",
+  },
+  headerRight: {
+    width: 60,
+    alignItems: "flex-end",
   },
   signOutText: {
     color: "#6b7280",
-  },
-  syncText: {
-    color: "#2563eb",
-    fontWeight: "500",
-  },
-  syncingText: {
-    color: "#9ca3af",
+    fontSize: 14,
   },
   debugInfo: {
     fontSize: 10,
@@ -755,6 +1042,13 @@ const styles = StyleSheet.create({
   viewButton: {
     backgroundColor: "#059669",
   },
+  formScrollView: {
+    flex: 1,
+  },
+  formScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
   formContainer: {
     flex: 1,
   },
@@ -813,42 +1107,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  calendarHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  monthTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#111827",
-  },
-  todayButton: {
-    backgroundColor: "#eff6ff",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-  },
-  todayButtonText: {
-    color: "#2563eb",
-    fontSize: 13,
-    fontWeight: "600",
-  },
   dayPage: {
     width: SCREEN_WIDTH,
     flex: 1,
+  },
+  dayScrollView: {
+    flex: 1,
+  },
+  dayScrollContent: {
     paddingHorizontal: 16,
+    paddingBottom: 24,
+    flexGrow: 1,
   },
   dateHeader: {
     alignItems: "center",
@@ -973,6 +1242,84 @@ const styles = StyleSheet.create({
   taskButtonText: {
     color: "#fff",
     fontSize: 13,
+    fontWeight: "600",
+  },
+  selectButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+  },
+  selectButtonText: {
+    fontSize: 16,
+    color: "#111827",
+  },
+  selectButtonPlaceholder: {
+    fontSize: 16,
+    color: "#9ca3af",
+  },
+  selectButtonChevron: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  modalClose: {
+    fontSize: 20,
+    color: "#6b7280",
+    padding: 4,
+  },
+  optionsList: {
+    padding: 8,
+  },
+  optionItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 8,
+  },
+  optionItemSelected: {
+    backgroundColor: "#eff6ff",
+  },
+  optionItemText: {
+    fontSize: 16,
+    color: "#374151",
+  },
+  optionItemTextSelected: {
+    color: "#2563eb",
+    fontWeight: "500",
+  },
+  optionItemCheck: {
+    fontSize: 16,
+    color: "#2563eb",
     fontWeight: "600",
   },
 });
