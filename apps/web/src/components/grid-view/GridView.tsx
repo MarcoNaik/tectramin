@@ -1304,7 +1304,7 @@ export function GridView() {
   const hasInitialScrolled = useRef(false);
   const isLoadingRef = useRef(false);
   const chunkDataRef = useRef<Map<string, { faenas: Array<{ _id: Id<"faenas">; name: string; customerName: string; isActive: boolean }>; workOrderDays: WorkOrderDayGridData[] }>>(new Map());
-  const [, forceUpdate] = useState(0);
+  const [dataVersion, setDataVersion] = useState(0);
 
   const [editingWorkOrderId, setEditingWorkOrderId] = useState<Id<"workOrders"> | null>(null);
   const [faenaDrawerOpen, setFaenaDrawerOpen] = useState(false);
@@ -1327,11 +1327,12 @@ export function GridView() {
       const prev = chunkDataRef.current.get(key);
       if (!prev || JSON.stringify(prev) !== JSON.stringify(data)) {
         chunkDataRef.current.set(key, data);
-        forceUpdate((n) => n + 1);
+        setDataVersion((n) => n + 1);
       }
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- dataVersion triggers recomputation when ref data changes
   const gridData = useMemo(() => {
     if (chunkDataRef.current.size === 0) return null;
 
@@ -1347,7 +1348,7 @@ export function GridView() {
       faenas: Array.from(allFaenas.values()).sort((a, b) => a.name.localeCompare(b.name)),
       workOrderDays: allWorkOrderDays,
     };
-  }, [chunkDataRef.current.size, weekChunks]);
+  }, [dataVersion, weekChunks]);
 
   const dateRange = useMemo(() => {
     if (weekChunks.length === 0) return { start: 0, end: 0 };

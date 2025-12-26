@@ -10,7 +10,9 @@ export function UsersTab() {
   const users = useQuery(api.shared.users.list);
   const upsertFromClerk = useMutation(api.shared.users.upsertFromClerk);
   const updateRole = useMutation(api.shared.users.updateRole);
+  const triggerTalanaSync = useMutation(api.talana.triggerSync);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [talanaSyncStatus, setTalanaSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
   const [testName, setTestName] = useState("");
   const [testEmail, setTestEmail] = useState("");
 
@@ -42,7 +44,20 @@ export function UsersTab() {
     setTestEmail("");
   };
 
+  const handleTalanaSync = async () => {
+    setTalanaSyncStatus("syncing");
+    try {
+      await triggerTalanaSync({});
+      setTalanaSyncStatus("triggered");
+    } catch (e) {
+      console.error("Talana sync error:", e);
+      setTalanaSyncStatus("idle");
+    }
+  };
+
   const alreadySynced = users?.some((u) => u.clerkId === user?.id);
+  const talanaUsers = users?.filter((u) => u.clerkId.startsWith("talana_")) ?? [];
+  const linkedUsers = users?.filter((u) => !u.clerkId.startsWith("talana_") && !u.clerkId.startsWith("test_") && u.talanaId) ?? [];
 
   return (
     <div className="space-y-4">
@@ -87,29 +102,65 @@ export function UsersTab() {
           </button>
         </div>
       </div>
+      <div className="p-3 bg-purple-50 border-2 border-purple-300">
+        <div className="text-sm font-bold text-purple-800 mb-2">Talana Integration</div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleTalanaSync}
+            disabled={talanaSyncStatus === "syncing"}
+            className="bg-purple-500 text-white px-4 py-2 text-sm font-bold border-2 border-black disabled:opacity-50 hover:bg-purple-600"
+          >
+            {talanaSyncStatus === "syncing" ? "Syncing..." : "Sync from Talana"}
+          </button>
+          {talanaSyncStatus === "triggered" && (
+            <span className="text-purple-600 text-sm font-bold">Sync started in background</span>
+          )}
+          <span className="text-purple-600 text-sm">
+            Pending: {talanaUsers.length} | Linked: {linkedUsers.length}
+          </span>
+        </div>
+      </div>
       <div className="space-y-2">
-        {users?.map((u) => (
-          <div key={u._id} className="flex items-center justify-between p-3 bg-gray-50 border-2 border-black">
-            <div>
-              <span className="font-bold">{u.fullName ?? u.email}</span>
-              <span className="text-gray-500 ml-2">({u.email})</span>
-              <span className={`ml-2 text-xs px-2 py-0.5 border border-black ${u.role === "admin" ? "bg-purple-100 text-purple-700" : u.role === "supervisor" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
-                {u.role}
-              </span>
-              <span className="text-xs text-gray-400 ml-2">ID: {u._id}</span>
-              <span className="text-xs text-gray-400 ml-2">Clerk: {u.clerkId.slice(0, 15)}...</span>
+        {users?.map((u) => {
+          const isPending = u.clerkId.startsWith("talana_");
+          const isTest = u.clerkId.startsWith("test_");
+          return (
+            <div key={u._id} className={`flex items-center justify-between p-3 border-2 border-black ${isPending ? "bg-purple-50" : isTest ? "bg-blue-50" : "bg-gray-50"}`}>
+              <div>
+                <span className="font-bold">{u.fullName ?? u.email}</span>
+                <span className="text-gray-500 ml-2">({u.email})</span>
+                {u.rut && <span className="text-gray-500 ml-2">RUT: {u.rut}</span>}
+                <span className={`ml-2 text-xs px-2 py-0.5 border border-black ${u.role === "admin" ? "bg-purple-100 text-purple-700" : u.role === "supervisor" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+                  {u.role}
+                </span>
+                {isPending && (
+                  <span className="ml-2 text-xs px-2 py-0.5 border border-purple-500 bg-purple-100 text-purple-700">
+                    Pending Signup
+                  </span>
+                )}
+                {isTest && (
+                  <span className="ml-2 text-xs px-2 py-0.5 border border-blue-500 bg-blue-100 text-blue-700">
+                    Test User
+                  </span>
+                )}
+                {u.talanaId && !isPending && (
+                  <span className="ml-2 text-xs px-2 py-0.5 border border-green-500 bg-green-100 text-green-700">
+                    Linked to Talana
+                  </span>
+                )}
+              </div>
+              <select
+                value={u.role}
+                onChange={(e) => updateRole({ id: u._id, role: e.target.value })}
+                className="border-2 border-black px-2 py-1 text-sm"
+              >
+                <option value="field_worker">Field Worker</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
-            <select
-              value={u.role}
-              onChange={(e) => updateRole({ id: u._id, role: e.target.value })}
-              className="border-2 border-black px-2 py-1 text-sm"
-            >
-              <option value="field_worker">Field Worker</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
