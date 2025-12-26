@@ -25,6 +25,7 @@ const fieldTemplateValidator = v.object({
   placeholder: v.optional(v.string()),
   subheader: v.optional(v.string()),
   displayStyle: v.optional(v.string()),
+  conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
   createdAt: v.number(),
 });
 

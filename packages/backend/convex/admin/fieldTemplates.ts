@@ -13,6 +13,7 @@ const fieldTemplateValidator = v.object({
   placeholder: v.optional(v.string()),
   subheader: v.optional(v.string()),
   displayStyle: v.optional(v.string()),
+  conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
   createdAt: v.number(),
 });
 
@@ -49,6 +50,7 @@ export const create = mutation({
     placeholder: v.optional(v.string()),
     subheader: v.optional(v.string()),
     displayStyle: v.optional(v.string()),
+    conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"))),
   },
   returns: v.id("fieldTemplates"),
   handler: async (ctx, args) => {
@@ -57,7 +59,7 @@ export const create = mutation({
       throw new Error("Task template not found");
     }
 
-    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText"];
+    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
     if (!validFieldTypes.includes(args.fieldType)) {
       throw new Error(`Invalid field type. Must be one of: ${validFieldTypes.join(", ")}`);
     }
@@ -83,6 +85,7 @@ export const create = mutation({
       placeholder: args.placeholder,
       subheader: args.subheader,
       displayStyle: args.displayStyle,
+      conditionLogic: args.conditionLogic,
       createdAt: Date.now(),
     });
   },
@@ -98,22 +101,23 @@ export const update = mutation({
     placeholder: v.optional(v.string()),
     subheader: v.optional(v.string()),
     displayStyle: v.optional(v.string()),
+    conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     if (args.fieldType) {
-      const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText"];
+      const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
       if (!validFieldTypes.includes(args.fieldType)) {
         throw new Error(`Invalid field type. Must be one of: ${validFieldTypes.join(", ")}`);
       }
     }
 
     const { id, ...updates } = args;
-    const filteredUpdates: Record<string, string | boolean | undefined> = {};
+    const filteredUpdates: Record<string, string | boolean | null> = {};
 
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
-        filteredUpdates[key] = value;
+        filteredUpdates[key] = value as string | boolean | null;
       }
     }
 
@@ -129,6 +133,24 @@ export const remove = mutation({
     const field = await ctx.db.get(args.id);
     if (!field) {
       return null;
+    }
+
+    const conditionsAsChild = await ctx.db
+      .query("fieldConditions")
+      .withIndex("by_child_field", (q) => q.eq("childFieldId", args.id))
+      .collect();
+
+    for (const condition of conditionsAsChild) {
+      await ctx.db.delete(condition._id);
+    }
+
+    const conditionsAsParent = await ctx.db
+      .query("fieldConditions")
+      .withIndex("by_parent_field", (q) => q.eq("parentFieldId", args.id))
+      .collect();
+
+    for (const condition of conditionsAsParent) {
+      await ctx.db.delete(condition._id);
     }
 
     await ctx.db.delete(args.id);
@@ -207,7 +229,7 @@ export const bulkCreate = mutation({
       throw new Error("Task template not found");
     }
 
-    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText"];
+    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
     for (const field of args.fields) {
       if (!validFieldTypes.includes(field.fieldType)) {
         throw new Error(`Invalid field type: ${field.fieldType}`);
