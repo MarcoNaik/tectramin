@@ -155,6 +155,7 @@ export const getAssignmentsForUser = query({
               placeholder: v.optional(v.string()),
               subheader: v.optional(v.string()),
               displayStyle: v.optional(v.string()),
+              conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
             })
           ),
         })
@@ -219,6 +220,7 @@ export const getAssignmentsForUser = query({
                   placeholder: f.placeholder,
                   subheader: f.subheader,
                   displayStyle: f.displayStyle,
+                  conditionLogic: f.conditionLogic,
                 })),
             };
           })
@@ -421,5 +423,107 @@ export const getAttachmentsForUser = query({
         updatedAt: a.updatedAt,
       }))
     );
+  },
+});
+
+export const getUsers = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      serverId: v.string(),
+      fullName: v.optional(v.string()),
+      email: v.string(),
+    })
+  ),
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.map((u) => ({
+      serverId: u._id as string,
+      fullName: u.fullName,
+      email: u.email,
+    }));
+  },
+});
+
+export const getFieldConditionsForUser = query({
+  args: { clerkUserId: v.string() },
+  returns: v.array(
+    v.object({
+      serverId: v.string(),
+      childFieldServerId: v.string(),
+      parentFieldServerId: v.string(),
+      operator: v.string(),
+      value: v.union(v.string(), v.array(v.string())),
+      conditionGroup: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkUserId))
+      .unique();
+
+    if (!user) {
+      return [];
+    }
+
+    const assignments = await ctx.db
+      .query("workOrderDayAssignments")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const fieldIds = new Set<string>();
+
+    for (const assignment of assignments) {
+      const day = await ctx.db.get(assignment.workOrderDayId);
+      if (!day) continue;
+
+      const dayTaskTemplates = await ctx.db
+        .query("workOrderDayTaskTemplates")
+        .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+        .collect();
+
+      for (const dtt of dayTaskTemplates) {
+        const fieldTemplates = await ctx.db
+          .query("fieldTemplates")
+          .withIndex("by_task_template", (q) => q.eq("taskTemplateId", dtt.taskTemplateId))
+          .collect();
+
+        for (const field of fieldTemplates) {
+          fieldIds.add(field._id);
+        }
+      }
+    }
+
+    const conditions: Array<{
+      serverId: string;
+      childFieldServerId: string;
+      parentFieldServerId: string;
+      operator: string;
+      value: string | string[];
+      conditionGroup: number;
+    }> = [];
+
+    for (const fieldId of fieldIds) {
+      const fieldConditions = await ctx.db
+        .query("fieldConditions")
+        .withIndex("by_child_field", (q) =>
+          q.eq("childFieldId", fieldId as ReturnType<typeof v.id<"fieldTemplates">>["type"])
+        )
+        .collect();
+
+      for (const c of fieldConditions) {
+        conditions.push({
+          serverId: c._id as string,
+          childFieldServerId: c.childFieldId as string,
+          parentFieldServerId: c.parentFieldId as string,
+          operator: c.operator,
+          value: c.value,
+          conditionGroup: c.conditionGroup,
+        });
+      }
+    }
+
+    return conditions;
   },
 });

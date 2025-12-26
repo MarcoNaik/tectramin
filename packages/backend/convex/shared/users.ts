@@ -1,22 +1,23 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+const userValidator = v.object({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+  clerkId: v.string(),
+  email: v.string(),
+  fullName: v.optional(v.string()),
+  role: v.string(),
+  isActive: v.boolean(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  rut: v.optional(v.string()),
+  talanaId: v.optional(v.number()),
+});
+
 export const getByClerkId = query({
   args: { clerkId: v.string() },
-  returns: v.union(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      clerkId: v.string(),
-      email: v.string(),
-      fullName: v.optional(v.string()),
-      role: v.string(),
-      isActive: v.boolean(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
@@ -27,19 +28,7 @@ export const getByClerkId = query({
 
 export const list = query({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      clerkId: v.string(),
-      email: v.string(),
-      fullName: v.optional(v.string()),
-      role: v.string(),
-      isActive: v.boolean(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-  ),
+  returns: v.array(userValidator),
   handler: async (ctx) => {
     return await ctx.db.query("users").collect();
   },
@@ -47,19 +36,7 @@ export const list = query({
 
 export const listActive = query({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      clerkId: v.string(),
-      email: v.string(),
-      fullName: v.optional(v.string()),
-      role: v.string(),
-      isActive: v.boolean(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-  ),
+  returns: v.array(userValidator),
   handler: async (ctx) => {
     return await ctx.db
       .query("users")
@@ -70,19 +47,7 @@ export const listActive = query({
 
 export const listByRole = query({
   args: { role: v.string() },
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      clerkId: v.string(),
-      email: v.string(),
-      fullName: v.optional(v.string()),
-      role: v.string(),
-      isActive: v.boolean(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-  ),
+  returns: v.array(userValidator),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
@@ -93,20 +58,7 @@ export const listByRole = query({
 
 export const get = query({
   args: { id: v.id("users") },
-  returns: v.union(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      clerkId: v.string(),
-      email: v.string(),
-      fullName: v.optional(v.string()),
-      role: v.string(),
-      isActive: v.boolean(),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id);
   },
@@ -174,6 +126,45 @@ export const updateStatus = mutation({
       isActive: args.isActive,
       updatedAt: Date.now(),
     });
+    return null;
+  },
+});
+
+export const getByRut = query({
+  args: { rut: v.string() },
+  returns: v.union(userValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_rut", (q) => q.eq("rut", args.rut))
+      .unique();
+  },
+});
+
+export const linkByRut = mutation({
+  args: {
+    clerkId: v.string(),
+    rut: v.string(),
+    email: v.string(),
+    fullName: v.optional(v.string()),
+  },
+  returns: v.union(v.id("users"), v.null()),
+  handler: async (ctx, args) => {
+    const existingByRut = await ctx.db
+      .query("users")
+      .withIndex("by_rut", (q) => q.eq("rut", args.rut))
+      .unique();
+
+    if (existingByRut) {
+      await ctx.db.patch(existingByRut._id, {
+        clerkId: args.clerkId,
+        email: args.email,
+        fullName: args.fullName ?? existingByRut.fullName,
+        updatedAt: Date.now(),
+      });
+      return existingByRut._id;
+    }
+
     return null;
   },
 });
