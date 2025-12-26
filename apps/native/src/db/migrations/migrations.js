@@ -4,13 +4,17 @@ import journal from './meta/_journal.json';
 import m0000 from './0000_polite_lightspeed.sql';
 import m0001 from './0001_left_selene.sql';
 import m0002 from './0002_colorful_greymalkin.sql';
+import m0003 from './0003_peaceful_captain_midlands.sql';
+import m0004 from './0004_ordinary_spirit.sql';
 
   export default {
     journal,
     migrations: {
       m0000,
 m0001,
-m0002
+m0002,
+m0003,
+m0004
     }
   }
   

@@ -22,6 +22,20 @@
       "when": 1766457179713,
       "tag": "0002_colorful_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1766733524001,
+      "tag": "0003_peaceful_captain_midlands",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1766737936825,
+      "tag": "0004_ordinary_spirit",
+      "breakpoints": true
     }
   ]
 }
