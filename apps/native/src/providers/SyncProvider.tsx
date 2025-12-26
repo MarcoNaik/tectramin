@@ -9,9 +9,11 @@ import {
   workOrderDays,
   dayTaskTemplates,
   fieldTemplates,
+  fieldConditions,
   taskInstances,
   fieldResponses,
   attachments,
+  users,
 } from "../db/schema";
 import type { SyncStatus } from "../sync/types";
 
@@ -36,6 +38,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const prevInstancesRef = useRef<string | null>(null);
   const prevResponsesRef = useRef<string | null>(null);
   const prevAttachmentsRef = useRef<string | null>(null);
+  const prevUsersRef = useRef<string | null>(null);
+  const prevConditionsRef = useRef<string | null>(null);
 
   const serverAssignments = useQuery(
     api.mobile.sync.getAssignmentsForUser,
@@ -54,6 +58,16 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
   const serverAttachments = useQuery(
     api.mobile.sync.getAttachmentsForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverUsers = useQuery(
+    api.mobile.sync.getUsers,
+    isInitialized ? {} : "skip"
+  );
+
+  const serverConditions = useQuery(
+    api.mobile.sync.getFieldConditionsForUser,
     user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
   );
 
@@ -123,6 +137,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
                 placeholder: field.placeholder,
                 subheader: field.subheader,
                 displayStyle: field.displayStyle,
+                conditionLogic: field.conditionLogic,
               })
               .onConflictDoUpdate({
                 target: fieldTemplates.serverId,
@@ -135,6 +150,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
                   placeholder: field.placeholder,
                   subheader: field.subheader,
                   displayStyle: field.displayStyle,
+                  conditionLogic: field.conditionLogic,
                 },
               });
           }
@@ -319,6 +335,87 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
     syncAttachmentData();
   }, [serverAttachments, user?.id]);
+
+  useEffect(() => {
+    if (!serverUsers) return;
+
+    const newHash = JSON.stringify(serverUsers);
+    if (prevUsersRef.current === newHash) return;
+    prevUsersRef.current = newHash;
+
+    const syncUserData = async () => {
+      for (const serverUser of serverUsers) {
+        await db
+          .insert(users)
+          .values({
+            serverId: serverUser.serverId,
+            fullName: serverUser.fullName,
+            email: serverUser.email,
+          })
+          .onConflictDoUpdate({
+            target: users.serverId,
+            set: {
+              fullName: serverUser.fullName,
+              email: serverUser.email,
+            },
+          });
+      }
+    };
+
+    syncUserData();
+  }, [serverUsers]);
+
+  useEffect(() => {
+    if (!serverConditions || !user?.id) return;
+
+    const newHash = JSON.stringify(serverConditions);
+    if (prevConditionsRef.current === newHash) return;
+    prevConditionsRef.current = newHash;
+
+    const syncConditionData = async () => {
+      const existingConditions = await db.select().from(fieldConditions);
+      const existingIds = new Set(existingConditions.map((c) => c.serverId));
+      const serverIds = new Set(serverConditions.map((c) => c.serverId));
+
+      for (const existing of existingConditions) {
+        if (!serverIds.has(existing.serverId)) {
+          await db
+            .delete(fieldConditions)
+            .where(eq(fieldConditions.serverId, existing.serverId));
+        }
+      }
+
+      for (const condition of serverConditions) {
+        const valueStr =
+          typeof condition.value === "string"
+            ? condition.value
+            : JSON.stringify(condition.value);
+
+        await db
+          .insert(fieldConditions)
+          .values({
+            serverId: condition.serverId,
+            childFieldServerId: condition.childFieldServerId,
+            parentFieldServerId: condition.parentFieldServerId,
+            operator: condition.operator,
+            value: valueStr,
+            conditionGroup: condition.conditionGroup,
+          })
+          .onConflictDoUpdate({
+            target: fieldConditions.serverId,
+            set: {
+              childFieldServerId: condition.childFieldServerId,
+              parentFieldServerId: condition.parentFieldServerId,
+              operator: condition.operator,
+              value: valueStr,
+              conditionGroup: condition.conditionGroup,
+            },
+          });
+      }
+    };
+
+    syncConditionData();
+  }, [serverConditions, user?.id]);
 
   useEffect(() => {
     if (!isLoaded || !user) return;
