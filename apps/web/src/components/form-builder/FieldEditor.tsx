@@ -1,12 +1,100 @@
 "use client";
 
+import { useState } from "react";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
-import type { FieldTemplateData } from "@/types";
+import type { FieldTemplateData, FieldConditionData } from "@/types";
 import { DebouncedInput } from "@/components/ui/DebouncedInput";
+import { ConditionEditor } from "./ConditionEditor";
+
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+function parseSelectOptions(displayStyle: string | undefined): SelectOption[] {
+  if (!displayStyle) return [];
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((opt): opt is SelectOption =>
+        typeof opt === "object" && opt !== null && typeof opt.value === "string" && typeof opt.label === "string"
+      );
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function SelectOptionsEditor({
+  options,
+  onChange,
+}: {
+  options: SelectOption[];
+  onChange: (options: SelectOption[]) => void;
+}) {
+  const [newOption, setNewOption] = useState("");
+
+  const handleAdd = () => {
+    if (!newOption.trim()) return;
+    const value = newOption.trim().toLowerCase().replace(/\s+/g, "_");
+    onChange([...options, { value, label: newOption.trim() }]);
+    setNewOption("");
+  };
+
+  const handleRemove = (index: number) => {
+    onChange(options.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-bold text-gray-700 mb-1">Options</label>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={newOption}
+          onChange={(e) => setNewOption(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+          placeholder="Add option..."
+          className="flex-1 border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={!newOption.trim()}
+          className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-blue-600"
+        >
+          Add
+        </button>
+      </div>
+      {options.length > 0 && (
+        <div className="space-y-1">
+          {options.map((opt, index) => (
+            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+              <span className="text-sm">{opt.label}</span>
+              <button
+                type="button"
+                onClick={() => handleRemove(index)}
+                className="text-red-500 hover:text-red-700 text-sm font-bold"
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {options.length === 0 && (
+        <p className="text-xs text-gray-500">No options added yet</p>
+      )}
+    </div>
+  );
+}
 
 interface FieldEditorProps {
   selectedField: FieldTemplateData | undefined;
   selectedTemplateId: Id<"taskTemplates"> | null;
+  allFields: FieldTemplateData[];
+  conditions: FieldConditionData[];
   onClose: () => void;
   onUpdate: (fieldId: Id<"fieldTemplates">, updates: {
     label?: string;
@@ -15,6 +103,7 @@ interface FieldEditorProps {
     isRequired?: boolean;
     subheader?: string;
     displayStyle?: string;
+    conditionLogic?: "AND" | "OR" | null;
   }) => void;
   onDelete: (fieldId: Id<"fieldTemplates">) => void;
 }
@@ -22,6 +111,8 @@ interface FieldEditorProps {
 export function FieldEditor({
   selectedField,
   selectedTemplateId,
+  allFields,
+  conditions,
   onClose,
   onUpdate,
   onDelete,
@@ -76,6 +167,8 @@ export function FieldEditor({
               <option value="date">Date</option>
               <option value="attachment">Attachment</option>
               <option value="displayText">Display Text</option>
+              <option value="select">Select</option>
+              <option value="userSelect">User Select</option>
             </select>
           </div>
           {selectedField.fieldType === "displayText" && (
@@ -89,6 +182,18 @@ export function FieldEditor({
                 <option value="header">Header (Large, Bold)</option>
                 <option value="simple">Simple (Normal Text)</option>
               </select>
+            </div>
+          )}
+          {selectedField.fieldType === "select" && (
+            <SelectOptionsEditor
+              options={parseSelectOptions(selectedField.displayStyle)}
+              onChange={(options) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(options) })}
+            />
+          )}
+          {selectedField.fieldType === "userSelect" && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700 font-medium">Options loaded from users table</p>
+              <p className="text-xs text-blue-600 mt-1">All users will appear in the dropdown</p>
             </div>
           )}
           <div>
@@ -123,6 +228,16 @@ export function FieldEditor({
               Required field
             </label>
           </div>
+          {selectedField.fieldType !== "displayText" && (
+            <ConditionEditor
+              field={selectedField}
+              allFields={allFields}
+              conditions={conditions}
+              onConditionLogicChange={(logic) =>
+                onUpdate(selectedField._id, { conditionLogic: logic })
+              }
+            />
+          )}
         </div>
         <div className="p-4 border-t border-gray-200">
           <button
