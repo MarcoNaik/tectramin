@@ -35,6 +35,8 @@ EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<your-clerk-key>
 **packages/backend/.env.local**
 ```
 CLERK_JWT_ISSUER_DOMAIN=<your-clerk-domain>
+TALANA_API_TOKEN=<your-talana-api-key>
+
 ```
 
 ## Architecture
