@@ -3,11 +3,13 @@ import type {
   workOrderDays,
   dayTaskTemplates,
   fieldTemplates,
+  fieldConditions,
   taskInstances,
   fieldResponses,
   attachments,
   syncQueue,
   syncMetadata,
+  users,
 } from "./schema";
 
 export type WorkOrderDay = InferSelectModel<typeof workOrderDays>;
@@ -18,6 +20,9 @@ export type NewDayTaskTemplate = InferInsertModel<typeof dayTaskTemplates>;
 
 export type FieldTemplate = InferSelectModel<typeof fieldTemplates>;
 export type NewFieldTemplate = InferInsertModel<typeof fieldTemplates>;
+
+export type FieldCondition = InferSelectModel<typeof fieldConditions>;
+export type NewFieldCondition = InferInsertModel<typeof fieldConditions>;
 
 export type TaskInstance = InferSelectModel<typeof taskInstances>;
 export type NewTaskInstance = InferInsertModel<typeof taskInstances>;
@@ -34,11 +39,14 @@ export type NewSyncQueueItem = InferInsertModel<typeof syncQueue>;
 export type SyncMetadataItem = InferSelectModel<typeof syncMetadata>;
 export type NewSyncMetadataItem = InferInsertModel<typeof syncMetadata>;
 
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
+
 export type SyncStatus = "pending" | "synced";
 export type SyncOperation = "create" | "update" | "upload";
 
 export type TaskInstanceStatus = "draft" | "completed";
-export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText";
+export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText" | "select" | "userSelect";
 export type AttachmentUploadStatus = "pending" | "uploading" | "uploaded" | "failed";
 
 export interface TaskInstanceInput {

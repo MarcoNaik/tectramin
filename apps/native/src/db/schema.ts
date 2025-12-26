@@ -32,6 +32,16 @@ export const fieldTemplates = sqliteTable("field_templates", {
   placeholder: text("placeholder"),
   subheader: text("subheader"),
   displayStyle: text("display_style"),
+  conditionLogic: text("condition_logic"),
+});
+
+export const fieldConditions = sqliteTable("field_conditions", {
+  serverId: text("server_id").primaryKey(),
+  childFieldServerId: text("child_field_server_id").notNull(),
+  parentFieldServerId: text("parent_field_server_id").notNull(),
+  operator: text("operator").notNull(),
+  value: text("value").notNull(),
+  conditionGroup: integer("condition_group").notNull(),
 });
 
 export const taskInstances = sqliteTable("task_instances", {
@@ -105,4 +115,10 @@ export const syncMetadata = sqliteTable("sync_metadata", {
   initialSyncComplete: integer("initial_sync_complete", {
     mode: "boolean",
   }).default(false),
+});
+
+export const users = sqliteTable("users", {
+  serverId: text("server_id").primaryKey(),
+  fullName: text("full_name"),
+  email: text("email").notNull(),
 });

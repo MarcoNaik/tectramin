@@ -10,10 +10,14 @@ export default defineSchema({
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    rut: v.optional(v.string()),
+    talanaId: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_role", ["role"])
-    .index("by_active", ["isActive"]),
+    .index("by_active", ["isActive"])
+    .index("by_rut", ["rut"])
+    .index("by_talana_id", ["talanaId"]),
 
   customers: defineTable({
     name: v.string(),
@@ -65,8 +69,20 @@ export default defineSchema({
     placeholder: v.optional(v.string()),
     subheader: v.optional(v.string()),
     displayStyle: v.optional(v.string()),
+    conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
     createdAt: v.number(),
   }).index("by_task_template", ["taskTemplateId"]),
+
+  fieldConditions: defineTable({
+    childFieldId: v.id("fieldTemplates"),
+    parentFieldId: v.id("fieldTemplates"),
+    operator: v.string(),
+    value: v.union(v.string(), v.array(v.string())),
+    conditionGroup: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_child_field", ["childFieldId"])
+    .index("by_parent_field", ["parentFieldId"]),
 
   serviceTaskTemplates: defineTable({
     serviceId: v.id("services"),
