@@ -8,23 +8,18 @@ interface DraggableFieldTypeBadgeProps {
 }
 
 export function DraggableFieldTypeBadge({ type }: DraggableFieldTypeBadgeProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `new-field-${type.value}`,
     data: { type: "new-field", fieldType: type.value },
   });
 
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined;
-
   return (
     <div
       ref={setNodeRef}
-      style={style}
       {...listeners}
       {...attributes}
-      className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-grab hover:border-blue-400 hover:shadow-sm transition-all ${
-        isDragging ? "opacity-50 shadow-lg" : ""
+      className={`flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg cursor-grab hover:border-blue-400 hover:shadow-sm transition-all duration-200 ${
+        isDragging ? "opacity-30 scale-95" : ""
       }`}
     >
       <span className="w-6 text-center text-gray-500 font-medium">{type.icon}</span>
