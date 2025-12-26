@@ -44,7 +44,7 @@ export const listByTaskTemplate = query({
       .collect();
 
     const fieldIds = new Set(fields.map((f) => f._id));
-    const allConditions: Array<typeof fieldConditionValidator._type> = [];
+    const allConditions: Array<typeof fieldConditionValidator.type> = [];
 
     for (const field of fields) {
       const conditions = await ctx.db
