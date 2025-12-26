@@ -14,7 +14,7 @@ export interface FieldTemplateData {
   placeholder?: string;
   subheader?: string;
   displayStyle?: string;
-  conditionLogic?: "AND" | "OR";
+  conditionLogic?: "AND" | "OR" | null;
   createdAt: number;
 }
 
