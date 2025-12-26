@@ -27,15 +27,18 @@ export interface AttachmentInput {
 
 export function useAttachments(fieldResponseClientId: string, userId: string) {
   const convex = useConvex();
+  const hasValidId = fieldResponseClientId && fieldResponseClientId.length > 0;
 
   const { data: attachmentData } = useLiveQuery(
-    db
-      .select()
-      .from(attachments)
-      .where(eq(attachments.fieldResponseClientId, fieldResponseClientId))
+    hasValidId
+      ? db
+          .select()
+          .from(attachments)
+          .where(eq(attachments.fieldResponseClientId, fieldResponseClientId))
+      : db.select().from(attachments).where(eq(attachments.clientId, "__never_match__"))
   );
 
-  const attachment = attachmentData?.[0] ?? null;
+  const attachment = hasValidId ? (attachmentData?.[0] ?? null) : null;
 
   const createAttachment = useCallback(
     async (input: AttachmentInput): Promise<string> => {
