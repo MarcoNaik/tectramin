@@ -19,7 +19,7 @@ export default function App() {
                 <Stack.Screen
                   name="Home"
                   component={HomeScreen}
-                  options={{ title: "Tectramin" }}
+                  options={{ headerShown: false }}
                 />
               </Stack.Navigator>
             </NavigationContainer>
