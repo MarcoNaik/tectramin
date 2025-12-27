@@ -25,8 +25,8 @@ export function DatePickerField({
 
   const currentDate = value ? new Date(value) : new Date();
   const displayValue = value
-    ? new Date(value).toLocaleDateString()
-    : "Select date...";
+    ? new Date(value).toLocaleDateString("es-CL")
+    : "Seleccionar fecha...";
 
   const handleChange = (_event: unknown, selectedDate?: Date) => {
     if (Platform.OS === "android") {
@@ -67,7 +67,7 @@ export function DatePickerField({
           />
           {Platform.OS === "ios" && (
             <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
-              <Text style={styles.confirmButtonText}>Done</Text>
+              <Text style={styles.confirmButtonText}>Listo</Text>
             </TouchableOpacity>
           )}
         </>

@@ -10,7 +10,7 @@ export function SyncStatusIcon() {
     return (
       <View style={styles.container}>
         <View style={[styles.dot, styles.offline]} />
-        <Text style={styles.text}>Offline</Text>
+        <Text style={styles.text}>Sin conexión</Text>
       </View>
     );
   }
@@ -19,7 +19,7 @@ export function SyncStatusIcon() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="small" color="#2563eb" />
-        <Text style={styles.text}>Syncing</Text>
+        <Text style={styles.text}>Sincronizando</Text>
       </View>
     );
   }
@@ -37,7 +37,7 @@ export function SyncStatusIcon() {
     return (
       <View style={styles.container}>
         <View style={[styles.dot, styles.pending]} />
-        <Text style={styles.text}>{syncStatus.pendingCount} pending</Text>
+        <Text style={styles.text}>{syncStatus.pendingCount} pendientes</Text>
       </View>
     );
   }
@@ -45,7 +45,7 @@ export function SyncStatusIcon() {
   return (
     <View style={styles.container}>
       <View style={[styles.dot, styles.synced]} />
-      <Text style={styles.text}>Synced</Text>
+      <Text style={styles.text}>Sincronizado</Text>
     </View>
   );
 }

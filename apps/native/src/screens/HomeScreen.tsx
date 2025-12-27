@@ -83,7 +83,7 @@ function SelectField({
         onPress={() => setModalVisible(true)}
       >
         <Text style={selectedOption ? styles.selectButtonText : styles.selectButtonPlaceholder}>
-          {selectedOption ? selectedOption.label : "Select an option..."}
+          {selectedOption ? selectedOption.label : "Seleccionar una opción..."}
         </Text>
         <Text style={styles.selectButtonChevron}>▼</Text>
       </TouchableOpacity>
@@ -134,7 +134,7 @@ function UserSelectField({
         onPress={() => setModalVisible(true)}
       >
         <Text style={selectedOption ? styles.selectButtonText : styles.selectButtonPlaceholder}>
-          {selectedOption ? selectedOption.label : "Select a user..."}
+          {selectedOption ? selectedOption.label : "Seleccionar un usuario..."}
         </Text>
         <Text style={styles.selectButtonChevron}>▼</Text>
       </TouchableOpacity>
@@ -258,25 +258,25 @@ function SignInScreen() {
         style={styles.oauthButton}
         onPress={() => handleOAuthSignIn("oauth_google")}
       >
-        <Text style={styles.oauthButtonText}>Sign in with Google</Text>
+        <Text style={styles.oauthButtonText}>Iniciar sesión con Google</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.oauthButton}
         onPress={() => handleOAuthSignIn("oauth_microsoft")}
       >
-        <Text style={styles.oauthButtonText}>Sign in with Microsoft</Text>
+        <Text style={styles.oauthButtonText}>Iniciar sesión con Microsoft</Text>
       </TouchableOpacity>
 
       <View style={styles.separator}>
         <View style={styles.separatorLine} />
-        <Text style={styles.separatorText}>or</Text>
+        <Text style={styles.separatorText}>o</Text>
         <View style={styles.separatorLine} />
       </View>
 
       <TextInput
         style={styles.signInInput}
-        placeholder="Email"
+        placeholder="Correo"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -284,14 +284,14 @@ function SignInScreen() {
       />
       <TextInput
         style={styles.signInInput}
-        placeholder="Password"
+        placeholder="Contraseña"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-        <Text style={styles.signInButtonText}>Sign In</Text>
+        <Text style={styles.signInButtonText}>Iniciar Sesión</Text>
       </TouchableOpacity>
     </View>
   );
@@ -499,8 +499,8 @@ function TaskInstanceForm({
 
     if (incompleteRequired.length > 0) {
       Alert.alert(
-        "Required Fields",
-        `Please fill in: ${incompleteRequired.map((f) => f.label).join(", ")}`
+        "Campos Requeridos",
+        `Por favor complete: ${incompleteRequired.map((f) => f.label).join(", ")}`
       );
       return;
     }
@@ -524,7 +524,7 @@ function TaskInstanceForm({
         />
       ))}
       <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-        <Text style={styles.completeButtonText}>Mark Complete</Text>
+        <Text style={styles.completeButtonText}>Marcar Completado</Text>
       </TouchableOpacity>
     </View>
   );
@@ -563,7 +563,7 @@ function AssignmentTaskGroup({
           {assignment.customerName} - {assignment.faenaName}
         </Text>
         <Text style={styles.assignmentGroupDate}>
-          Day {assignment.dayNumber}
+          Día {assignment.dayNumber}
         </Text>
       </View>
 
@@ -581,16 +581,16 @@ function AssignmentTaskGroup({
               <View style={styles.taskCardInfo}>
                 <Text style={styles.taskCardName}>{template.taskTemplateName}</Text>
                 <View style={styles.taskCardMeta}>
-                  <Text style={styles.fieldCount}>{template.fields.length} fields</Text>
+                  <Text style={styles.fieldCount}>{template.fields.length} campos</Text>
                   <View style={styles.badges}>
                     {template.isRequired && (
                       <View style={styles.requiredBadge}>
-                        <Text style={styles.requiredBadgeText}>Required</Text>
+                        <Text style={styles.requiredBadgeText}>Requerido</Text>
                       </View>
                     )}
                     {isCompleted && (
                       <View style={styles.completedBadge}>
-                        <Text style={styles.completedBadgeText}>Completed</Text>
+                        <Text style={styles.completedBadgeText}>Completado</Text>
                       </View>
                     )}
                   </View>
@@ -607,7 +607,7 @@ function AssignmentTaskGroup({
                 }}
               >
                 <Text style={styles.taskButtonText}>
-                  {isCompleted ? "View" : "Fill"}
+                  {isCompleted ? "Ver" : "Llenar"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -621,9 +621,9 @@ function AssignmentTaskGroup({
 function EmptyDayState() {
   return (
     <View style={styles.emptyDayContainer}>
-      <Text style={styles.emptyDayTitle}>No Assignments</Text>
+      <Text style={styles.emptyDayTitle}>Sin Asignaciones</Text>
       <Text style={styles.emptyDayText}>
-        You have no assignments scheduled for this day.
+        No tienes asignaciones programadas para este día.
       </Text>
     </View>
   );
@@ -659,7 +659,7 @@ function DayPage({
           <Text style={styles.fullDate}>{formatFullDate(day.date)}</Text>
           {day.isToday && (
             <View style={styles.todayBadge}>
-              <Text style={styles.todayBadgeText}>Today</Text>
+              <Text style={styles.todayBadgeText}>Hoy</Text>
             </View>
           )}
         </View>
@@ -725,7 +725,7 @@ function AssignmentsScreen() {
   const handleCreateAndSelectTask = useCallback(
     async (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => {
       if (!user?.id) {
-        Alert.alert("Error", "User not authenticated");
+        Alert.alert("Error", "Usuario no autenticado");
         return;
       }
       try {
@@ -738,11 +738,11 @@ function AssignmentsScreen() {
           setActiveTaskInstanceClientId(clientId);
           setActiveTemplate(template);
         } else {
-          Alert.alert("Error", "Failed to create task instance - no ID returned");
+          Alert.alert("Error", "Error al crear instancia de tarea - no se recibió ID");
         }
       } catch (error) {
         console.error("Failed to create task instance:", error);
-        Alert.alert("Error", `Failed to create task instance: ${error instanceof Error ? error.message : "Unknown error"}`);
+        Alert.alert("Error", `Error al crear instancia de tarea: ${error instanceof Error ? error.message : "Error desconocido"}`);
       }
     },
     [createTaskInstance, user?.id]
@@ -784,7 +784,7 @@ function AssignmentsScreen() {
           }}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>Back to Tasks</Text>
+          <Text style={styles.backButtonText}>Volver a Tareas</Text>
         </TouchableOpacity>
         <ScrollView
           style={styles.formScrollView}
@@ -814,7 +814,7 @@ function AssignmentsScreen() {
         </View>
         <Text style={styles.appTitle}>Tectramin</Text>
         <TouchableOpacity style={styles.headerRight} onPress={() => signOut()}>
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={styles.signOutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
 

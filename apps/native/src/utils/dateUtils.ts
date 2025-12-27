@@ -61,7 +61,7 @@ export function generateMonthDays(
     days.push({
       dateKey,
       date: new Date(current),
-      dayOfWeek: current.toLocaleDateString("en-US", { weekday: "long" }),
+      dayOfWeek: current.toLocaleDateString("es-CL", { weekday: "long" }),
       dayNumber: current.getDate(),
       isToday,
       assignments: assignmentsByDate.get(dateKey) || [],
@@ -74,11 +74,11 @@ export function generateMonthDays(
 }
 
 export function formatMonthYear(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return date.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
 }
 
 export function formatFullDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("es-CL", {
     month: "long",
     day: "numeric",
     year: "numeric",

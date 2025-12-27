@@ -34,7 +34,7 @@ export function AttachmentField({
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert("Permission Required", "Camera access is needed to take photos.");
+      Alert.alert("Permiso Requerido", "Se necesita acceso a la cámara para tomar fotos.");
       return;
     }
 
@@ -54,7 +54,7 @@ export function AttachmentField({
         await onPickImage(asset.uri, fileName, mimeType, fileSize, "camera");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to take photo");
+      Alert.alert("Error", "Error al tomar la foto");
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ export function AttachmentField({
   const handleChooseFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert("Permission Required", "Gallery access is needed to select photos.");
+      Alert.alert("Permiso Requerido", "Se necesita acceso a la galería para seleccionar fotos.");
       return;
     }
 
@@ -83,7 +83,7 @@ export function AttachmentField({
         await onPickImage(asset.uri, fileName, mimeType, fileSize, "gallery");
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to select image");
+      Alert.alert("Error", "Error al seleccionar imagen");
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ export function AttachmentField({
         await onPickDocument(asset.uri, asset.name, asset.mimeType || "application/octet-stream", asset.size || 0);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to select document");
+      Alert.alert("Error", "Error al seleccionar documento");
     } finally {
       setLoading(false);
     }
@@ -110,11 +110,11 @@ export function AttachmentField({
 
   const handleRemove = () => {
     Alert.alert(
-      "Remove Attachment",
-      "Are you sure you want to remove this attachment?",
+      "Eliminar Adjunto",
+      "¿Estás seguro de que quieres eliminar este adjunto?",
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: () => onRemove() },
+        { text: "Cancelar", style: "cancel" },
+        { text: "Eliminar", style: "destructive", onPress: () => onRemove() },
       ]
     );
   };
@@ -137,13 +137,13 @@ export function AttachmentField({
   const getStatusText = (status: AttachmentUploadStatus): string => {
     switch (status) {
       case "pending":
-        return "Waiting to upload";
+        return "Esperando subir";
       case "uploading":
-        return "Uploading...";
+        return "Subiendo...";
       case "uploaded":
-        return "Uploaded";
+        return "Subido";
       case "failed":
-        return "Upload failed";
+        return "Error al subir";
       default:
         return status;
     }
@@ -161,7 +161,7 @@ export function AttachmentField({
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#2563eb" />
-          <Text style={styles.loadingText}>Processing...</Text>
+          <Text style={styles.loadingText}>Procesando...</Text>
         </View>
       )}
 
@@ -186,7 +186,7 @@ export function AttachmentField({
             </Text>
           </View>
           <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
-            <Text style={styles.removeButtonText}>Remove</Text>
+            <Text style={styles.removeButtonText}>Eliminar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -195,15 +195,15 @@ export function AttachmentField({
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.actionButton} onPress={handleTakePhoto}>
             <Text style={styles.actionButtonIcon}>📷</Text>
-            <Text style={styles.actionButtonText}>Camera</Text>
+            <Text style={styles.actionButtonText}>Cámara</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={handleChooseFromGallery}>
             <Text style={styles.actionButtonIcon}>🖼️</Text>
-            <Text style={styles.actionButtonText}>Gallery</Text>
+            <Text style={styles.actionButtonText}>Galería</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={handleChooseDocument}>
             <Text style={styles.actionButtonIcon}>📄</Text>
-            <Text style={styles.actionButtonText}>Document</Text>
+            <Text style={styles.actionButtonText}>Documento</Text>
           </TouchableOpacity>
         </View>
       )}
