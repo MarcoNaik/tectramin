@@ -818,6 +818,7 @@ function AssignmentsScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <TaskInstanceForm
+            key={activeTaskInstanceClientId}
             taskInstanceClientId={activeTaskInstanceClientId}
             template={activeTemplate}
             userId={user?.id ?? ""}
