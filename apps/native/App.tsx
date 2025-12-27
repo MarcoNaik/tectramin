@@ -1,3 +1,4 @@
+import { StatusBar } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -11,6 +12,7 @@ const Stack = createNativeStackNavigator();
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <SafeAreaProvider>
         <ConvexClientProvider>
           <OfflineProvider>

@@ -25,6 +25,8 @@ import { getVisibleFields, getVisibleRequiredFields } from "../utils/conditionEv
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
 import { DatePickerField } from "../components/DatePickerField";
 import { AttachmentField } from "../components/AttachmentField";
+import { DebouncedTextInput } from "../components/DebouncedTextInput";
+import { PendingFieldValuesProvider, usePendingFieldValues } from "../providers/PendingFieldValuesContext";
 import { syncService } from "../sync/SyncService";
 import {
   generateMonthDays,
@@ -439,39 +441,51 @@ function FieldInput({
       {field.subheader && (
         <Text style={styles.fieldSubheader}>{field.subheader}</Text>
       )}
-      <TextInput
+      <DebouncedTextInput
+        fieldServerId={field.serverId}
         style={styles.fieldInput}
-        value={value ?? field.defaultValue ?? ""}
-        onChangeText={onChange}
+        initialValue={value ?? field.defaultValue ?? ""}
+        onDebouncedChange={onChange}
         placeholder={field.placeholder ?? ""}
         keyboardType={field.fieldType === "number" ? "numeric" : "default"}
+        debounceMs={500}
       />
     </View>
   );
 }
 
-function TaskInstanceForm({
-  taskInstanceClientId,
-  template,
-  userId,
-  onComplete,
-}: {
+interface TaskInstanceFormProps {
   taskInstanceClientId: string;
   template: DayTaskTemplate & { fields: FieldTemplate[] };
   userId: string;
   onComplete: () => void;
-}) {
+}
+
+function TaskInstanceFormInner({
+  taskInstanceClientId,
+  template,
+  userId,
+  onComplete,
+}: TaskInstanceFormProps) {
   const { responses, upsertResponse, getResponseForField } = useFieldResponses(
     taskInstanceClientId,
     userId
   );
   const { updateTaskInstanceStatus } = useTaskInstances(userId);
   const { conditions } = useFieldConditions();
+  const { flushAll, getAllPending } = usePendingFieldValues();
 
-  const visibleFields = useMemo(
-    () => getVisibleFields(template.fields, conditions, responses),
-    [template.fields, conditions, responses]
-  );
+  const visibleFields = useMemo(() => {
+    const pendingMap = getAllPending();
+    const responsesWithPending = responses.map((r) => {
+      const pending = pendingMap.get(r.fieldTemplateServerId);
+      if (pending) {
+        return { ...r, value: pending.value };
+      }
+      return r;
+    });
+    return getVisibleFields(template.fields, conditions, responsesWithPending);
+  }, [template.fields, conditions, responses, getAllPending]);
 
   const handleFieldChange = async (fieldTemplateServerId: string, value: string) => {
     await upsertResponse({
@@ -491,6 +505,9 @@ function TaskInstanceForm({
   };
 
   const handleComplete = async () => {
+    flushAll();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     const visibleRequired = getVisibleRequiredFields(template.fields, conditions, responses);
     const incompleteRequired = visibleRequired.filter((field) => {
       const response = getResponseForField(field.serverId);
@@ -527,6 +544,14 @@ function TaskInstanceForm({
         <Text style={styles.completeButtonText}>Marcar Completado</Text>
       </TouchableOpacity>
     </View>
+  );
+}
+
+function TaskInstanceForm(props: TaskInstanceFormProps) {
+  return (
+    <PendingFieldValuesProvider>
+      <TaskInstanceFormInner {...props} />
+    </PendingFieldValuesProvider>
   );
 }
 
