@@ -48,14 +48,14 @@ function SelectOptionsEditor({
 
   return (
     <div>
-      <label className="block text-sm font-bold text-gray-700 mb-1">Options</label>
+      <label className="block text-sm font-bold text-gray-700 mb-1">Opciones</label>
       <div className="flex gap-2 mb-2">
         <input
           type="text"
           value={newOption}
           onChange={(e) => setNewOption(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-          placeholder="Add option..."
+          placeholder="Agregar opción..."
           className="flex-1 border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -64,7 +64,7 @@ function SelectOptionsEditor({
           disabled={!newOption.trim()}
           className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-blue-600"
         >
-          Add
+          Agregar
         </button>
       </div>
       {options.length > 0 && (
@@ -84,7 +84,7 @@ function SelectOptionsEditor({
         </div>
       )}
       {options.length === 0 && (
-        <p className="text-xs text-gray-500">No options added yet</p>
+        <p className="text-xs text-gray-500">Sin opciones agregadas aún</p>
       )}
     </div>
   );
@@ -126,7 +126,7 @@ export function FieldEditor({
       <div className="w-72 flex-shrink-0">
         <div className="border-l border-gray-200 bg-gray-50 h-full flex items-center justify-center p-6">
           <p className="text-gray-400 text-center text-sm font-medium">
-            Select a field to edit its properties
+            Selecciona un campo para editar sus propiedades
           </p>
         </div>
       </div>
@@ -137,7 +137,7 @@ export function FieldEditor({
     <div className="w-72 flex-shrink-0">
       <div className="border-l border-gray-200 bg-white h-full flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h3 className="font-bold text-gray-900">Edit Field</h3>
+          <h3 className="font-bold text-gray-900">Editar Campo</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl font-bold"
@@ -147,7 +147,7 @@ export function FieldEditor({
         </div>
         <div className="p-4 space-y-4 flex-1 overflow-y-auto">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Label</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Etiqueta</label>
             <DebouncedInput
               value={selectedField.label}
               onChange={(value) => onUpdate(selectedField._id, { label: value })}
@@ -155,32 +155,32 @@ export function FieldEditor({
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Field Type</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Tipo de Campo</label>
             <select
               value={selectedField.fieldType}
               onChange={(e) => onUpdate(selectedField._id, { fieldType: e.target.value })}
               className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="boolean">Yes/No Toggle</option>
-              <option value="date">Date</option>
-              <option value="attachment">Attachment</option>
-              <option value="displayText">Display Text</option>
-              <option value="select">Select</option>
-              <option value="userSelect">User Select</option>
+              <option value="text">Texto</option>
+              <option value="number">Número</option>
+              <option value="boolean">Sí/No</option>
+              <option value="date">Fecha</option>
+              <option value="attachment">Adjunto</option>
+              <option value="displayText">Texto de Visualización</option>
+              <option value="select">Selección</option>
+              <option value="userSelect">Selección de Usuario</option>
             </select>
           </div>
           {selectedField.fieldType === "displayText" && (
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Display Style</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Estilo de Visualización</label>
               <select
                 value={selectedField.displayStyle || "simple"}
                 onChange={(e) => onUpdate(selectedField._id, { displayStyle: e.target.value })}
                 className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="header">Header (Large, Bold)</option>
-                <option value="simple">Simple (Normal Text)</option>
+                <option value="header">Encabezado (Grande, Negrita)</option>
+                <option value="simple">Simple (Texto Normal)</option>
               </select>
             </div>
           )}
@@ -192,27 +192,27 @@ export function FieldEditor({
           )}
           {selectedField.fieldType === "userSelect" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-700 font-medium">Options loaded from users table</p>
-              <p className="text-xs text-blue-600 mt-1">All users will appear in the dropdown</p>
+              <p className="text-sm text-blue-700 font-medium">Opciones cargadas de la tabla de usuarios</p>
+              <p className="text-xs text-blue-600 mt-1">Todos los usuarios aparecerán en el menú desplegable</p>
             </div>
           )}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Subheader</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Subtítulo</label>
             <DebouncedInput
               value={selectedField.subheader || ""}
               onChange={(value) => onUpdate(selectedField._id, { subheader: value })}
               className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Optional helper text..."
+              placeholder="Texto de ayuda opcional..."
             />
           </div>
           {(selectedField.fieldType === "text" || selectedField.fieldType === "number") && (
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Placeholder</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Texto de Ejemplo</label>
               <DebouncedInput
                 value={selectedField.placeholder || ""}
                 onChange={(value) => onUpdate(selectedField._id, { placeholder: value })}
                 className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter placeholder text..."
+                placeholder="Ingresa texto de ejemplo..."
               />
             </div>
           )}
@@ -225,7 +225,7 @@ export function FieldEditor({
               className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
             />
             <label htmlFor="field-required-sidebar" className="text-sm text-gray-700 font-medium">
-              Required field
+              Campo requerido
             </label>
           </div>
           {selectedField.fieldType !== "displayText" && (
@@ -244,7 +244,7 @@ export function FieldEditor({
             onClick={() => onDelete(selectedField._id)}
             className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-bold"
           >
-            Delete Field
+            Eliminar Campo
           </button>
         </div>
       </div>

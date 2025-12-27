@@ -53,7 +53,7 @@ export function PreviewFieldText({
           value={field.placeholder || ""}
           onSave={onSaveEdit}
           onCancel={onCancelEdit}
-          placeholder="Enter placeholder text..."
+          placeholder="Ingresa texto de ejemplo..."
           className="w-full"
         />
       ) : (
@@ -61,7 +61,7 @@ export function PreviewFieldText({
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-gray-400 cursor-pointer hover:border-blue-400"
           onClick={(e) => { e.stopPropagation(); onSelect(); onEditPlaceholder(); }}
         >
-          {field.placeholder || "Enter text..."}
+          {field.placeholder || "Ingresa texto..."}
         </div>
       )}
     </div>

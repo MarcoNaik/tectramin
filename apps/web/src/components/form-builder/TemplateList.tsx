@@ -22,7 +22,7 @@ export function TemplateList({
   return (
     <div className="w-64 flex-shrink-0 border-r border-gray-200 overflow-hidden flex flex-col bg-white">
       <div className="p-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-900">
-        Task Templates ({templates?.length ?? 0})
+        Plantillas de Tareas ({templates?.length ?? 0})
       </div>
       <div className="overflow-y-auto flex-1">
         {templates?.map((t) => (
@@ -39,13 +39,13 @@ export function TemplateList({
               {t.name}
             </div>
             <div className={`text-xs mt-0.5 ${selectedTemplateId === t._id ? "text-blue-100" : "text-gray-500"}`}>
-              {t.category || "Uncategorized"}
+              {t.category || "Sin categoria"}
             </div>
           </div>
         ))}
         {templates?.length === 0 && (
           <div className="p-4 text-gray-500 text-sm text-center">
-            No templates yet. Create one in Debug View.
+            Sin plantillas aun. Crea una en la Vista de Depuracion.
           </div>
         )}
       </div>

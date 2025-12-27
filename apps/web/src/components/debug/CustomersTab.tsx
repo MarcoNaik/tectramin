@@ -20,11 +20,11 @@ export function CustomersTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold">Customers ({customers?.length ?? 0})</h3>
+      <h3 className="text-lg font-bold">Clientes ({customers?.length ?? 0})</h3>
       <div className="flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name *" className="border-2 border-black px-3 py-2 flex-1" />
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="border-2 border-black px-3 py-2 flex-1" />
-        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600">Add</button>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre *" className="border-2 border-black px-3 py-2 flex-1" />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Correo" className="border-2 border-black px-3 py-2 flex-1" />
+        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600">Agregar</button>
       </div>
       <div className="space-y-2">
         {customers?.map((c) => (
@@ -34,7 +34,7 @@ export function CustomersTab() {
               {c.email && <span className="text-gray-500 ml-2">({c.email})</span>}
               <span className="text-xs text-gray-400 ml-2">{c._id}</span>
             </div>
-            <button onClick={() => removeCustomer({ id: c._id })} className="text-red-500 text-sm font-bold hover:text-red-700">Delete</button>
+            <button onClick={() => removeCustomer({ id: c._id })} className="text-red-500 text-sm font-bold hover:text-red-700">Eliminar</button>
           </div>
         ))}
       </div>

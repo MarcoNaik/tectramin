@@ -107,14 +107,14 @@ export function ConditionEditor({
   return (
     <div className="space-y-3 pt-4 border-t border-gray-200">
       <div className="flex justify-between items-center">
-        <label className="block text-sm font-bold text-gray-700">Show when</label>
+        <label className="block text-sm font-bold text-gray-700">Mostrar cuando</label>
         <button
           type="button"
           onClick={handleAddCondition}
           disabled={availableParents.length === 0}
           className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
         >
-          + Add condition
+          + Agregar condicion
         </button>
       </div>
 
@@ -129,7 +129,7 @@ export function ConditionEditor({
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            All (AND)
+            Todas (Y)
           </button>
           <button
             type="button"
@@ -140,13 +140,13 @@ export function ConditionEditor({
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            Any (OR)
+            Cualquiera (O)
           </button>
         </div>
       )}
 
       {conditions.length === 0 ? (
-        <p className="text-xs text-gray-500">Always visible (no conditions)</p>
+        <p className="text-xs text-gray-500">Siempre visible (sin condiciones)</p>
       ) : (
         <div className="space-y-2">
           {conditions.map((condition, index) => (
@@ -168,7 +168,7 @@ export function ConditionEditor({
 
       {availableParents.length === 0 && conditions.length === 0 && (
         <p className="text-xs text-gray-400 italic">
-          No fields above this one can be used as conditions
+          No hay campos anteriores que puedan usarse como condiciones
         </p>
       )}
     </div>
@@ -282,7 +282,7 @@ function ValueEditor({
         onChange={(e) => onUpdate({ value: e.target.value })}
         className="border rounded px-2 py-1 text-xs w-full"
       >
-        <option value="true">Yes</option>
+        <option value="true">Si</option>
         <option value="false">No</option>
       </select>
     );
@@ -324,7 +324,7 @@ function ValueEditor({
         onChange={(e) => onUpdate({ value: e.target.value })}
         className="border rounded px-2 py-1 text-xs w-full"
       >
-        <option value="">Select...</option>
+        <option value="">Seleccionar...</option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
@@ -350,7 +350,7 @@ function ValueEditor({
       type={parentField.fieldType === "number" ? "number" : "text"}
       value={value}
       onChange={(e) => onUpdate({ value: e.target.value })}
-      placeholder="Value..."
+      placeholder="Valor..."
       className="border rounded px-2 py-1 text-xs w-full"
     />
   );

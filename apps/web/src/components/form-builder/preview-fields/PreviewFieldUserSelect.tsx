@@ -50,9 +50,9 @@ export function PreviewFieldUserSelect({
         disabled
         className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-not-allowed"
       >
-        <option value="">Select a user...</option>
+        <option value="">Seleccionar un usuario...</option>
       </select>
-      <p className="text-xs text-blue-500 mt-1">Users loaded from database</p>
+      <p className="text-xs text-blue-500 mt-1">Usuarios cargados de la base de datos</p>
     </div>
   );
 }

@@ -72,13 +72,13 @@ export function PreviewFieldSelect({
         disabled
         className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 cursor-not-allowed"
       >
-        <option value="">Select an option...</option>
+        <option value="">Seleccionar una opcion...</option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
       {options.length === 0 && (
-        <p className="text-xs text-gray-400 mt-1">No options configured</p>
+        <p className="text-xs text-gray-400 mt-1">Sin opciones configuradas</p>
       )}
     </div>
   );

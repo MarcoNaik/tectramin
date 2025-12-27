@@ -39,14 +39,14 @@ export function DebugView() {
 
   return (
     <div className="h-full flex flex-col p-4">
-      <h2 className="text-2xl font-bold mb-4">Debug Dashboard</h2>
+      <h2 className="text-2xl font-bold mb-4">Panel de Depuración</h2>
       <div className="flex gap-0 border-2 border-black w-fit mb-4">
         <TabButton
           tab="customers"
           active={activeTab === "customers"}
           onClick={() => setActiveTab("customers")}
         >
-          Customers
+          Clientes
         </TabButton>
         <TabButton
           tab="faenas"
@@ -60,28 +60,28 @@ export function DebugView() {
           active={activeTab === "taskTemplates"}
           onClick={() => setActiveTab("taskTemplates")}
         >
-          Task Templates
+          Plantillas de Tareas
         </TabButton>
         <TabButton
           tab="services"
           active={activeTab === "services"}
           onClick={() => setActiveTab("services")}
         >
-          Services
+          Servicios
         </TabButton>
         <TabButton
           tab="workOrders"
           active={activeTab === "workOrders"}
           onClick={() => setActiveTab("workOrders")}
         >
-          Work Orders
+          Órdenes de Trabajo
         </TabButton>
         <TabButton
           tab="users"
           active={activeTab === "users"}
           onClick={() => setActiveTab("users")}
         >
-          Users
+          Usuarios
         </TabButton>
       </div>
       <div className="bg-white p-4 border-2 border-black flex-1 overflow-auto">

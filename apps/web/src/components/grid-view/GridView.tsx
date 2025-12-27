@@ -164,7 +164,7 @@ function WorkOrderSpan({
               {renderAssignmentSlots(day)}
             </div>
             {day.taskCount > 0 && (
-              <div className="text-[10px] text-gray-400">{day.taskCount} task{day.taskCount !== 1 ? "s" : ""}</div>
+              <div className="text-[10px] text-gray-400">{day.taskCount} tarea{day.taskCount !== 1 ? "s" : ""}</div>
             )}
           </div>
         ))}
@@ -179,7 +179,7 @@ function EmptyCell({ onClick }: { onClick: () => void }) {
       className="w-40 flex-shrink-0 h-32 border-r border-b border-gray-200 bg-gray-50/50 p-2 flex items-center justify-center cursor-pointer hover:bg-blue-50 hover:border-2 hover:border-blue-500 transition-all group"
       onClick={onClick}
     >
-      <span className="text-transparent text-xs font-bold group-hover:text-blue-500 transition-colors">+ Add</span>
+      <span className="text-transparent text-xs font-bold group-hover:text-blue-500 transition-colors">+ Agregar</span>
     </div>
   );
 }
@@ -284,8 +284,8 @@ function SharedAssignmentRow({
 
   return (
     <div className="border-b-2 border-black p-4 bg-gray-50">
-      <div className="text-sm font-bold mb-2">All Days</div>
-      <div className="text-xs text-gray-500 mb-3">Drop here to assign to every day</div>
+      <div className="text-sm font-bold mb-2">Todos los Dias</div>
+      <div className="text-xs text-gray-500 mb-3">Arrastra aqui para asignar a todos los dias</div>
       <div className="flex gap-2 flex-wrap">{slots}</div>
     </div>
   );
@@ -371,7 +371,7 @@ function DayColumnWithClick({
     );
   }
 
-  const dateStr = new Date(day.dayDate).toLocaleDateString("en-US", {
+  const dateStr = new Date(day.dayDate).toLocaleDateString("es-CL", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -382,7 +382,7 @@ function DayColumnWithClick({
       <div className="text-xs font-bold text-gray-600 mb-3">{dateStr}</div>
       <div className="flex flex-wrap gap-2">{slots}</div>
       {availableSlots === 0 && (
-        <div className="text-xs text-gray-400 italic">Filled by shared</div>
+        <div className="text-xs text-gray-400 italic">Cubierto por compartidos</div>
       )}
     </div>
   );
@@ -405,16 +405,16 @@ function AssignmentDetailPanel({
       <div className="p-4 border-b-2 border-black flex items-center justify-between">
         <div>
           <div className="font-bold">{detail.userName}</div>
-          <div className="text-xs text-gray-500">Day {detail.dayNumber}</div>
+          <div className="text-xs text-gray-500">Dia {detail.dayNumber}</div>
         </div>
         <button onClick={onClose} className="text-xl font-bold hover:text-gray-600">×</button>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="text-sm font-bold mb-2">Task Progress</div>
+        <div className="text-sm font-bold mb-2">Progreso de Tareas</div>
         {!instances ? (
-          <div className="text-xs text-gray-500">Loading...</div>
+          <div className="text-xs text-gray-500">Cargando...</div>
         ) : instances.length === 0 ? (
-          <div className="text-xs text-gray-500">No tasks assigned</div>
+          <div className="text-xs text-gray-500">Sin tareas asignadas</div>
         ) : (
           <div className="space-y-2">
             {instances.map((inst) => (
@@ -448,8 +448,8 @@ function TasksTabContent({
       <div className="flex-1 flex overflow-hidden">
         <div className="w-56 border-r-2 border-black flex flex-col">
           <div className="p-3 border-b border-gray-200 bg-gray-50">
-            <div className="text-sm font-bold">Available Tasks</div>
-            <div className="text-xs text-gray-500">Manage tasks per day</div>
+            <div className="text-sm font-bold">Tareas Disponibles</div>
+            <div className="text-xs text-gray-500">Gestionar tareas por dia</div>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {allTaskTemplates?.filter(t => t.isActive).map((template) => (
@@ -509,7 +509,7 @@ function WorkOrderDayTasks({
   return (
     <div className="p-3 bg-gray-50 border-2 border-black min-w-[200px]">
       <div className="text-xs font-bold mb-2">
-        Day {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+        Dia {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("es-CL", { weekday: "short", month: "short", day: "numeric" })}
       </div>
       {dayTasks.length > 0 && (
         <div className="space-y-1 mb-2">
@@ -528,7 +528,7 @@ function WorkOrderDayTasks({
             onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
             className="flex-1 border-2 border-black px-2 py-1 text-xs"
           >
-            <option value="">Add task...</option>
+            <option value="">Agregar tarea...</option>
             {availableTasks.map((t) => (
               <option key={t._id} value={t._id}>{t.name}</option>
             ))}
@@ -538,7 +538,7 @@ function WorkOrderDayTasks({
             disabled={!selectedTask}
             className="border-2 border-black bg-white px-2 py-1 text-xs font-bold hover:bg-gray-100 disabled:opacity-50"
           >
-            Add
+            Agregar
           </button>
         </div>
       )}
@@ -679,7 +679,7 @@ function WorkOrderAssignmentModal({
           <div className="p-4 border-b-2 border-black bg-white">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-lg font-bold">Manage Work Order</h3>
+                <h3 className="text-lg font-bold">Gestionar Orden de Trabajo</h3>
                 {workOrderDetails && (
                   <div className="text-sm text-gray-600">
                     {workOrderDetails.workOrder.name} • {workOrderDetails.faena.name} • {workOrderDetails.customer.name}
@@ -687,7 +687,7 @@ function WorkOrderAssignmentModal({
                 )}
                 {workOrderDetails && (
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {days.length} days • {requiredPeople} people per day
+                    {days.length} dias • {requiredPeople} personas por dia
                   </div>
                 )}
               </div>
@@ -707,7 +707,7 @@ function WorkOrderAssignmentModal({
                     : "bg-white text-black hover:bg-gray-100"
                 }`}
               >
-                People
+                Personas
               </button>
               <button
                 onClick={() => { setActiveTab("tasks"); setAssignmentDetail(null); }}
@@ -717,7 +717,7 @@ function WorkOrderAssignmentModal({
                     : "bg-white text-black hover:bg-gray-100"
                 }`}
               >
-                Tasks
+                Tareas
               </button>
             </div>
           </div>
@@ -729,8 +729,8 @@ function WorkOrderAssignmentModal({
                   <div className="flex-1 flex overflow-hidden">
                     <div className="w-56 border-r-2 border-black flex flex-col">
                       <div className="p-3 border-b border-gray-200 bg-gray-50">
-                        <div className="text-sm font-bold">Available</div>
-                        <div className="text-xs text-gray-500">Drag to assign</div>
+                        <div className="text-sm font-bold">Disponibles</div>
+                        <div className="text-xs text-gray-500">Arrastra para asignar</div>
                       </div>
                       <div className="flex-1 overflow-y-auto p-3 space-y-2">
                         {availableUsers.map((user) => (
@@ -738,7 +738,7 @@ function WorkOrderAssignmentModal({
                         ))}
                         {availableUsers.length === 0 && (
                           <div className="text-xs text-gray-400 italic text-center py-4">
-                            All users assigned
+                            Todos los usuarios asignados
                           </div>
                         )}
                       </div>
@@ -792,7 +792,7 @@ function WorkOrderAssignmentModal({
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="text-gray-500">Loading...</div>
+              <div className="text-gray-500">Cargando...</div>
             </div>
           )}
 
@@ -801,7 +801,7 @@ function WorkOrderAssignmentModal({
               onClick={onClose}
               className="w-full px-4 py-2 border-2 border-black bg-blue-500 text-white font-bold hover:bg-blue-600"
             >
-              Done
+              Listo
             </button>
           </div>
         </div>
@@ -912,7 +912,7 @@ function WorkOrderDrawer({
       <div className="fixed inset-0 bg-black/30 z-40" onClick={handleClose} />
       <div className="fixed right-0 top-0 h-full w-[420px] bg-white shadow-xl z-50 flex flex-col border-l-2 border-black">
         <div className="p-4 border-b-2 border-black flex items-center justify-between">
-          <h3 className="text-lg font-bold">Create Work Order</h3>
+          <h3 className="text-lg font-bold">Crear Orden de Trabajo</h3>
           <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 text-xl font-bold">×</button>
         </div>
 
@@ -921,7 +921,7 @@ function WorkOrderDrawer({
             <div className="text-sm font-bold text-blue-900">{faena?.name}</div>
             <div className="text-xs text-blue-700">{faena?.customerName}</div>
             <div className="text-xs text-blue-600 mt-1">
-              Starting: {new Date(startDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              Inicio: {new Date(startDate).toLocaleDateString("es-CL", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             </div>
           </div>
 
@@ -930,35 +930,35 @@ function WorkOrderDrawer({
           )}
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Service *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Servicio *</label>
             <select
               value={selectedService}
               onChange={(e) => handleServiceChange(e.target.value as Id<"services"> | "")}
               className="w-full border-2 border-black px-3 py-2 text-sm"
             >
-              <option value="">Select a service...</option>
+              <option value="">Seleccionar servicio...</option>
               {services?.map((s) => (
                 <option key={s._id} value={s._id}>
-                  {s.name} ({s.defaultDays} days, {s.requiredPeople} people)
+                  {s.name} ({s.defaultDays} dias, {s.requiredPeople} personas)
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Work Order Name *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Nombre de Orden de Trabajo *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter work order name"
+              placeholder="Ingrese nombre de orden de trabajo"
               className="w-full border-2 border-black px-3 py-2 text-sm"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Start Date</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Fecha de Inicio</label>
               <input
                 type="date"
                 value={startDateStr}
@@ -967,7 +967,7 @@ function WorkOrderDrawer({
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">End Date *</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Fecha de Termino *</label>
               <input
                 type="date"
                 value={endDate}
@@ -980,22 +980,22 @@ function WorkOrderDrawer({
 
           {selectedServiceData && (
             <div className="bg-gray-50 p-3 border-2 border-black text-sm">
-              <div className="font-bold text-gray-700">Service Details</div>
+              <div className="font-bold text-gray-700">Detalles del Servicio</div>
               <div className="text-gray-600 mt-1">
-                Default duration: {selectedServiceData.defaultDays} days
+                Duracion por defecto: {selectedServiceData.defaultDays} dias
               </div>
               <div className="text-gray-600">
-                Required people: {selectedServiceData.requiredPeople} per day
+                Personas requeridas: {selectedServiceData.requiredPeople} por dia
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Notes</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Notas</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes..."
+              placeholder="Notas opcionales..."
               rows={3}
               className="w-full border-2 border-black px-3 py-2 text-sm resize-none"
             />
@@ -1008,21 +1008,21 @@ function WorkOrderDrawer({
             disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
             className="w-full px-4 py-2 bg-blue-500 text-white text-sm font-bold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed border-2 border-black"
           >
-            {isSubmitting ? "Creating..." : "Create & Assign People"}
+            {isSubmitting ? "Creando..." : "Crear y Asignar Personas"}
           </button>
           <div className="flex gap-2">
             <button
               onClick={handleClose}
               className="flex-1 px-4 py-2 border-2 border-black text-sm font-bold hover:bg-gray-50"
             >
-              Cancel
+              Cancelar
             </button>
             <button
               onClick={() => handleSubmit(false)}
               disabled={!selectedService || !name.trim() || !endDate || isSubmitting}
               className="flex-1 px-4 py-2 border-2 border-black text-sm font-bold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create Only
+              Solo Crear
             </button>
           </div>
         </div>
@@ -1122,7 +1122,7 @@ function FaenaDrawer({
       <div className="fixed inset-0 bg-black/30 z-40" onClick={handleClose} />
       <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col border-l-2 border-black">
         <div className="p-4 border-b-2 border-black flex items-center justify-between">
-          <h2 className="text-lg font-bold">New Faena</h2>
+          <h2 className="text-lg font-bold">Nueva Faena</h2>
           <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 text-xl font-bold">
             ×
           </button>
@@ -1134,13 +1134,13 @@ function FaenaDrawer({
           )}
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Customer *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Cliente *</label>
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value as Id<"customers"> | "")}
               className="w-full border-2 border-black px-3 py-2"
             >
-              <option value="">Select customer...</option>
+              <option value="">Seleccionar cliente...</option>
               {customers?.map((c) => (
                 <option key={c._id} value={c._id}>
                   {c.name}
@@ -1154,12 +1154,12 @@ function FaenaDrawer({
                 onClick={() => setShowNewCustomer(true)}
                 className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                + Add new customer
+                + Agregar nuevo cliente
               </button>
             ) : (
               <div className="mt-3 p-3 bg-gray-50 border-2 border-black space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-gray-700">New Customer</span>
+                  <span className="text-sm font-bold text-gray-700">Nuevo Cliente</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -1170,28 +1170,28 @@ function FaenaDrawer({
                     }}
                     className="text-gray-400 hover:text-gray-600 text-sm font-bold"
                   >
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
                 <input
                   type="text"
                   value={newCustomerName}
                   onChange={(e) => setNewCustomerName(e.target.value)}
-                  placeholder="Customer name *"
+                  placeholder="Nombre del cliente *"
                   className="w-full border-2 border-black px-3 py-2 text-sm"
                 />
                 <input
                   type="email"
                   value={newCustomerEmail}
                   onChange={(e) => setNewCustomerEmail(e.target.value)}
-                  placeholder="Email (optional)"
+                  placeholder="Email (opcional)"
                   className="w-full border-2 border-black px-3 py-2 text-sm"
                 />
                 <input
                   type="tel"
                   value={newCustomerPhone}
                   onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  placeholder="Phone (optional)"
+                  placeholder="Telefono (opcional)"
                   className="w-full border-2 border-black px-3 py-2 text-sm"
                 />
                 <button
@@ -1200,30 +1200,30 @@ function FaenaDrawer({
                   disabled={!newCustomerName.trim() || isCreatingCustomer}
                   className="w-full bg-black text-white py-1.5 text-sm font-bold disabled:opacity-50"
                 >
-                  {isCreatingCustomer ? "Creating..." : "Create Customer"}
+                  {isCreatingCustomer ? "Creando..." : "Crear Cliente"}
                 </button>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Faena Name *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Nombre de Faena *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Site Alpha"
+              placeholder="ej., Sitio Alpha"
               className="w-full border-2 border-black px-3 py-2"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Location</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Ubicacion</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g., Santiago, Chile"
+              placeholder="ej., Santiago, Chile"
               className="w-full border-2 border-black px-3 py-2"
             />
           </div>
@@ -1235,7 +1235,7 @@ function FaenaDrawer({
             disabled={!customerId || !name.trim() || isCreating}
             className="w-full bg-blue-500 text-white py-2 font-bold disabled:opacity-50 border-2 border-black"
           >
-            {isCreating ? "Creating..." : "Create Faena"}
+            {isCreating ? "Creando..." : "Crear Faena"}
           </button>
         </div>
       </div>
@@ -1462,9 +1462,9 @@ export function GridView() {
 
   const formatDayHeader = (timestamp: number) => {
     const date = new Date(timestamp);
-    const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
+    const weekday = date.toLocaleDateString("es-CL", { weekday: "short" });
     const day = date.getDate();
-    const month = date.toLocaleDateString("en-US", { month: "short" });
+    const month = date.toLocaleDateString("es-CL", { month: "short" });
     return { weekday, day, month };
   };
 
@@ -1496,13 +1496,13 @@ export function GridView() {
       <>
         {chunkLoaders}
         <div className="text-center py-12 text-gray-500">
-          <div className="text-lg font-bold">No faenas found</div>
-          <div className="text-sm mt-1">Create a faena to get started</div>
+          <div className="text-lg font-bold">No se encontraron faenas</div>
+          <div className="text-sm mt-1">Crea una faena para comenzar</div>
           <button
             onClick={() => setFaenaDrawerOpen(true)}
             className="mt-4 px-4 py-2 bg-blue-500 text-white font-bold hover:bg-blue-600 border-2 border-black"
           >
-            + Create Faena
+            + Crear Faena
           </button>
         </div>
         <FaenaDrawer
@@ -1532,7 +1532,7 @@ export function GridView() {
             className="h-16 p-2 border-b border-gray-200 flex items-center justify-center cursor-pointer hover:bg-blue-50 transition-colors group"
             onClick={() => setFaenaDrawerOpen(true)}
           >
-            <span className="text-sm text-gray-300 group-hover:text-blue-500 font-bold transition-colors">+ Add Faena</span>
+            <span className="text-sm text-gray-300 group-hover:text-blue-500 font-bold transition-colors">+ Agregar Faena</span>
           </div>
         </div>
 
@@ -1569,7 +1569,7 @@ export function GridView() {
                         className="w-40 flex-shrink-0 h-full border-r border-b border-gray-200 bg-gray-50/50 cursor-pointer hover:bg-blue-50 transition-colors group flex items-center justify-center"
                         onClick={() => openDrawer(faena, day)}
                       >
-                        <span className="text-xs font-bold text-transparent group-hover:text-blue-500 transition-colors">+ Add Work Order</span>
+                        <span className="text-xs font-bold text-transparent group-hover:text-blue-500 transition-colors">+ Agregar Orden de Trabajo</span>
                       </div>
                     ))}
                   </div>

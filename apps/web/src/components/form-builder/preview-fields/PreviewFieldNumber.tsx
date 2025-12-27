@@ -54,7 +54,7 @@ export function PreviewFieldNumber({
           value={field.placeholder || ""}
           onSave={onSaveEdit}
           onCancel={onCancelEdit}
-          placeholder="Enter placeholder text..."
+          placeholder="Ingresa texto de ejemplo..."
           className="w-full"
         />
       ) : (

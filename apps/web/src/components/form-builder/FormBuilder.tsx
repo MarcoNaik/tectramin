@@ -215,7 +215,7 @@ export function FormBuilder() {
 
       await createField({
         taskTemplateId: selectedTemplateId,
-        label: `New ${fieldType} field`,
+        label: `Nuevo campo ${fieldType}`,
         fieldType,
         isRequired: false,
         order: insertIndex,
@@ -319,7 +319,7 @@ export function FormBuilder() {
             <>
               <div className="text-center mb-4">
                 <h3 className="font-bold text-gray-900 text-lg">{selectedTemplate.name}</h3>
-                <p className="text-sm text-gray-500">Drag fields into the phone, click to edit</p>
+                <p className="text-sm text-gray-500">Arrastra campos al telefono, haz clic para editar</p>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6 justify-center">
@@ -341,7 +341,7 @@ export function FormBuilder() {
                 />
                 <div className="mt-6">
                   <button className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold opacity-50 cursor-not-allowed">
-                    Mark Complete
+                    Marcar Completo
                   </button>
                 </div>
               </MobilePhoneFrame>
@@ -362,8 +362,8 @@ export function FormBuilder() {
                 <rect x="14" y="14" width="7" height="7" />
                 <rect x="3" y="14" width="7" height="7" />
               </svg>
-              <p className="text-lg font-medium">Select a template to start editing</p>
-              <p className="text-sm mt-1">Choose from the list on the left</p>
+              <p className="text-lg font-medium">Selecciona una plantilla para comenzar a editar</p>
+              <p className="text-sm mt-1">Elige de la lista a la izquierda</p>
             </div>
           )}
         </div>

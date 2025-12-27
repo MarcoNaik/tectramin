@@ -42,12 +42,12 @@ export function ServicesTab() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold">Services ({services?.length ?? 0})</h3>
+      <h3 className="text-lg font-bold">Servicios ({services?.length ?? 0})</h3>
       <div className="flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Service Name *" className="border-2 border-black px-3 py-2 flex-1" />
-        <input type="number" value={defaultDays} onChange={(e) => setDefaultDays(e.target.value)} placeholder="Days" className="border-2 border-black px-3 py-2 w-20" min="1" />
-        <input type="number" value={requiredPeople} onChange={(e) => setRequiredPeople(e.target.value)} placeholder="People" className="border-2 border-black px-3 py-2 w-20" min="1" />
-        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600">Add</button>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del Servicio *" className="border-2 border-black px-3 py-2 flex-1" />
+        <input type="number" value={defaultDays} onChange={(e) => setDefaultDays(e.target.value)} placeholder="Días" className="border-2 border-black px-3 py-2 w-20" min="1" />
+        <input type="number" value={requiredPeople} onChange={(e) => setRequiredPeople(e.target.value)} placeholder="Personas" className="border-2 border-black px-3 py-2 w-20" min="1" />
+        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600">Agregar</button>
       </div>
       <div className="space-y-2">
         {services?.map((s) => (
@@ -55,18 +55,18 @@ export function ServicesTab() {
             <div className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer" onClick={() => setExpandedService(expandedService === s._id ? null : s._id)}>
               <div>
                 <span className="font-bold">{s.name}</span>
-                <span className="text-gray-500 ml-2">{s.defaultDays} days, {s.requiredPeople} people/day</span>
+                <span className="text-gray-500 ml-2">{s.defaultDays} días, {s.requiredPeople} personas/día</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-400 font-bold">{expandedService === s._id ? "▼" : "▶"}</span>
-                <button onClick={(e) => { e.stopPropagation(); removeService({ id: s._id }); }} className="text-red-500 text-sm font-bold hover:text-red-700">Delete</button>
+                <button onClick={(e) => { e.stopPropagation(); removeService({ id: s._id }); }} className="text-red-500 text-sm font-bold hover:text-red-700">Eliminar</button>
               </div>
             </div>
             {expandedService === s._id && serviceWithTemplates && (
               <div className="p-3 bg-white border-t-2 border-black space-y-3">
-                <div className="text-sm font-bold text-gray-700">Linked Task Templates:</div>
+                <div className="text-sm font-bold text-gray-700">Plantillas de Tareas Vinculadas:</div>
                 {serviceWithTemplates.taskTemplates.length === 0 ? (
-                  <div className="text-gray-500 text-sm">No templates linked yet</div>
+                  <div className="text-gray-500 text-sm">Sin plantillas vinculadas aún</div>
                 ) : (
                   serviceWithTemplates.taskTemplates.map((tt) => (
                     <div key={tt._id} className="flex items-center justify-between p-2 bg-gray-100 border-2 border-black text-sm">
@@ -74,7 +74,7 @@ export function ServicesTab() {
                         {tt.taskTemplateName}
                         {tt.isRequired && <span className="text-red-500 ml-1">*</span>}
                         <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 border border-blue-300">
-                          {tt.dayNumber ? `Day ${tt.dayNumber} only` : "All days"}
+                          {tt.dayNumber ? `Solo día ${tt.dayNumber}` : "Todos los días"}
                         </span>
                       </span>
                       <button onClick={() => removeTaskTemplate({ serviceId: s._id, taskTemplateId: tt.taskTemplateId })} className="text-red-500 font-bold">×</button>
@@ -83,16 +83,16 @@ export function ServicesTab() {
                 )}
                 <div className="flex gap-2 items-center">
                   <select value={selectedTemplate} onChange={(e) => setSelectedTemplate(e.target.value as Id<"taskTemplates"> | "")} className="border-2 border-black px-2 py-1 flex-1 text-sm">
-                    <option value="">Select template...</option>
+                    <option value="">Seleccionar plantilla...</option>
                     {templates?.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
                   </select>
                   <select value={selectedDayNumber} onChange={(e) => setSelectedDayNumber(e.target.value)} className="border-2 border-black px-2 py-1 text-sm">
-                    <option value="all">All days</option>
+                    <option value="all">Todos los días</option>
                     {currentService && Array.from({ length: currentService.defaultDays }, (_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>Day {i + 1} only</option>
+                      <option key={i + 1} value={String(i + 1)}>Solo día {i + 1}</option>
                     ))}
                   </select>
-                  <button onClick={handleAddTemplate} className="bg-green-500 text-white px-3 py-1 text-sm font-bold border-2 border-black hover:bg-green-600" disabled={!selectedTemplate}>Link</button>
+                  <button onClick={handleAddTemplate} className="bg-green-500 text-white px-3 py-1 text-sm font-bold border-2 border-black hover:bg-green-600" disabled={!selectedTemplate}>Vincular</button>
                 </div>
               </div>
             )}

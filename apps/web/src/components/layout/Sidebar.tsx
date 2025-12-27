@@ -56,9 +56,9 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
   const { user } = useUser();
 
   const navItems: Array<{ view: MainView; label: string; icon: React.ReactNode }> = [
-    { view: "gridView", label: "Grid View", icon: <GridIcon /> },
-    { view: "formBuilder", label: "Form Builder", icon: <FormIcon /> },
-    { view: "debug", label: "Debug", icon: <DebugIcon /> },
+    { view: "gridView", label: "Vista de Grilla", icon: <GridIcon /> },
+    { view: "formBuilder", label: "Constructor de Formularios", icon: <FormIcon /> },
+    { view: "debug", label: "Depuración", icon: <DebugIcon /> },
   ];
 
   return (
@@ -72,7 +72,7 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
           <button
             onClick={onToggleCollapse}
             className="w-full flex justify-center hover:bg-gray-100 transition-colors rounded p-1"
-            title="Expand sidebar"
+            title="Expandir barra lateral"
           >
             <CollapseIcon collapsed={isCollapsed} />
           </button>
@@ -82,7 +82,7 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
             <button
               onClick={onToggleCollapse}
               className="p-1 hover:bg-gray-100 transition-colors rounded"
-              title="Collapse sidebar"
+              title="Contraer barra lateral"
             >
               <CollapseIcon collapsed={isCollapsed} />
             </button>

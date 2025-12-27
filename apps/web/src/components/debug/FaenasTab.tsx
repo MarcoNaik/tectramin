@@ -34,12 +34,12 @@ export function FaenasTab() {
           onChange={(e) => setSelectedCustomerId(e.target.value as Id<"customers"> | "")}
           className="border-2 border-black px-3 py-2"
         >
-          <option value="">Select customer...</option>
+          <option value="">Seleccionar cliente...</option>
           {customers?.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
         </select>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Faena Name *" className="border-2 border-black px-3 py-2 flex-1" />
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location" className="border-2 border-black px-3 py-2 flex-1" />
-        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600" disabled={!selectedCustomerId}>Add</button>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre de Faena *" className="border-2 border-black px-3 py-2 flex-1" />
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Ubicación" className="border-2 border-black px-3 py-2 flex-1" />
+        <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600" disabled={!selectedCustomerId}>Agregar</button>
       </div>
       <div className="space-y-2">
         {allFaenas?.map((f) => (
@@ -49,10 +49,10 @@ export function FaenasTab() {
               <span className="text-gray-500 ml-2">@ {getCustomerName(f.customerId)}</span>
               {f.location && <span className="text-gray-400 ml-2">({f.location})</span>}
               <span className={`ml-2 text-xs px-2 py-0.5 border-2 border-black ${f.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                {f.isActive ? "Active" : "Inactive"}
+                {f.isActive ? "Activo" : "Inactivo"}
               </span>
             </div>
-            <button onClick={() => removeFaena({ id: f._id })} className="text-red-500 text-sm font-bold hover:text-red-700">Delete</button>
+            <button onClick={() => removeFaena({ id: f._id })} className="text-red-500 text-sm font-bold hover:text-red-700">Eliminar</button>
           </div>
         ))}
       </div>

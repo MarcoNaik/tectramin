@@ -49,15 +49,15 @@ export function PreviewFieldAttachment({
       <div className="flex gap-2">
         <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
           <span className="text-xl">📷</span>
-          <div className="text-xs text-gray-600 mt-1">Camera</div>
+          <div className="text-xs text-gray-600 mt-1">Camara</div>
         </div>
         <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
           <span className="text-xl">🖼️</span>
-          <div className="text-xs text-gray-600 mt-1">Gallery</div>
+          <div className="text-xs text-gray-600 mt-1">Galeria</div>
         </div>
         <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
           <span className="text-xl">📄</span>
-          <div className="text-xs text-gray-600 mt-1">Document</div>
+          <div className="text-xs text-gray-600 mt-1">Documento</div>
         </div>
       </div>
     </div>

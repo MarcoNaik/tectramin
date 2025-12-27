@@ -97,7 +97,7 @@ export function FormDropZoneArea({
         })
       ) : (
         <div className="text-gray-400 text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-          Drag fields here to get started
+          Arrastra campos aqui para comenzar
         </div>
       )}
     </SortableContext>
