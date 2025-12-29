@@ -11,6 +11,7 @@
 import type * as admin_assignments from "../admin/assignments.js";
 import type * as admin_customers from "../admin/customers.js";
 import type * as admin_dashboardGrid from "../admin/dashboardGrid.js";
+import type * as admin_dataVisualization from "../admin/dataVisualization.js";
 import type * as admin_faenas from "../admin/faenas.js";
 import type * as admin_fieldConditions from "../admin/fieldConditions.js";
 import type * as admin_fieldResponses from "../admin/fieldResponses.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   "admin/assignments": typeof admin_assignments;
   "admin/customers": typeof admin_customers;
   "admin/dashboardGrid": typeof admin_dashboardGrid;
+  "admin/dataVisualization": typeof admin_dataVisualization;
   "admin/faenas": typeof admin_faenas;
   "admin/fieldConditions": typeof admin_fieldConditions;
   "admin/fieldResponses": typeof admin_fieldResponses;
