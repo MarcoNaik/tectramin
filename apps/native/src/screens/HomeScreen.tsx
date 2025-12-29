@@ -21,6 +21,7 @@ import { useFieldResponses } from "../hooks/useFieldResponses";
 import { useAttachments } from "../hooks/useAttachments";
 import { useUsers } from "../hooks/useUsers";
 import { useFieldConditions } from "../hooks/useFieldConditions";
+import { useAllTaskDependencies, usePrerequisiteStatus } from "../hooks/useTaskDependencies";
 import { getVisibleFields, getVisibleRequiredFields } from "../utils/conditionEvaluator";
 import { SyncStatusIcon } from "../components/SyncStatusIcon";
 import { DatePickerField } from "../components/DatePickerField";
@@ -33,7 +34,7 @@ import {
   formatFullDate,
   type DayData,
 } from "../utils/dateUtils";
-import type { DayTaskTemplate, FieldTemplate } from "../db/types";
+import type { DayTaskTemplate, FieldTemplate, TaskDependency, TaskInstance } from "../db/types";
 import type { AssignmentWithTemplates } from "../hooks/useAssignments";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -555,14 +556,75 @@ function TaskInstanceForm(props: TaskInstanceFormProps) {
   );
 }
 
+function TaskCardButton({
+  template,
+  instance,
+  assignment,
+  allTaskInstances,
+  allDependencies,
+  onSelectTask,
+  onCreateAndSelectTask,
+}: {
+  template: DayTaskTemplate & { fields: FieldTemplate[] };
+  instance: { clientId: string; status: string } | undefined;
+  assignment: AssignmentWithTemplates;
+  allTaskInstances: TaskInstance[];
+  allDependencies: TaskDependency[];
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
+}) {
+  const isCompleted = instance?.status === "completed";
+  const { canStart, blockingTasks } = usePrerequisiteStatus(
+    template.serverId,
+    assignment.serverId,
+    allTaskInstances,
+    allDependencies,
+    assignment.taskTemplates
+  );
+
+  const handlePress = () => {
+    if (!canStart && !isCompleted) {
+      Alert.alert(
+        "Tarea Bloqueada",
+        `Completa primero: ${blockingTasks.join(", ")}`
+      );
+      return;
+    }
+    if (instance) {
+      onSelectTask(instance.clientId, template);
+    } else {
+      onCreateAndSelectTask(template, assignment.serverId);
+    }
+  };
+
+  const isBlocked = !canStart && !isCompleted;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.taskButton,
+        isCompleted && styles.viewButton,
+        isBlocked && styles.blockedButton,
+      ]}
+      onPress={handlePress}
+    >
+      <Text style={[styles.taskButtonText, isBlocked && styles.blockedButtonText]}>
+        {isCompleted ? "Ver" : canStart ? "Llenar" : "Bloqueado"}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 function AssignmentTaskGroup({
   assignment,
   taskInstances,
+  allDependencies,
   onSelectTask,
   onCreateAndSelectTask,
 }: {
   assignment: AssignmentWithTemplates;
-  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; workOrderDayServerId: string; status: string }>;
+  taskInstances: TaskInstance[];
+  allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
 }) {
@@ -621,20 +683,15 @@ function AssignmentTaskGroup({
                   </View>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.taskButton, isCompleted && styles.viewButton]}
-                onPress={() => {
-                  if (instance) {
-                    onSelectTask(instance.clientId, template);
-                  } else {
-                    onCreateAndSelectTask(template, assignment.serverId);
-                  }
-                }}
-              >
-                <Text style={styles.taskButtonText}>
-                  {isCompleted ? "Ver" : "Llenar"}
-                </Text>
-              </TouchableOpacity>
+              <TaskCardButton
+                template={template}
+                instance={instance}
+                assignment={assignment}
+                allTaskInstances={taskInstances}
+                allDependencies={allDependencies}
+                onSelectTask={onSelectTask}
+                onCreateAndSelectTask={onCreateAndSelectTask}
+              />
             </View>
           </View>
         );
@@ -657,13 +714,15 @@ function EmptyDayState() {
 function DayPage({
   day,
   taskInstances,
+  allDependencies,
   onSelectTask,
   onCreateAndSelectTask,
   refreshing,
   onRefresh,
 }: {
   day: DayData;
-  taskInstances: Array<{ clientId: string; dayTaskTemplateServerId: string; status: string; workOrderDayServerId: string }>;
+  taskInstances: TaskInstance[];
+  allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   refreshing: boolean;
@@ -697,11 +756,15 @@ function DayPage({
               const assignmentTaskInstances = taskInstances.filter(
                 (ti) => ti.workOrderDayServerId === assignment.serverId
               );
+              const assignmentDependencies = allDependencies.filter(
+                (d) => d.workOrderDayServerId === assignment.serverId
+              );
               return (
                 <AssignmentTaskGroup
                   key={assignment.serverId}
                   assignment={assignment}
                   taskInstances={assignmentTaskInstances}
+                  allDependencies={assignmentDependencies}
                   onSelectTask={onSelectTask}
                   onCreateAndSelectTask={onCreateAndSelectTask}
                 />
@@ -720,6 +783,7 @@ function AssignmentsScreen() {
   const { user } = useUser();
   const { assignments } = useAssignments(user?.id ?? "");
   const { taskInstances, createTaskInstance } = useTaskInstances(user?.id ?? "");
+  const { dependencies: allDependencies } = useAllTaskDependencies();
   const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<(DayTaskTemplate & { fields: FieldTemplate[] }) | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -784,13 +848,14 @@ function AssignmentsScreen() {
       <DayPage
         day={item}
         taskInstances={taskInstances}
+        allDependencies={allDependencies}
         onSelectTask={handleSelectTask}
         onCreateAndSelectTask={handleCreateAndSelectTask}
         refreshing={syncing}
         onRefresh={handleSync}
       />
     ),
-    [taskInstances, handleSelectTask, handleCreateAndSelectTask, syncing, handleSync]
+    [taskInstances, allDependencies, handleSelectTask, handleCreateAndSelectTask, syncing, handleSync]
   );
 
   useEffect(() => {
@@ -1269,6 +1334,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontWeight: "600",
+  },
+  blockedButton: {
+    backgroundColor: "#9ca3af",
+  },
+  blockedButtonText: {
+    color: "#f3f4f6",
   },
   selectButton: {
     flexDirection: "row",
