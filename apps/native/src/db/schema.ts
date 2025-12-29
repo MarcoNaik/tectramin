@@ -131,3 +131,10 @@ export const users = sqliteTable("users", {
   fullName: text("full_name"),
   email: text("email").notNull(),
 });
+
+export const taskDependencies = sqliteTable("task_dependencies", {
+  serverId: text("server_id").primaryKey(),
+  dependentTaskServerId: text("dependent_task_server_id").notNull(),
+  prerequisiteTaskServerId: text("prerequisite_task_server_id").notNull(),
+  workOrderDayServerId: text("work_order_day_server_id").notNull(),
+});
