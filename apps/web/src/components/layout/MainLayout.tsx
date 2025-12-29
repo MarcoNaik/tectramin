@@ -6,6 +6,7 @@ import { Sidebar } from "./Sidebar";
 import { GridView } from "@/components/grid-view/GridView";
 import { FormBuilder } from "@/components/form-builder/FormBuilder";
 import { DebugView } from "@/components/debug/DebugView";
+import { DataVisualization } from "@/components/data-visualization/DataVisualization";
 
 export function MainLayout() {
   const [activeView, setActiveView] = useState<MainView>("gridView");
@@ -22,6 +23,7 @@ export function MainLayout() {
       <main className="flex-1 overflow-hidden bg-white border-2 border-black">
         {activeView === "gridView" && <GridView />}
         {activeView === "formBuilder" && <FormBuilder />}
+        {activeView === "dataVisualization" && <DataVisualization />}
         {activeView === "debug" && <DebugView />}
       </main>
     </div>

@@ -40,6 +40,15 @@ function DebugIcon({ className }: { className?: string }) {
   );
 }
 
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 3v18h18" />
+      <path d="M18 9l-5 5-4-4-3 3" />
+    </svg>
+  );
+}
+
 function CollapseIcon({ className, collapsed }: { className?: string; collapsed: boolean }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -58,7 +67,8 @@ export function Sidebar({ activeView, onViewChange, isCollapsed, onToggleCollaps
   const navItems: Array<{ view: MainView; label: string; icon: React.ReactNode }> = [
     { view: "gridView", label: "Vista de Grilla", icon: <GridIcon /> },
     { view: "formBuilder", label: "Constructor de Formularios", icon: <FormIcon /> },
-    { view: "debug", label: "Depuración", icon: <DebugIcon /> },
+    { view: "dataVisualization", label: "Visualizacion de Datos", icon: <ChartIcon /> },
+    { view: "debug", label: "Depuracion", icon: <DebugIcon /> },
   ];
 
   return (
