@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, unique } from "drizzle-orm/sqlite-core";
 
 export const workOrderDays = sqliteTable("work_order_days", {
   serverId: text("server_id").primaryKey(),
@@ -62,19 +62,28 @@ export const taskInstances = sqliteTable("task_instances", {
   ),
 });
 
-export const fieldResponses = sqliteTable("field_responses", {
-  clientId: text("client_id").primaryKey(),
-  serverId: text("server_id"),
-  taskInstanceClientId: text("task_instance_client_id").notNull(),
-  fieldTemplateServerId: text("field_template_server_id").notNull(),
-  value: text("value"),
-  userId: text("user_id").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-  syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default(
-    "synced"
-  ),
-});
+export const fieldResponses = sqliteTable(
+  "field_responses",
+  {
+    clientId: text("client_id").primaryKey(),
+    serverId: text("server_id"),
+    taskInstanceClientId: text("task_instance_client_id").notNull(),
+    fieldTemplateServerId: text("field_template_server_id").notNull(),
+    value: text("value"),
+    userId: text("user_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+    syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default(
+      "synced"
+    ),
+  },
+  (table) => [
+    unique("unique_task_field").on(
+      table.taskInstanceClientId,
+      table.fieldTemplateServerId
+    ),
+  ]
+);
 
 export const attachments = sqliteTable("attachments", {
   clientId: text("client_id").primaryKey(),
