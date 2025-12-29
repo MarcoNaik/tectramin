@@ -59,6 +59,17 @@ export const listByCategory = query({
   },
 });
 
+export const listUnassigned = query({
+  args: {},
+  returns: v.array(taskTemplateValidator),
+  handler: async (ctx) => {
+    const allTemplates = await ctx.db.query("taskTemplates").collect();
+    const allLinks = await ctx.db.query("serviceTaskTemplates").collect();
+    const linkedTemplateIds = new Set(allLinks.map((l) => l.taskTemplateId));
+    return allTemplates.filter((t) => !linkedTemplateIds.has(t._id));
+  },
+});
+
 export const getCategories = query({
   args: {},
   returns: v.array(v.string()),
