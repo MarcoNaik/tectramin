@@ -16,6 +16,7 @@ import type * as admin_faenas from "../admin/faenas.js";
 import type * as admin_fieldConditions from "../admin/fieldConditions.js";
 import type * as admin_fieldResponses from "../admin/fieldResponses.js";
 import type * as admin_fieldTemplates from "../admin/fieldTemplates.js";
+import type * as admin_serviceTaskDependencies from "../admin/serviceTaskDependencies.js";
 import type * as admin_services from "../admin/services.js";
 import type * as admin_taskInstances from "../admin/taskInstances.js";
 import type * as admin_taskTemplates from "../admin/taskTemplates.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "admin/fieldConditions": typeof admin_fieldConditions;
   "admin/fieldResponses": typeof admin_fieldResponses;
   "admin/fieldTemplates": typeof admin_fieldTemplates;
+  "admin/serviceTaskDependencies": typeof admin_serviceTaskDependencies;
   "admin/services": typeof admin_services;
   "admin/taskInstances": typeof admin_taskInstances;
   "admin/taskTemplates": typeof admin_taskTemplates;
