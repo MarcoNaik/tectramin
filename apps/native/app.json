@@ -14,7 +14,8 @@
       "backgroundColor": "#0D87E1"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kueks.tectramin"
     },
     "android": {
       "adaptiveIcon": {
