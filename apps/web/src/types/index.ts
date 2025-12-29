@@ -29,7 +29,9 @@ export interface FieldConditionData {
   createdAt: number;
 }
 
-export type MainView = "gridView" | "formBuilder" | "debug";
+export type MainView = "gridView" | "formBuilder" | "debug" | "dataVisualization";
+
+export type DatePreset = "today" | "thisWeek" | "thisMonth" | "allTime";
 
 export type DebugTab = "customers" | "faenas" | "taskTemplates" | "services" | "workOrders" | "users";
 
