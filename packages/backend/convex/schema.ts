@@ -95,6 +95,16 @@ export default defineSchema({
     .index("by_task_template", ["taskTemplateId"])
     .index("by_service_and_day", ["serviceId", "dayNumber"]),
 
+  serviceTaskDependencies: defineTable({
+    serviceTaskTemplateId: v.id("serviceTaskTemplates"),
+    dependsOnServiceTaskTemplateId: v.id("serviceTaskTemplates"),
+    serviceId: v.id("services"),
+    createdAt: v.number(),
+  })
+    .index("by_dependent", ["serviceTaskTemplateId"])
+    .index("by_prerequisite", ["dependsOnServiceTaskTemplateId"])
+    .index("by_service", ["serviceId"]),
+
   workOrders: defineTable({
     customerId: v.id("customers"),
     faenaId: v.id("faenas"),
@@ -142,6 +152,16 @@ export default defineSchema({
   })
     .index("by_work_order_day", ["workOrderDayId"])
     .index("by_task_template", ["taskTemplateId"]),
+
+  workOrderDayTaskDependencies: defineTable({
+    workOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+    dependsOnWorkOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+    workOrderDayId: v.id("workOrderDays"),
+    createdAt: v.number(),
+  })
+    .index("by_dependent", ["workOrderDayTaskTemplateId"])
+    .index("by_prerequisite", ["dependsOnWorkOrderDayTaskTemplateId"])
+    .index("by_work_order_day", ["workOrderDayId"]),
 
   taskInstances: defineTable({
     clientId: v.string(),
