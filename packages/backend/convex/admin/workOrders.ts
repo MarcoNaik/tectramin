@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 
 const workOrderValidator = v.object({
   _id: v.id("workOrders"),
@@ -381,19 +382,52 @@ export const createFromService = mutation({
       .withIndex("by_work_order", (q) => q.eq("workOrderId", workOrderId))
       .collect();
 
+    const taskMapping = new Map<
+      Id<"serviceTaskTemplates">,
+      Array<{ wodtId: Id<"workOrderDayTaskTemplates">; dayId: Id<"workOrderDays"> }>
+    >();
+
     for (const stt of serviceTaskTemplates) {
       const targetDays =
         stt.dayNumber !== undefined
           ? days.filter((d) => d.dayNumber === stt.dayNumber)
           : days;
 
+      const mappings: Array<{ wodtId: Id<"workOrderDayTaskTemplates">; dayId: Id<"workOrderDays"> }> = [];
+
       for (const day of targetDays) {
-        await ctx.db.insert("workOrderDayTaskTemplates", {
+        const wodtId = await ctx.db.insert("workOrderDayTaskTemplates", {
           workOrderDayId: day._id,
           taskTemplateId: stt.taskTemplateId,
           order: stt.order,
           isRequired: stt.isRequired,
         });
+        mappings.push({ wodtId, dayId: day._id });
+      }
+
+      taskMapping.set(stt._id, mappings);
+    }
+
+    const serviceDependencies = await ctx.db
+      .query("serviceTaskDependencies")
+      .withIndex("by_service", (q) => q.eq("serviceId", args.serviceId))
+      .collect();
+
+    for (const dep of serviceDependencies) {
+      const dependentMappings = taskMapping.get(dep.serviceTaskTemplateId) ?? [];
+      const prereqMappings = taskMapping.get(dep.dependsOnServiceTaskTemplateId) ?? [];
+
+      for (const depMapping of dependentMappings) {
+        for (const prereqMapping of prereqMappings) {
+          if (depMapping.dayId === prereqMapping.dayId) {
+            await ctx.db.insert("workOrderDayTaskDependencies", {
+              workOrderDayTaskTemplateId: depMapping.wodtId,
+              dependsOnWorkOrderDayTaskTemplateId: prereqMapping.wodtId,
+              workOrderDayId: depMapping.dayId,
+              createdAt: now,
+            });
+          }
+        }
       }
     }
 
