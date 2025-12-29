@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `unique_task_field` ON `field_responses` (`task_instance_client_id`,`field_template_server_id`);
