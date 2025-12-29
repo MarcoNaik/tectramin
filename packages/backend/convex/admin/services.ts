@@ -30,6 +30,36 @@ export const listActive = query({
   },
 });
 
+export const listWithTaskCount = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("services"),
+      name: v.string(),
+      taskCount: v.number(),
+      isActive: v.boolean(),
+    })
+  ),
+  handler: async (ctx) => {
+    const services = await ctx.db.query("services").collect();
+    const result = await Promise.all(
+      services.map(async (service) => {
+        const links = await ctx.db
+          .query("serviceTaskTemplates")
+          .withIndex("by_service", (q) => q.eq("serviceId", service._id))
+          .collect();
+        return {
+          _id: service._id,
+          name: service.name,
+          taskCount: links.length,
+          isActive: service.isActive,
+        };
+      })
+    );
+    return result;
+  },
+});
+
 export const get = query({
   args: { id: v.id("services") },
   returns: v.union(serviceValidator, v.null()),
@@ -51,6 +81,8 @@ export const getWithTaskTemplates = query({
           order: v.number(),
           isRequired: v.boolean(),
           dayNumber: v.optional(v.number()),
+          dependsOn: v.array(v.id("serviceTaskTemplates")),
+          fieldCount: v.number(),
         })
       ),
     }),
@@ -67,9 +99,21 @@ export const getWithTaskTemplates = query({
       .withIndex("by_service", (q) => q.eq("serviceId", args.id))
       .collect();
 
+    const dependencies = await ctx.db
+      .query("serviceTaskDependencies")
+      .withIndex("by_service", (q) => q.eq("serviceId", args.id))
+      .collect();
+
     const taskTemplates = await Promise.all(
       links.map(async (link) => {
         const template = await ctx.db.get(link.taskTemplateId);
+        const taskDeps = dependencies
+          .filter((d) => d.serviceTaskTemplateId === link._id)
+          .map((d) => d.dependsOnServiceTaskTemplateId);
+        const fields = await ctx.db
+          .query("fieldTemplates")
+          .withIndex("by_task_template", (q) => q.eq("taskTemplateId", link.taskTemplateId))
+          .collect();
         return {
           _id: link._id,
           taskTemplateId: link.taskTemplateId,
@@ -77,6 +121,8 @@ export const getWithTaskTemplates = query({
           order: link.order,
           isRequired: link.isRequired,
           dayNumber: link.dayNumber,
+          dependsOn: taskDeps,
+          fieldCount: fields.length,
         };
       })
     );
@@ -149,6 +195,15 @@ export const remove = mutation({
 
     if (workOrders.length > 0) {
       throw new Error("Cannot delete service with existing work orders");
+    }
+
+    const dependencies = await ctx.db
+      .query("serviceTaskDependencies")
+      .withIndex("by_service", (q) => q.eq("serviceId", args.id))
+      .collect();
+
+    for (const dep of dependencies) {
+      await ctx.db.delete(dep._id);
     }
 
     const links = await ctx.db
@@ -242,9 +297,41 @@ export const removeTaskTemplate = mutation({
       .unique();
 
     if (link) {
+      const depsAsDependant = await ctx.db
+        .query("serviceTaskDependencies")
+        .withIndex("by_dependent", (q) => q.eq("serviceTaskTemplateId", link._id))
+        .collect();
+
+      for (const dep of depsAsDependant) {
+        await ctx.db.delete(dep._id);
+      }
+
+      const depsAsPrereq = await ctx.db
+        .query("serviceTaskDependencies")
+        .withIndex("by_prerequisite", (q) => q.eq("dependsOnServiceTaskTemplateId", link._id))
+        .collect();
+
+      for (const dep of depsAsPrereq) {
+        await ctx.db.delete(dep._id);
+      }
+
       await ctx.db.delete(link._id);
     }
 
+    return null;
+  },
+});
+
+export const reorderTaskTemplates = mutation({
+  args: {
+    serviceId: v.id("services"),
+    linkIds: v.array(v.id("serviceTaskTemplates")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    for (let i = 0; i < args.linkIds.length; i++) {
+      await ctx.db.patch(args.linkIds[i], { order: i });
+    }
     return null;
   },
 });
