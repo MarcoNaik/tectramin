@@ -14,6 +14,7 @@ import {
   fieldResponses,
   attachments,
   users,
+  taskDependencies,
 } from "../db/schema";
 import type { SyncStatus } from "../sync/types";
 
@@ -40,6 +41,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const prevAttachmentsRef = useRef<string | null>(null);
   const prevUsersRef = useRef<string | null>(null);
   const prevConditionsRef = useRef<string | null>(null);
+  const prevDependenciesRef = useRef<string | null>(null);
 
   const serverAssignments = useQuery(
     api.mobile.sync.getAssignmentsForUser,
@@ -68,6 +70,11 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
   const serverConditions = useQuery(
     api.mobile.sync.getFieldConditionsForUser,
+    user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverDependencies = useQuery(
+    api.mobile.sync.getTaskDependenciesForUser,
     user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
   );
 
@@ -416,6 +423,49 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
     syncConditionData();
   }, [serverConditions, user?.id]);
+
+  useEffect(() => {
+    if (!serverDependencies || !user?.id) return;
+
+    const newHash = JSON.stringify(serverDependencies);
+    if (prevDependenciesRef.current === newHash) return;
+    prevDependenciesRef.current = newHash;
+
+    const syncDependencyData = async () => {
+      const existingDeps = await db.select().from(taskDependencies);
+      const existingIds = new Set(existingDeps.map((d) => d.serverId));
+      const serverIds = new Set(serverDependencies.map((d) => d.serverId));
+
+      for (const existing of existingDeps) {
+        if (!serverIds.has(existing.serverId)) {
+          await db
+            .delete(taskDependencies)
+            .where(eq(taskDependencies.serverId, existing.serverId));
+        }
+      }
+
+      for (const dep of serverDependencies) {
+        await db
+          .insert(taskDependencies)
+          .values({
+            serverId: dep.serverId,
+            dependentTaskServerId: dep.dependentTaskServerId,
+            prerequisiteTaskServerId: dep.prerequisiteTaskServerId,
+            workOrderDayServerId: dep.workOrderDayServerId,
+          })
+          .onConflictDoUpdate({
+            target: taskDependencies.serverId,
+            set: {
+              dependentTaskServerId: dep.dependentTaskServerId,
+              prerequisiteTaskServerId: dep.prerequisiteTaskServerId,
+              workOrderDayServerId: dep.workOrderDayServerId,
+            },
+          });
+      }
+    };
+
+    syncDependencyData();
+  }, [serverDependencies, user?.id]);
 
   useEffect(() => {
     if (!isLoaded || !user) return;
