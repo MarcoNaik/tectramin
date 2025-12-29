@@ -527,3 +527,55 @@ export const getFieldConditionsForUser = query({
     return conditions;
   },
 });
+
+export const getTaskDependenciesForUser = query({
+  args: { clerkUserId: v.string() },
+  returns: v.array(
+    v.object({
+      serverId: v.string(),
+      dependentTaskServerId: v.string(),
+      prerequisiteTaskServerId: v.string(),
+      workOrderDayServerId: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkUserId))
+      .unique();
+
+    if (!user) {
+      return [];
+    }
+
+    const assignments = await ctx.db
+      .query("workOrderDayAssignments")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const dependencies: Array<{
+      serverId: string;
+      dependentTaskServerId: string;
+      prerequisiteTaskServerId: string;
+      workOrderDayServerId: string;
+    }> = [];
+
+    for (const assignment of assignments) {
+      const dayDeps = await ctx.db
+        .query("workOrderDayTaskDependencies")
+        .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", assignment.workOrderDayId))
+        .collect();
+
+      for (const dep of dayDeps) {
+        dependencies.push({
+          serverId: dep._id as string,
+          dependentTaskServerId: dep.workOrderDayTaskTemplateId as string,
+          prerequisiteTaskServerId: dep.dependsOnWorkOrderDayTaskTemplateId as string,
+          workOrderDayServerId: dep.workOrderDayId as string,
+        });
+      }
+    }
+
+    return dependencies;
+  },
+});
