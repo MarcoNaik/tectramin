@@ -43,6 +43,13 @@
       "when": 1766894549157,
       "tag": "0005_glorious_firedrake",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1766992609075,
+      "tag": "0006_shallow_iron_lad",
+      "breakpoints": true
     }
   ]
 }
