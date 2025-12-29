@@ -24,63 +24,12 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
   const upsertResponse = useCallback(
     async (input: FieldResponseInput) => {
       const now = new Date();
+      const newClientId = uuidv4();
 
-      const existing = (responses ?? []).find(
-        (r) => r.fieldTemplateServerId === input.fieldTemplateServerId
-      );
-
-      if (existing) {
-        await db
-          .update(fieldResponses)
-          .set({
-            value: input.value,
-            updatedAt: now,
-            syncStatus: "pending",
-          })
-          .where(eq(fieldResponses.clientId, existing.clientId));
-
-        const payload = {
-          clientId: existing.clientId,
-          taskInstanceClientId: input.taskInstanceClientId,
-          fieldTemplateServerId: input.fieldTemplateServerId,
-          value: input.value,
-          userId,
-          createdAt: existing.createdAt.getTime(),
-          updatedAt: now.getTime(),
-        };
-
-        if (networkMonitor.getIsOnline()) {
-          try {
-            await convex.mutation(api.mobile.sync.upsertFieldResponse, payload);
-            await db
-              .update(fieldResponses)
-              .set({ syncStatus: "synced" })
-              .where(eq(fieldResponses.clientId, existing.clientId));
-          } catch {
-            await addToQueue(
-              "fieldResponses",
-              "update",
-              existing.clientId,
-              payload
-            );
-            await syncService.updatePendingCount();
-          }
-        } else {
-          await addToQueue(
-            "fieldResponses",
-            "update",
-            existing.clientId,
-            payload
-          );
-          await syncService.updatePendingCount();
-        }
-
-        return existing.clientId;
-      } else {
-        const clientId = uuidv4();
-
-        await db.insert(fieldResponses).values({
-          clientId,
+      const result = await db
+        .insert(fieldResponses)
+        .values({
+          clientId: newClientId,
           taskInstanceClientId: input.taskInstanceClientId,
           fieldTemplateServerId: input.fieldTemplateServerId,
           value: input.value,
@@ -88,41 +37,66 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
           createdAt: now,
           updatedAt: now,
           syncStatus: "pending",
-        });
+        })
+        .onConflictDoUpdate({
+          target: [
+            fieldResponses.taskInstanceClientId,
+            fieldResponses.fieldTemplateServerId,
+          ],
+          set: {
+            value: input.value,
+            updatedAt: now,
+            syncStatus: "pending",
+          },
+        })
+        .returning();
 
-        const payload = {
-          clientId,
-          taskInstanceClientId: input.taskInstanceClientId,
-          fieldTemplateServerId: input.fieldTemplateServerId,
-          value: input.value,
-          userId,
-          createdAt: now.getTime(),
-          updatedAt: now.getTime(),
-        };
+      const row = result[0];
+      const clientId = row.clientId;
+      const isNew = clientId === newClientId;
 
-        if (networkMonitor.getIsOnline()) {
-          try {
-            const result = await convex.mutation(
-              api.mobile.sync.upsertFieldResponse,
-              payload
-            );
-            await db
-              .update(fieldResponses)
-              .set({ serverId: result.serverId, syncStatus: "synced" })
-              .where(eq(fieldResponses.clientId, clientId));
-          } catch {
-            await addToQueue("fieldResponses", "create", clientId, payload);
-            await syncService.updatePendingCount();
-          }
-        } else {
-          await addToQueue("fieldResponses", "create", clientId, payload);
+      const payload = {
+        clientId,
+        taskInstanceClientId: input.taskInstanceClientId,
+        fieldTemplateServerId: input.fieldTemplateServerId,
+        value: input.value,
+        userId,
+        createdAt: row.createdAt.getTime(),
+        updatedAt: now.getTime(),
+      };
+
+      if (networkMonitor.getIsOnline()) {
+        try {
+          const syncResult = await convex.mutation(
+            api.mobile.sync.upsertFieldResponse,
+            payload
+          );
+          await db
+            .update(fieldResponses)
+            .set({ serverId: syncResult.serverId, syncStatus: "synced" })
+            .where(eq(fieldResponses.clientId, clientId));
+        } catch {
+          await addToQueue(
+            "fieldResponses",
+            isNew ? "create" : "update",
+            clientId,
+            payload
+          );
           await syncService.updatePendingCount();
         }
-
-        return clientId;
+      } else {
+        await addToQueue(
+          "fieldResponses",
+          isNew ? "create" : "update",
+          clientId,
+          payload
+        );
+        await syncService.updatePendingCount();
       }
+
+      return clientId;
     },
-    [convex, responses, userId]
+    [convex, userId]
   );
 
   const getResponseForField = useCallback(
