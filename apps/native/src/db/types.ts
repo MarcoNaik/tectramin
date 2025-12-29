@@ -10,6 +10,7 @@ import type {
   syncQueue,
   syncMetadata,
   users,
+  taskDependencies,
 } from "./schema";
 
 export type WorkOrderDay = InferSelectModel<typeof workOrderDays>;
@@ -41,6 +42,9 @@ export type NewSyncMetadataItem = InferInsertModel<typeof syncMetadata>;
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
+
+export type TaskDependency = InferSelectModel<typeof taskDependencies>;
+export type NewTaskDependency = InferInsertModel<typeof taskDependencies>;
 
 export type SyncStatus = "pending" | "synced";
 export type SyncOperation = "create" | "update" | "upload";
