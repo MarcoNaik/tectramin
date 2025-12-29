@@ -29,6 +29,36 @@ export interface FieldConditionData {
   createdAt: number;
 }
 
+export interface RoutineWithTaskCount {
+  _id: Id<"services">;
+  name: string;
+  taskCount: number;
+  isActive: boolean;
+}
+
+export interface ServiceTaskTemplate {
+  _id: Id<"serviceTaskTemplates">;
+  taskTemplateId: Id<"taskTemplates">;
+  taskTemplateName: string;
+  order: number;
+  isRequired: boolean;
+  dayNumber?: number;
+  dependsOn: Id<"serviceTaskTemplates">[];
+  fieldCount: number;
+}
+
+export interface TaskTemplateData {
+  _id: Id<"taskTemplates">;
+  _creationTime: number;
+  name: string;
+  description?: string;
+  category?: string;
+  isRepeatable: boolean;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type MainView = "gridView" | "formBuilder" | "debug" | "dataVisualization";
 
 export type DatePreset = "today" | "thisWeek" | "thisMonth" | "allTime";
