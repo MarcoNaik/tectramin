@@ -15,6 +15,8 @@ import {
   attachments,
   users,
   taskDependencies,
+  lookupEntityTypes,
+  lookupEntities,
 } from "../db/schema";
 import type { SyncStatus } from "../sync/types";
 
@@ -42,6 +44,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const prevUsersRef = useRef<string | null>(null);
   const prevConditionsRef = useRef<string | null>(null);
   const prevDependenciesRef = useRef<string | null>(null);
+  const prevEntityTypesRef = useRef<string | null>(null);
+  const prevEntitiesRef = useRef<string | null>(null);
 
   const serverAssignments = useQuery(
     api.mobile.sync.getAssignmentsForUser,
@@ -76,6 +80,16 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const serverDependencies = useQuery(
     api.mobile.sync.getTaskDependenciesForUser,
     user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
+  );
+
+  const serverEntityTypes = useQuery(
+    api.mobile.sync.getLookupEntityTypes,
+    isInitialized ? {} : "skip"
+  );
+
+  const serverEntities = useQuery(
+    api.mobile.sync.getLookupEntities,
+    isInitialized ? {} : "skip"
   );
 
   useEffect(() => {
@@ -466,6 +480,98 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
     syncDependencyData();
   }, [serverDependencies, user?.id]);
+
+  useEffect(() => {
+    if (!serverEntityTypes) return;
+
+    const newHash = JSON.stringify(serverEntityTypes);
+    if (prevEntityTypesRef.current === newHash) return;
+    prevEntityTypesRef.current = newHash;
+
+    const syncEntityTypeData = async () => {
+      const existingTypes = await db.select().from(lookupEntityTypes);
+      const serverIds = new Set(serverEntityTypes.map((t) => t.serverId));
+
+      for (const existing of existingTypes) {
+        if (!serverIds.has(existing.serverId)) {
+          await db
+            .delete(lookupEntityTypes)
+            .where(eq(lookupEntityTypes.serverId, existing.serverId));
+        }
+      }
+
+      for (const entityType of serverEntityTypes) {
+        await db
+          .insert(lookupEntityTypes)
+          .values({
+            serverId: entityType.serverId,
+            name: entityType.name,
+            description: entityType.description,
+            parentEntityTypeServerId: entityType.parentEntityTypeServerId,
+            isActive: entityType.isActive,
+          })
+          .onConflictDoUpdate({
+            target: lookupEntityTypes.serverId,
+            set: {
+              name: entityType.name,
+              description: entityType.description,
+              parentEntityTypeServerId: entityType.parentEntityTypeServerId,
+              isActive: entityType.isActive,
+            },
+          });
+      }
+    };
+
+    syncEntityTypeData();
+  }, [serverEntityTypes]);
+
+  useEffect(() => {
+    if (!serverEntities) return;
+
+    const newHash = JSON.stringify(serverEntities);
+    if (prevEntitiesRef.current === newHash) return;
+    prevEntitiesRef.current = newHash;
+
+    const syncEntityData = async () => {
+      const existingEntities = await db.select().from(lookupEntities);
+      const serverIds = new Set(serverEntities.map((e) => e.serverId));
+
+      for (const existing of existingEntities) {
+        if (!serverIds.has(existing.serverId)) {
+          await db
+            .delete(lookupEntities)
+            .where(eq(lookupEntities.serverId, existing.serverId));
+        }
+      }
+
+      for (const entity of serverEntities) {
+        await db
+          .insert(lookupEntities)
+          .values({
+            serverId: entity.serverId,
+            entityTypeServerId: entity.entityTypeServerId,
+            value: entity.value,
+            label: entity.label,
+            parentEntityServerId: entity.parentEntityServerId,
+            displayOrder: entity.displayOrder,
+            isActive: entity.isActive,
+          })
+          .onConflictDoUpdate({
+            target: lookupEntities.serverId,
+            set: {
+              entityTypeServerId: entity.entityTypeServerId,
+              value: entity.value,
+              label: entity.label,
+              parentEntityServerId: entity.parentEntityServerId,
+              displayOrder: entity.displayOrder,
+              isActive: entity.isActive,
+            },
+          });
+      }
+    };
+
+    syncEntityData();
+  }, [serverEntities]);
 
   useEffect(() => {
     if (!isLoaded || !user) return;
