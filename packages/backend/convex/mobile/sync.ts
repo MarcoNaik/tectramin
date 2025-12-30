@@ -579,3 +579,67 @@ export const getTaskDependenciesForUser = query({
     return dependencies;
   },
 });
+
+export const getLookupEntityTypes = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      serverId: v.string(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      parentEntityTypeServerId: v.optional(v.string()),
+      isActive: v.boolean(),
+    })
+  ),
+  handler: async (ctx) => {
+    const types = await ctx.db
+      .query("lookupEntityTypes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    return types.map((t) => ({
+      serverId: t._id as string,
+      name: t.name,
+      description: t.description,
+      parentEntityTypeServerId: t.parentEntityTypeId as string | undefined,
+      isActive: t.isActive,
+    }));
+  },
+});
+
+export const getLookupEntities = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      serverId: v.string(),
+      entityTypeServerId: v.string(),
+      value: v.string(),
+      label: v.string(),
+      parentEntityServerId: v.optional(v.string()),
+      displayOrder: v.number(),
+      isActive: v.boolean(),
+    })
+  ),
+  handler: async (ctx) => {
+    const activeTypes = await ctx.db
+      .query("lookupEntityTypes")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .collect();
+
+    const activeTypeIds = new Set(activeTypes.map((t) => t._id));
+
+    const allEntities = await ctx.db.query("lookupEntities").collect();
+
+    return allEntities
+      .filter((e) => e.isActive && activeTypeIds.has(e.entityTypeId))
+      .map((e) => ({
+        serverId: e._id as string,
+        entityTypeServerId: e.entityTypeId as string,
+        value: e.value,
+        label: e.label,
+        parentEntityServerId: e.parentEntityId as string | undefined,
+        displayOrder: e.displayOrder,
+        isActive: e.isActive,
+      }));
+  },
+});
