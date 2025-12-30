@@ -11,6 +11,8 @@ import type {
   syncMetadata,
   users,
   taskDependencies,
+  lookupEntityTypes,
+  lookupEntities,
 } from "./schema";
 
 export type WorkOrderDay = InferSelectModel<typeof workOrderDays>;
@@ -46,11 +48,17 @@ export type NewUser = InferInsertModel<typeof users>;
 export type TaskDependency = InferSelectModel<typeof taskDependencies>;
 export type NewTaskDependency = InferInsertModel<typeof taskDependencies>;
 
+export type LookupEntityType = InferSelectModel<typeof lookupEntityTypes>;
+export type NewLookupEntityType = InferInsertModel<typeof lookupEntityTypes>;
+
+export type LookupEntity = InferSelectModel<typeof lookupEntities>;
+export type NewLookupEntity = InferInsertModel<typeof lookupEntities>;
+
 export type SyncStatus = "pending" | "synced";
 export type SyncOperation = "create" | "update" | "upload";
 
 export type TaskInstanceStatus = "draft" | "completed";
-export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText" | "select" | "userSelect";
+export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText" | "select" | "userSelect" | "entitySelect";
 export type AttachmentUploadStatus = "pending" | "uploading" | "uploaded" | "failed";
 
 export interface TaskInstanceInput {
