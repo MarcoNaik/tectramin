@@ -26,7 +26,20 @@ interface TaskPreview {
   id: string;
   name: string;
   fieldCount: number;
+  fields: Array<{ label: string; fieldType: string }>;
 }
+
+const FIELD_TYPE_ICONS: Record<string, string> = {
+  text: "Aa",
+  number: "#",
+  boolean: "✓",
+  date: "📅",
+  attachment: "📎",
+  displayText: "T",
+  select: "▼",
+  userSelect: "👤",
+  entitySelect: "🔗",
+};
 
 interface MobileRoutinePreviewProps {
   routineName: string;
@@ -72,45 +85,73 @@ function SortableTaskCard({ task, isSelected, onSelect, onEdit }: SortableTaskCa
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`border-b border-gray-200 last:border-b-0 cursor-pointer transition-colors ${
-        isSelected ? "bg-blue-500" : "bg-white hover:bg-gray-50"
-      }`}
-      onClick={onSelect}
-    >
-      <div className="flex items-center p-3">
-        <div
-          {...attributes}
-          {...listeners}
-          className={`cursor-grab active:cursor-grabbing mr-2 select-none ${
-            isSelected ? "text-blue-200" : "text-gray-400"
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          ⋮⋮
-        </div>
-        <div className="flex-1">
-          <div className={`text-sm font-medium mb-1 ${isSelected ? "text-white" : "text-gray-700"}`}>
-            {task.name}
-          </div>
-          <span className={`text-xs ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
-            {task.fieldCount} campos
-          </span>
-        </div>
-        {onEdit && (
-          <span
-            className={`text-xs ${isSelected ? "text-blue-100 hover:text-white" : "text-gray-400 hover:text-blue-600"}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit();
-            }}
+    <div ref={setNodeRef} style={style}>
+      <div
+        className={`border-b border-gray-200 cursor-pointer transition-colors ${
+          isSelected ? "bg-blue-500" : "bg-white hover:bg-gray-50"
+        } ${isSelected && task.fields.length > 0 ? "" : "last:border-b-0"}`}
+        onClick={onSelect}
+      >
+        <div className="flex items-center p-3">
+          <div
+            {...attributes}
+            {...listeners}
+            className={`cursor-grab active:cursor-grabbing mr-2 select-none ${
+              isSelected ? "text-blue-200" : "text-gray-400"
+            }`}
+            onClick={(e) => e.stopPropagation()}
           >
-            Editar
-          </span>
-        )}
+            ⋮⋮
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm font-medium ${isSelected ? "text-white" : "text-gray-700"}`}>
+              {task.name}
+            </div>
+            {!isSelected && (
+              <span className="text-xs text-gray-500">
+                {task.fieldCount} campos
+              </span>
+            )}
+          </div>
+          {onEdit && (
+            <span
+              className={`text-xs ${isSelected ? "text-blue-100 hover:text-white" : "text-gray-400 hover:text-blue-600"}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              Editar
+            </span>
+          )}
+        </div>
       </div>
+      {isSelected && task.fields.length > 0 && (
+        <div className="fields-expand border-b border-gray-200 last:border-b-0">
+          <div className="bg-blue-50">
+            {task.fields.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-center px-3 py-0.5 border-t border-blue-100 first:border-t-0 group"
+              >
+                <span className="w-4 text-center text-[10px] text-blue-400">{FIELD_TYPE_ICONS[f.fieldType] ?? "?"}</span>
+                <span className="text-[10px] text-blue-600 truncate ml-1.5 flex-1">{f.label}</span>
+                {onEdit && (
+                  <span
+                    className="text-[10px] text-blue-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit();
+                    }}
+                  >
+                    Editar
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
