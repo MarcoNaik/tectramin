@@ -476,6 +476,7 @@ export function FormBuilder() {
     id: t._id,
     name: t.taskTemplateName,
     fieldCount: t.fieldCount,
+    fields: t.fields,
   })) ?? [];
 
   const handleReorderTasksFromPreview = async (taskIds: string[]) => {
