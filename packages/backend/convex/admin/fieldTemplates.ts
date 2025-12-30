@@ -59,7 +59,7 @@ export const create = mutation({
       throw new Error("Task template not found");
     }
 
-    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
+    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect", "entitySelect"];
     if (!validFieldTypes.includes(args.fieldType)) {
       throw new Error(`Invalid field type. Must be one of: ${validFieldTypes.join(", ")}`);
     }
@@ -106,7 +106,7 @@ export const update = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     if (args.fieldType) {
-      const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
+      const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect", "entitySelect"];
       if (!validFieldTypes.includes(args.fieldType)) {
         throw new Error(`Invalid field type. Must be one of: ${validFieldTypes.join(", ")}`);
       }
@@ -229,7 +229,7 @@ export const bulkCreate = mutation({
       throw new Error("Task template not found");
     }
 
-    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect"];
+    const validFieldTypes = ["text", "number", "boolean", "date", "attachment", "displayText", "select", "userSelect", "entitySelect"];
     for (const field of args.fields) {
       if (!validFieldTypes.includes(field.fieldType)) {
         throw new Error(`Invalid field type: ${field.fieldType}`);
