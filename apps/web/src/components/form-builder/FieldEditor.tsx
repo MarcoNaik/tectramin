@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import type { FieldTemplateData, FieldConditionData } from "@/types";
 import { DebouncedInput } from "@/components/ui/DebouncedInput";
@@ -9,6 +11,11 @@ import { ConditionEditor } from "./ConditionEditor";
 interface SelectOption {
   value: string;
   label: string;
+}
+
+interface EntitySelectConfig {
+  entityTypeId?: string;
+  filterByFieldId?: string;
 }
 
 function parseSelectOptions(displayStyle: string | undefined): SelectOption[] {
@@ -24,6 +31,93 @@ function parseSelectOptions(displayStyle: string | undefined): SelectOption[] {
   } catch {
     return [];
   }
+}
+
+function parseEntitySelectConfig(displayStyle: string | undefined): EntitySelectConfig {
+  if (!displayStyle) return {};
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as EntitySelectConfig;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function EntityTypeSelector({
+  config,
+  onChange,
+  allFields,
+  currentFieldId,
+}: {
+  config: EntitySelectConfig;
+  onChange: (config: EntitySelectConfig) => void;
+  allFields: FieldTemplateData[];
+  currentFieldId: Id<"fieldTemplates">;
+}) {
+  const entityTypes = useQuery(api.admin.lookupEntityTypes.listActive);
+  const selectedType = entityTypes?.find((t) => t._id === config.entityTypeId);
+  const parentEntitySelectFields = allFields.filter(
+    (f) => f.fieldType === "entitySelect" && f._id !== currentFieldId && f.order < (allFields.find((af) => af._id === currentFieldId)?.order ?? 0)
+  );
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-sm font-bold text-gray-700 mb-1">Tipo de Entidad</label>
+        <select
+          value={config.entityTypeId || ""}
+          onChange={(e) => onChange({ ...config, entityTypeId: e.target.value || undefined })}
+          className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Seleccionar tipo...</option>
+          {entityTypes?.map((type) => (
+            <option key={type._id} value={type._id}>
+              {type.name}
+              {type.parentEntityTypeId && " (hijo)"}
+            </option>
+          ))}
+        </select>
+      </div>
+      {selectedType?.parentEntityTypeId && parentEntitySelectFields.length > 0 && (
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Filtrar por Campo</label>
+          <select
+            value={config.filterByFieldId || ""}
+            onChange={(e) => onChange({ ...config, filterByFieldId: e.target.value || undefined })}
+            className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Sin filtro (mostrar todos)</option>
+            {parentEntitySelectFields.map((field) => (
+              <option key={field._id} value={field._id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Las opciones se filtrarán según la selección del campo padre
+          </p>
+        </div>
+      )}
+      {!config.entityTypeId && (
+        <p className="text-xs text-orange-500">Selecciona un tipo de entidad para configurar este campo</p>
+      )}
+      {config.entityTypeId && (
+        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <p className="text-sm text-purple-700 font-medium">
+            Opciones de: {selectedType?.name || "..."}
+          </p>
+          <p className="text-xs text-purple-600 mt-1">
+            {selectedType?.parentEntityTypeId
+              ? "Este es un tipo hijo - puede filtrar por un campo padre"
+              : "Este es un tipo raíz"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SelectOptionsEditor({
@@ -169,6 +263,7 @@ export function FieldEditor({
               <option value="displayText">Texto de Visualización</option>
               <option value="select">Selección</option>
               <option value="userSelect">Selección de Usuario</option>
+              <option value="entitySelect">Selección de Entidad</option>
             </select>
           </div>
           {selectedField.fieldType === "displayText" && (
@@ -195,6 +290,14 @@ export function FieldEditor({
               <p className="text-sm text-blue-700 font-medium">Opciones cargadas de la tabla de usuarios</p>
               <p className="text-xs text-blue-600 mt-1">Todos los usuarios aparecerán en el menú desplegable</p>
             </div>
+          )}
+          {selectedField.fieldType === "entitySelect" && (
+            <EntityTypeSelector
+              config={parseEntitySelectConfig(selectedField.displayStyle)}
+              onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
+              allFields={allFields}
+              currentFieldId={selectedField._id}
+            />
           )}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Subtítulo</label>
