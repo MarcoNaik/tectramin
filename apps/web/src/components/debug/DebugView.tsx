@@ -8,6 +8,7 @@ import { TaskTemplatesTab } from "./TaskTemplatesTab";
 import { ServicesTab } from "./ServicesTab";
 import { WorkOrdersTab } from "./WorkOrdersTab";
 import { UsersTab } from "./UsersTab";
+import { LookupEntitiesTab } from "./LookupEntitiesTab";
 
 function TabButton({
   tab,
@@ -83,6 +84,13 @@ export function DebugView() {
         >
           Usuarios
         </TabButton>
+        <TabButton
+          tab="lookupEntities"
+          active={activeTab === "lookupEntities"}
+          onClick={() => setActiveTab("lookupEntities")}
+        >
+          Entidades
+        </TabButton>
       </div>
       <div className="bg-white p-4 border-2 border-black flex-1 overflow-auto">
         {activeTab === "customers" && <CustomersTab />}
@@ -91,6 +99,7 @@ export function DebugView() {
         {activeTab === "services" && <ServicesTab />}
         {activeTab === "workOrders" && <WorkOrdersTab />}
         {activeTab === "users" && <UsersTab />}
+        {activeTab === "lookupEntities" && <LookupEntitiesTab />}
       </div>
     </div>
   );
