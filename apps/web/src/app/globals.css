@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+@keyframes expandFields {
+  from {
+    grid-template-rows: 0fr;
+  }
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+
+.fields-expand {
+  display: grid;
+  animation: expandFields 150ms ease-out forwards;
+}
+
+.fields-expand > div {
+  overflow: hidden;
+  min-height: 0;
+}
