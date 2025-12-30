@@ -45,6 +45,7 @@ export interface ServiceTaskTemplate {
   dayNumber?: number;
   dependsOn: Id<"serviceTaskTemplates">[];
   fieldCount: number;
+  fields: Array<{ label: string; fieldType: string }>;
 }
 
 export interface TaskTemplateData {
@@ -63,7 +64,7 @@ export type MainView = "gridView" | "formBuilder" | "debug" | "dataVisualization
 
 export type DatePreset = "today" | "thisWeek" | "thisMonth" | "allTime";
 
-export type DebugTab = "customers" | "faenas" | "taskTemplates" | "services" | "workOrders" | "users";
+export type DebugTab = "customers" | "faenas" | "taskTemplates" | "services" | "workOrders" | "users" | "lookupEntities";
 
 export const FIELD_TYPES = [
   { value: "text", label: "Texto", icon: "Aa" },
@@ -74,6 +75,7 @@ export const FIELD_TYPES = [
   { value: "displayText", label: "Texto de Visualizacion", icon: "T" },
   { value: "select", label: "Seleccion", icon: "▼" },
   { value: "userSelect", label: "Seleccion de Usuario", icon: "👤" },
+  { value: "entitySelect", label: "Seleccion de Entidad", icon: "🔗" },
 ] as const;
 
 export type FieldType = typeof FIELD_TYPES[number]["value"];
@@ -120,5 +122,10 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, { value: string; label: str
   attachment: [
     { value: "isEmpty", label: "Esta vacio" },
     { value: "isNotEmpty", label: "No esta vacio" },
+  ],
+  entitySelect: [
+    { value: "equals", label: "Igual a" },
+    { value: "notEquals", label: "No igual a" },
+    { value: "includes", label: "Es cualquiera de" },
   ],
 };
