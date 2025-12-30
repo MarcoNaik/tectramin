@@ -138,3 +138,21 @@ export const taskDependencies = sqliteTable("task_dependencies", {
   prerequisiteTaskServerId: text("prerequisite_task_server_id").notNull(),
   workOrderDayServerId: text("work_order_day_server_id").notNull(),
 });
+
+export const lookupEntityTypes = sqliteTable("lookup_entity_types", {
+  serverId: text("server_id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentEntityTypeServerId: text("parent_entity_type_server_id"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull(),
+});
+
+export const lookupEntities = sqliteTable("lookup_entities", {
+  serverId: text("server_id").primaryKey(),
+  entityTypeServerId: text("entity_type_server_id").notNull(),
+  value: text("value").notNull(),
+  label: text("label").notNull(),
+  parentEntityServerId: text("parent_entity_server_id"),
+  displayOrder: integer("display_order").notNull(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull(),
+});
