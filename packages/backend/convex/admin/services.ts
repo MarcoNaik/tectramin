@@ -83,6 +83,10 @@ export const getWithTaskTemplates = query({
           dayNumber: v.optional(v.number()),
           dependsOn: v.array(v.id("serviceTaskTemplates")),
           fieldCount: v.number(),
+          fields: v.array(v.object({
+            label: v.string(),
+            fieldType: v.string(),
+          })),
         })
       ),
     }),
@@ -123,6 +127,7 @@ export const getWithTaskTemplates = query({
           dayNumber: link.dayNumber,
           dependsOn: taskDeps,
           fieldCount: fields.length,
+          fields: fields.map((f) => ({ label: f.label, fieldType: f.fieldType })),
         };
       })
     );
