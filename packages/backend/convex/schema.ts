@@ -215,4 +215,29 @@ export default defineSchema({
     .index("by_client_id", ["clientId"])
     .index("by_field_response_client_id", ["fieldResponseClientId"])
     .index("by_user_and_updated", ["userId", "updatedAt"]),
+
+  lookupEntityTypes: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    parentEntityTypeId: v.optional(v.id("lookupEntityTypes")),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_parent", ["parentEntityTypeId"])
+    .index("by_active", ["isActive"]),
+
+  lookupEntities: defineTable({
+    entityTypeId: v.id("lookupEntityTypes"),
+    value: v.string(),
+    label: v.string(),
+    parentEntityId: v.optional(v.id("lookupEntities")),
+    displayOrder: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_entity_type", ["entityTypeId"])
+    .index("by_parent_entity", ["parentEntityId"])
+    .index("by_entity_type_and_active", ["entityTypeId", "isActive"]),
 });
