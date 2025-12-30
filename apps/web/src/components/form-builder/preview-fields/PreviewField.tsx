@@ -9,6 +9,7 @@ import { PreviewFieldAttachment } from "./PreviewFieldAttachment";
 import { PreviewFieldDisplayText } from "./PreviewFieldDisplayText";
 import { PreviewFieldSelect } from "./PreviewFieldSelect";
 import { PreviewFieldUserSelect } from "./PreviewFieldUserSelect";
+import { PreviewFieldEntitySelect } from "./PreviewFieldEntitySelect";
 
 interface PreviewFieldProps {
   field: FieldTemplateData;
@@ -58,6 +59,8 @@ export function PreviewField({
       return <PreviewFieldSelect {...commonProps} />;
     case "userSelect":
       return <PreviewFieldUserSelect {...commonProps} />;
+    case "entitySelect":
+      return <PreviewFieldEntitySelect {...commonProps} />;
     default:
       return <PreviewFieldText {...commonProps} onEditPlaceholder={onEditPlaceholder} />;
   }
