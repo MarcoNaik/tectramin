@@ -464,6 +464,7 @@ export function FormBuilder() {
           isRequired: false,
           dependsOn: [],
           fieldCount: 0,
+          fields: [],
         }))
       : routineWithTasks?.taskTemplates;
 
