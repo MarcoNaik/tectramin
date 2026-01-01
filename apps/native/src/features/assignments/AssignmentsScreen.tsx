@@ -58,7 +58,7 @@ export function AssignmentsScreen() {
   );
 
   const handleCreateAndSelectTask = useCallback(
-    async (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => {
+    async (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => {
       if (!user?.id) {
         Alert.alert("Error", "Usuario no autenticado");
         return;
@@ -68,6 +68,7 @@ export function AssignmentsScreen() {
           workOrderDayServerId,
           dayTaskTemplateServerId: template.serverId,
           taskTemplateServerId: template.taskTemplateServerId,
+          instanceLabel,
         });
         if (clientId) {
           setActiveTaskInstanceClientId(clientId);
