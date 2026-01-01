@@ -28,7 +28,6 @@ type WorkOrderDayGridData = {
   dayStatus: string;
   dayNumber: number;
   assignmentCount: number;
-  requiredPeople: number;
   taskCount: number;
   completedTaskCount: number;
   assignedUsers: Array<{
@@ -122,7 +121,7 @@ function WorkOrderSpan({
 
   const renderAssignmentSlots = (day: WorkOrderDayGridData) => {
     const slots = [];
-    for (let i = 0; i < day.requiredPeople; i++) {
+    for (let i = 0; i < 1; i++) {
       const user = day.assignedUsers[i];
       if (user) {
         slots.push(
@@ -259,17 +258,15 @@ function DraggableUserCard({ user }: { user: UserData }) {
 
 function SharedAssignmentRow({
   sharedUsers,
-  requiredPeople,
   allUsers,
   onRemoveShared,
 }: {
   sharedUsers: Array<Id<"users">>;
-  requiredPeople: number;
   allUsers: UserData[];
   onRemoveShared: (userId: Id<"users">) => void;
 }) {
   const slots: Array<React.ReactNode> = [];
-  for (let i = 0; i < requiredPeople; i++) {
+  for (let i = 0; i < 1; i++) {
     const userId = sharedUsers[i];
     const user = userId ? allUsers.find((u) => u._id === userId) : undefined;
     slots.push(
@@ -340,7 +337,6 @@ function ClickableUserSlot({
 function DayColumnWithClick({
   day,
   sharedUserCount,
-  requiredPeople,
   dayUsers,
   allUsers,
   onRemove,
@@ -348,13 +344,12 @@ function DayColumnWithClick({
 }: {
   day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
   sharedUserCount: number;
-  requiredPeople: number;
   dayUsers: Array<Id<"users">>;
   allUsers: UserData[];
   onRemove: (dayId: Id<"workOrderDays">, userId: Id<"users">) => void;
   onUserClick: (userId: Id<"users">, userName: string) => void;
 }) {
-  const availableSlots = Math.max(0, requiredPeople - sharedUserCount);
+  const availableSlots = Math.max(0, 1 - sharedUserCount);
   const slots: Array<React.ReactNode> = [];
 
   for (let i = 0; i < availableSlots; i++) {
@@ -573,7 +568,6 @@ function WorkOrderAssignmentModal({
   const [dayAssignments, setDayAssignments] = useState<Map<Id<"workOrderDays">, Array<Id<"users">>>>(new Map());
   const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetailView>(null);
 
-  const requiredPeople = workOrderDetails?.service?.requiredPeople ?? 1;
   const allUsers: UserData[] = users ?? [];
   const days = workOrderDetails?.days ?? [];
 
@@ -687,7 +681,7 @@ function WorkOrderAssignmentModal({
                 )}
                 {workOrderDetails && (
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {days.length} dias • {requiredPeople} personas por dia
+                    {days.length} dias
                   </div>
                 )}
               </div>
@@ -747,7 +741,6 @@ function WorkOrderAssignmentModal({
                     <div className="flex-1 flex flex-col overflow-hidden">
                       <SharedAssignmentRow
                         sharedUsers={sharedUsers}
-                        requiredPeople={requiredPeople}
                         allUsers={allUsers}
                         onRemoveShared={handleRemoveShared}
                       />
@@ -759,7 +752,6 @@ function WorkOrderAssignmentModal({
                               key={day._id}
                               day={day}
                               sharedUserCount={sharedUsers.length}
-                              requiredPeople={requiredPeople}
                               dayUsers={dayAssignments.get(day._id) ?? []}
                               allUsers={allUsers}
                               onRemove={handleRemoveFromDay}
@@ -835,7 +827,6 @@ function WorkOrderDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedServiceData = services?.find((s) => s._id === selectedService);
   const faenaData = faenas?.find((f) => f._id === faena?._id);
   const customerId = faenaData?.customerId;
 
@@ -850,15 +841,9 @@ function WorkOrderDrawer({
     setSelectedService(serviceId);
     if (serviceId) {
       const service = services?.find((s) => s._id === serviceId);
-      if (service) {
-        const start = new Date(startDate);
-        const end = new Date(start);
-        end.setDate(end.getDate() + service.defaultDays - 1);
-        setEndDate(formatDateForInput(end.getTime()));
-        if (!name) {
-          const customerName = customers?.find((c) => c._id === customerId)?.name ?? "";
-          setName(`${service.name} - ${customerName}`);
-        }
+      if (service && !name) {
+        const customerName = customers?.find((c) => c._id === customerId)?.name ?? "";
+        setName(`${service.name} - ${customerName}`);
       }
     }
   };
@@ -930,16 +915,16 @@ function WorkOrderDrawer({
           )}
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Servicio *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Rutina *</label>
             <select
               value={selectedService}
               onChange={(e) => handleServiceChange(e.target.value as Id<"services"> | "")}
               className="w-full border-2 border-black px-3 py-2 text-sm"
             >
-              <option value="">Seleccionar servicio...</option>
+              <option value="">Seleccionar rutina...</option>
               {services?.map((s) => (
                 <option key={s._id} value={s._id}>
-                  {s.name} ({s.defaultDays} dias, {s.requiredPeople} personas)
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -978,17 +963,6 @@ function WorkOrderDrawer({
             </div>
           </div>
 
-          {selectedServiceData && (
-            <div className="bg-gray-50 p-3 border-2 border-black text-sm">
-              <div className="font-bold text-gray-700">Detalles del Servicio</div>
-              <div className="text-gray-600 mt-1">
-                Duracion por defecto: {selectedServiceData.defaultDays} dias
-              </div>
-              <div className="text-gray-600">
-                Personas requeridas: {selectedServiceData.requiredPeople} por dia
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Notas</label>
