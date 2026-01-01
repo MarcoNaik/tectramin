@@ -42,6 +42,7 @@ export interface ServiceTaskTemplate {
   taskTemplateName: string;
   order: number;
   isRequired: boolean;
+  isRepeatable: boolean;
   dayNumber?: number;
   dependsOn: Id<"serviceTaskTemplates">[];
   fieldCount: number;
