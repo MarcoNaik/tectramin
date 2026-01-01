@@ -134,6 +134,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
               taskTemplateName: tt.taskTemplateName,
               order: tt.order,
               isRequired: tt.isRequired,
+              isRepeatable: tt.isRepeatable,
             })
             .onConflictDoUpdate({
               target: dayTaskTemplates.serverId,
@@ -141,6 +142,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
                 taskTemplateName: tt.taskTemplateName,
                 order: tt.order,
                 isRequired: tt.isRequired,
+                isRepeatable: tt.isRepeatable,
               },
             });
 
