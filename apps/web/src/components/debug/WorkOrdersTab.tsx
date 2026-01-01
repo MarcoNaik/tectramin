@@ -34,12 +34,11 @@ function TaskInstanceDetails({ instanceId }: { instanceId: Id<"taskInstances"> }
   );
 }
 
-function DayRow({ day, users, assign, unassign, requiredPeople }: {
+function DayRow({ day, users, assign, unassign }: {
   day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number; status: string; assignmentCount: number; taskCount: number };
   users: Array<{ _id: Id<"users">; fullName?: string; email: string; clerkId: string }>;
   assign: ReturnType<typeof useMutation>;
   unassign: ReturnType<typeof useMutation>;
-  requiredPeople: number;
 }) {
   const assignments = useQuery(api.admin.assignments.listByWorkOrderDay, { workOrderDayId: day._id });
   const taskInstances = useQuery(api.admin.taskInstances.listByWorkOrderDay, { workOrderDayId: day._id });
@@ -72,7 +71,7 @@ function DayRow({ day, users, assign, unassign, requiredPeople }: {
 
   const assignedUserIds = new Set(assignments?.map((a) => a.userId) ?? []);
   const availableUsers = users.filter((u) => !assignedUserIds.has(u._id));
-  const slotsNeeded = Math.max(0, requiredPeople - (assignments?.length ?? 0));
+  const [showAddUser, setShowAddUser] = useState(false);
 
   return (
     <div className="p-2 bg-gray-100 border-2 border-black text-sm">
@@ -83,7 +82,7 @@ function DayRow({ day, users, assign, unassign, requiredPeople }: {
             {day.status}
           </span>
           <span className="ml-2 text-xs text-gray-500">{day.taskCount} tareas</span>
-          <span className="ml-2 text-xs text-gray-400">({assignments?.length ?? 0}/{requiredPeople} personas)</span>
+          <span className="ml-2 text-xs text-gray-400">({assignments?.length ?? 0} personas)</span>
         </span>
       </div>
       {error && <div className="text-red-500 text-xs mt-1 font-medium">{error}</div>}
@@ -97,27 +96,27 @@ function DayRow({ day, users, assign, unassign, requiredPeople }: {
           ))}
         </div>
       )}
-      {slotsNeeded > 0 && (
-        <div className="mt-2 space-y-1">
-          {Array.from({ length: slotsNeeded }, (_, i) => (
-            <div key={i} className="flex gap-2">
+      {availableUsers.length > 0 && (
+        <div className="mt-2">
+          {showAddUser ? (
+            <div className="flex gap-2">
               <select
-                value={selectedUsers[i] ?? ""}
-                onChange={(e) => setSelectedUsers((prev) => ({ ...prev, [i]: e.target.value as Id<"users"> | "" }))}
+                value={selectedUsers[0] ?? ""}
+                onChange={(e) => setSelectedUsers((prev) => ({ ...prev, [0]: e.target.value as Id<"users"> | "" }))}
                 className="border-2 border-black px-2 py-1 flex-1 text-xs"
               >
-                <option value="">Persona {(assignments?.length ?? 0) + i + 1} - Seleccionar usuario... ({availableUsers.length} disponibles)</option>
+                <option value="">Seleccionar usuario... ({availableUsers.length} disponibles)</option>
                 {availableUsers.map((u) => (
-                  <option key={u._id} value={u._id}>{u.fullName ?? u.email} ({u.clerkId.slice(0, 10)}...)</option>
+                  <option key={u._id} value={u._id}>{u.fullName ?? u.email}</option>
                 ))}
               </select>
-              <button onClick={() => handleAssign(i)} className="bg-green-500 text-white px-2 py-1 text-xs font-bold border-2 border-black hover:bg-green-600" disabled={!selectedUsers[i]}>Asignar</button>
+              <button onClick={() => { handleAssign(0); setShowAddUser(false); }} className="bg-green-500 text-white px-2 py-1 text-xs font-bold border-2 border-black hover:bg-green-600" disabled={!selectedUsers[0]}>Asignar</button>
+              <button onClick={() => setShowAddUser(false)} className="text-gray-500 px-2 py-1 text-xs font-bold">Cancelar</button>
             </div>
-          ))}
+          ) : (
+            <button onClick={() => setShowAddUser(true)} className="text-blue-500 text-xs font-bold">+ Agregar persona</button>
+          )}
         </div>
-      )}
-      {slotsNeeded === 0 && (assignments?.length ?? 0) >= requiredPeople && (
-        <div className="mt-2 text-xs text-green-600 font-bold">Las {requiredPeople} personas asignadas</div>
       )}
       {taskInstances && taskInstances.length > 0 && (
         <div className="mt-3 border-t-2 border-black pt-2">
@@ -167,6 +166,7 @@ export function WorkOrdersTab() {
   const [selectedFaena, setSelectedFaena] = useState<Id<"faenas"> | "">("");
   const [selectedService, setSelectedService] = useState<Id<"services"> | "">("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
   const [expandedWO, setExpandedWO] = useState<Id<"workOrders"> | null>(null);
 
   const woDetails = useQuery(api.admin.workOrders.getWithDetails, expandedWO ? { id: expandedWO } : "skip");
@@ -180,6 +180,7 @@ export function WorkOrdersTab() {
       customerId: selectedCustomer,
       faenaId: selectedFaena,
       startDate: new Date(startDate).getTime(),
+      endDate: new Date(endDate).getTime(),
     });
     setSelectedCustomer("");
     setSelectedFaena("");
@@ -193,7 +194,7 @@ export function WorkOrdersTab() {
     <div className="space-y-4">
       <h3 className="text-lg font-bold">Órdenes de Trabajo ({workOrders?.length ?? 0})</h3>
       <div className="text-xs text-gray-500 mb-2 font-medium">Usuarios disponibles: {users?.length ?? 0}</div>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-6 gap-2">
         <select value={selectedCustomer} onChange={(e) => { setSelectedCustomer(e.target.value as Id<"customers"> | ""); setSelectedFaena(""); }} className="border-2 border-black px-2 py-2 text-sm">
           <option value="">Cliente...</option>
           {customers?.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -203,10 +204,11 @@ export function WorkOrdersTab() {
           {customerFaenas.map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
         </select>
         <select value={selectedService} onChange={(e) => setSelectedService(e.target.value as Id<"services"> | "")} className="border-2 border-black px-2 py-2 text-sm">
-          <option value="">Servicio...</option>
+          <option value="">Rutina...</option>
           {services?.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
         </select>
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border-2 border-black px-2 py-2 text-sm" />
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border-2 border-black px-2 py-2 text-sm" />
         <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 text-sm font-bold border-2 border-black hover:bg-blue-600" disabled={!selectedCustomer || !selectedFaena || !selectedService}>Crear</button>
       </div>
       <div className="space-y-2">
@@ -232,11 +234,11 @@ export function WorkOrdersTab() {
               <div className="p-3 bg-white border-t-2 border-black space-y-3">
                 <div className="text-sm text-gray-600">
                   Customer: {woDetails.customer.name} | Faena: {woDetails.faena.name}
-                  {woDetails.service && <span> | Service: {woDetails.service.name}</span>}
+                  {woDetails.service && <span> | Rutina: {woDetails.service.name}</span>}
                 </div>
                 <div className="text-sm font-bold text-gray-700">Días:</div>
                 {woDetails.days.map((day) => (
-                  <DayRow key={day._id} day={day} users={users ?? []} assign={assign} unassign={unassign} requiredPeople={woDetails.service?.requiredPeople ?? 1} />
+                  <DayRow key={day._id} day={day} users={users ?? []} assign={assign} unassign={unassign} />
                 ))}
               </div>
             )}
