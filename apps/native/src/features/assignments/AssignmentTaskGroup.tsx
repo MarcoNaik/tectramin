@@ -4,6 +4,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { TaskCardButton } from "./TaskCardButton";
+import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
 
@@ -12,7 +13,7 @@ interface AssignmentTaskGroupProps {
   taskInstances: TaskInstance[];
   allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
-  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
+  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
 }
 
 export function AssignmentTaskGroup({
@@ -49,11 +50,27 @@ export function AssignmentTaskGroup({
       </View>
 
       {assignment.taskTemplates.map((template) => {
-        const instance = taskInstances.find(
+        const instances = taskInstances.filter(
           (ti) =>
             ti.dayTaskTemplateServerId === template.serverId &&
             ti.workOrderDayServerId === assignment.serverId
         );
+
+        if (template.isRepeatable) {
+          return (
+            <RepeatableTaskCard
+              key={template.serverId}
+              template={template}
+              instances={instances}
+              assignment={assignment}
+              allDependencies={allDependencies}
+              onSelectTask={onSelectTask}
+              onCreateAndSelectTask={onCreateAndSelectTask}
+            />
+          );
+        }
+
+        const instance = instances[0];
         const isCompleted = instance?.status === "completed";
 
         return (
