@@ -68,7 +68,7 @@ export function DebugView() {
           active={activeTab === "services"}
           onClick={() => setActiveTab("services")}
         >
-          Servicios
+          Rutinas
         </TabButton>
         <TabButton
           tab="workOrders"
