@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
@@ -97,6 +97,14 @@ export function FieldValueRenderer({
     }
   }, [isEditing]);
 
+  const handleSave = useCallback(() => {
+    setIsEditing(false);
+    const newValue = localValue.trim() || undefined;
+    if (newValue !== value) {
+      debouncedUpdate(newValue);
+    }
+  }, [localValue, value, debouncedUpdate]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -108,15 +116,7 @@ export function FieldValueRenderer({
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isEditing, localValue]);
-
-  const handleSave = () => {
-    setIsEditing(false);
-    const newValue = localValue.trim() || undefined;
-    if (newValue !== value) {
-      debouncedUpdate(newValue);
-    }
-  };
+  }, [isEditing, handleSave]);
 
   const handleCancel = () => {
     setIsEditing(false);

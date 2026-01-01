@@ -79,6 +79,7 @@ export function PreviewFieldAttachment({
         )}
         {sources.includes("gallery") && (
           <div className="flex-1 bg-gray-50 py-2 rounded-md flex items-center justify-center border border-gray-200">
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image size={16} className="text-gray-500" />
           </div>
         )}

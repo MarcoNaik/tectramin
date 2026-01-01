@@ -107,6 +107,7 @@ function AttachmentSourceEditor({
             onChange={() => toggleSource("gallery")}
             className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
           />
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image size={14} className="text-gray-500" />
           <span className="text-sm text-gray-700">Galeria</span>
         </label>

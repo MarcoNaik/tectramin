@@ -38,6 +38,7 @@ export function ImagePreviewModal({
         >
           ✕
         </button>
+{/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
           alt="Attachment preview"

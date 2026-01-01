@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
@@ -102,12 +103,14 @@ export function ImageGallery({ filters, dateRange }: ImageGalleryProps) {
             >
               <button
                 onClick={() => setSelectedImage(image.attachmentUrl)}
-                className="w-full aspect-square overflow-hidden bg-gray-100 cursor-pointer"
+                className="relative w-full aspect-square overflow-hidden bg-gray-100 cursor-pointer"
               >
-                <img
+                <Image
                   src={image.attachmentUrl}
                   alt={image.fieldLabel}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform"
+                  fill
+                  unoptimized
+                  className="object-cover hover:scale-105 transition-transform"
                 />
               </button>
               <div className="p-3 space-y-1 text-sm border-t-2 border-black">
