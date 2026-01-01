@@ -11,3 +11,12 @@ dist
 .DS_Store
 
 .vercel
+
+# Build artifacts
+*.apk
+*.aab
+*.keystore
+apks_extracted/
+
+# TypeScript build info
+*.tsbuildinfo
