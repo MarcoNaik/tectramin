@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.kueks.tectramin"
     },
     "android": {
+      "package": "com.kueks.tectramin",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D87E1"
@@ -33,6 +34,11 @@
         "expo-sqlite"
       ],
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5d4c3e0e-d4af-4bb6-ba5f-e0a62c43581b"
+      }
+    }
   }
 }
