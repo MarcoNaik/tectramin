@@ -347,6 +347,13 @@ export function FormBuilder() {
     }
   };
 
+  const handleUpdateTaskRepeatable = async (isRepeatable: boolean) => {
+    const selectedTask = routineTasks?.find((t) => t._id === selectedRoutineTaskId);
+    if (selectedTask) {
+      await updateTask({ id: selectedTask.taskTemplateId, isRepeatable });
+    }
+  };
+
   const handleRemoveSelectedTaskFromRoutine = async () => {
     const selectedTask = routineTasks?.find((t) => t._id === selectedRoutineTaskId);
     if (selectedTask && selectedRoutineId && selectedRoutineId !== "unassigned") {
@@ -462,6 +469,7 @@ export function FormBuilder() {
           taskTemplateName: t.name,
           order: i,
           isRequired: false,
+          isRepeatable: t.isRepeatable,
           dependsOn: [],
           fieldCount: 0,
           fields: [],
@@ -635,10 +643,12 @@ export function FormBuilder() {
                   serviceTaskTemplateId={selectedRoutineTaskId}
                   taskName={selectedTask.taskTemplateName}
                   orderNumber={taskIndex + 1}
+                  isRepeatable={selectedTask.isRepeatable}
                   allTasksInRoutine={routineTasks ?? []}
                   currentDependencies={currentDeps}
                   onClose={() => setSelectedRoutineTaskId(null)}
                   onUpdateName={handleUpdateTaskName}
+                  onUpdateRepeatable={handleUpdateTaskRepeatable}
                   onRemoveFromRoutine={handleRemoveSelectedTaskFromRoutine}
                   onEditFields={handleEditTaskFields}
                   onToggleDependency={handleToggleDependency}
