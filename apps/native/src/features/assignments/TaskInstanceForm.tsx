@@ -31,9 +31,13 @@ function TaskInstanceFormInner({
     taskInstanceClientId,
     userId
   );
-  const { updateTaskInstanceStatus } = useTaskInstances(userId);
+  const { taskInstances, updateTaskInstanceStatus } = useTaskInstances(userId);
   const { conditions } = useFieldConditions();
   const { flushAll, getAllPending } = usePendingFieldValues();
+
+  const currentInstance = taskInstances.find(
+    (ti) => ti.clientId === taskInstanceClientId
+  );
 
   const visibleFields = useMemo(() => {
     const pendingMap = getAllPending();
@@ -90,9 +94,16 @@ function TaskInstanceFormInner({
     onComplete();
   };
 
+  const formTitle = currentInstance?.instanceLabel || template.taskTemplateName;
+
   return (
     <View style={styles.formContainer}>
-      <Text style={styles.formTitle}>{template.taskTemplateName}</Text>
+      <Text style={[styles.formTitle, !currentInstance?.instanceLabel && styles.formTitleNoSubtitle]}>
+        {formTitle}
+      </Text>
+      {currentInstance?.instanceLabel && (
+        <Text style={styles.formSubtitle}>{template.taskTemplateName}</Text>
+      )}
       {visibleFields.map((field) => (
         <FieldInput
           key={field.serverId}
@@ -127,6 +138,14 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 20,
     fontWeight: "bold",
+    marginBottom: 4,
+  },
+  formTitleNoSubtitle: {
+    marginBottom: 24,
+  },
+  formSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
     marginBottom: 24,
   },
   completeButton: {
