@@ -40,8 +40,6 @@ export default defineSchema({
   services: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
-    defaultDays: v.number(),
-    requiredPeople: v.number(),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
