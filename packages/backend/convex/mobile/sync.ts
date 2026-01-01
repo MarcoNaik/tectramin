@@ -144,6 +144,7 @@ export const getAssignmentsForUser = query({
           taskTemplateName: v.string(),
           order: v.number(),
           isRequired: v.boolean(),
+          isRepeatable: v.boolean(),
           fields: v.array(
             v.object({
               fieldTemplateServerId: v.string(),
@@ -208,6 +209,7 @@ export const getAssignmentsForUser = query({
               taskTemplateName: template?.name ?? "Unknown",
               order: dtt.order,
               isRequired: dtt.isRequired,
+              isRepeatable: template?.isRepeatable ?? false,
               fields: fieldTemplates
                 .sort((a, b) => a.order - b.order)
                 .map((f) => ({
