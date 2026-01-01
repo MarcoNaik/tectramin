@@ -9,10 +9,12 @@ interface TaskEditorProps {
   serviceTaskTemplateId: Id<"serviceTaskTemplates">;
   taskName: string;
   orderNumber: number;
+  isRepeatable: boolean;
   allTasksInRoutine: ServiceTaskTemplate[];
   currentDependencies: Id<"serviceTaskTemplates">[];
   onClose: () => void;
   onUpdateName: (name: string) => void;
+  onUpdateRepeatable: (isRepeatable: boolean) => void;
   onRemoveFromRoutine: () => void;
   onEditFields: () => void;
   onToggleDependency: (prereqId: Id<"serviceTaskTemplates">, isAdding: boolean) => void;
@@ -22,10 +24,12 @@ export function TaskEditor({
   serviceTaskTemplateId,
   taskName,
   orderNumber,
+  isRepeatable,
   allTasksInRoutine,
   currentDependencies,
   onClose,
   onUpdateName,
+  onUpdateRepeatable,
   onRemoveFromRoutine,
   onEditFields,
   onToggleDependency,
@@ -72,6 +76,24 @@ export function TaskEditor({
           >
             Editar Campos
           </button>
+
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="font-bold text-gray-700 text-sm mb-2">Opciones</h4>
+            <label className="flex items-start gap-3 cursor-pointer p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={isRepeatable}
+                onChange={(e) => onUpdateRepeatable(e.target.checked)}
+                className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Tarea Repetible</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Permite crear múltiples instancias de esta tarea
+                </p>
+              </div>
+            </label>
+          </div>
 
           <div className="border-t border-gray-200 pt-4">
             <h4 className="font-bold text-gray-700 text-sm mb-2">Prerequisitos</h4>
