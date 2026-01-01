@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useQuery } from "convex/react";
+import { useState, useMemo, useCallback } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { FieldValueRenderer } from "./FieldValueRenderer";
@@ -52,6 +52,15 @@ export function ResponsesTable({ filters, dateRange }: ResponsesTableProps) {
   const [sortField, setSortField] = useState<SortField>("responseUpdatedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const updateFieldResponse = useMutation(api.admin.fieldResponses.update);
+
+  const handleUpdateValue = useCallback(
+    (id: Id<"fieldResponses">, value: string | undefined) => {
+      updateFieldResponse({ id, value });
+    },
+    [updateFieldResponse]
+  );
 
   const data = useQuery(api.admin.dataVisualization.listAllResponses, {
     startDate: dateRange.startDate,
@@ -241,12 +250,14 @@ export function ResponsesTable({ filters, dateRange }: ResponsesTableProps) {
                     <span className="text-red-500 ml-1">*</span>
                   )}
                 </td>
-                <td className="p-2 max-w-[200px] truncate">
+                <td className="p-2 max-w-[200px]">
                   <FieldValueRenderer
                     fieldType={row.fieldType}
                     value={row.value}
                     displayStyle={row.displayStyle}
                     attachmentUrl={row.attachmentUrl}
+                    responseId={row.responseId}
+                    onUpdate={handleUpdateValue}
                   />
                 </td>
                 <td className="p-2 text-xs text-gray-500">
