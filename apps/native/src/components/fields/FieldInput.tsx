@@ -95,6 +95,7 @@ export function FieldInput({
         <AttachmentField
           label={field.label}
           isRequired={field.isRequired}
+          displayStyle={field.displayStyle}
           attachment={attachment}
           onPickImage={async (uri, fileName, mimeType, fileSize) => {
             const responseClientId = fieldResponseClientId || await ensureFieldResponse();
