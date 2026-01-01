@@ -24,7 +24,6 @@ const workOrderDayGridValidator = v.object({
   dayStatus: v.string(),
   dayNumber: v.number(),
   assignmentCount: v.number(),
-  requiredPeople: v.number(),
   taskCount: v.number(),
   completedTaskCount: v.number(),
   assignedUsers: v.array(assignedUserValidator),
@@ -89,14 +88,6 @@ export const getGridData = query({
         const faena = await ctx.db.get(workOrder.faenaId);
         if (!faena || !faena.isActive) return null;
 
-        let requiredPeople = 1;
-        if (workOrder.serviceId) {
-          const service = await ctx.db.get(workOrder.serviceId);
-          if (service) {
-            requiredPeople = service.requiredPeople;
-          }
-        }
-
         const assignments = await ctx.db
           .query("workOrderDayAssignments")
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
@@ -149,7 +140,6 @@ export const getGridData = query({
           dayStatus: day.status,
           dayNumber: day.dayNumber,
           assignmentCount: assignments.length,
-          requiredPeople,
           taskCount: tasks.length,
           completedTaskCount,
           assignedUsers,
