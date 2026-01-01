@@ -8,13 +8,36 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { Attachment, AttachmentUploadStatus } from "../db/types";
 
+type AttachmentSource = "camera" | "gallery" | "document";
+
+interface AttachmentConfig {
+  sources?: AttachmentSource[];
+}
+
+const DEFAULT_SOURCES: AttachmentSource[] = ["camera", "gallery", "document"];
+
+function parseAttachmentConfig(displayStyle: string | null | undefined): AttachmentConfig {
+  if (!displayStyle) return {};
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as AttachmentConfig;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
 interface AttachmentFieldProps {
   label: string;
   isRequired: boolean;
+  displayStyle?: string | null;
   attachment: Attachment | null;
   onPickImage: (uri: string, fileName: string, mimeType: string, fileSize: number, source: "camera" | "gallery") => Promise<void>;
   onPickDocument: (uri: string, fileName: string, mimeType: string, fileSize: number) => Promise<void>;
@@ -24,12 +47,15 @@ interface AttachmentFieldProps {
 export function AttachmentField({
   label,
   isRequired,
+  displayStyle,
   attachment,
   onPickImage,
   onPickDocument,
   onRemove,
 }: AttachmentFieldProps) {
   const [loading, setLoading] = useState(false);
+  const config = parseAttachmentConfig(displayStyle);
+  const enabledSources = config.sources && config.sources.length > 0 ? config.sources : DEFAULT_SOURCES;
 
   const handleTakePhoto = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -193,18 +219,21 @@ export function AttachmentField({
 
       {!loading && !attachment && (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleTakePhoto}>
-            <Text style={styles.actionButtonIcon}>📷</Text>
-            <Text style={styles.actionButtonText}>Cámara</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={handleChooseFromGallery}>
-            <Text style={styles.actionButtonIcon}>🖼️</Text>
-            <Text style={styles.actionButtonText}>Galería</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={handleChooseDocument}>
-            <Text style={styles.actionButtonIcon}>📄</Text>
-            <Text style={styles.actionButtonText}>Documento</Text>
-          </TouchableOpacity>
+          {enabledSources.includes("camera") && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleTakePhoto}>
+              <Ionicons name="camera-outline" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          )}
+          {enabledSources.includes("gallery") && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleChooseFromGallery}>
+              <Ionicons name="image-outline" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          )}
+          {enabledSources.includes("document") && (
+            <TouchableOpacity style={styles.actionButton} onPress={handleChooseDocument}>
+              <Ionicons name="document-text-outline" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -237,25 +266,17 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   actionButton: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
-    paddingVertical: 16,
-    borderRadius: 8,
+    backgroundColor: "#f9fafb",
+    paddingVertical: 10,
+    borderRadius: 6,
     alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: "#e5e7eb",
-  },
-  actionButtonIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: "#374151",
-    fontWeight: "500",
   },
   previewContainer: {
     backgroundColor: "#f9fafb",
