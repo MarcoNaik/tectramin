@@ -27,6 +27,7 @@ type WorkOrderDayGridData = {
   workOrderStatus: string;
   dayStatus: string;
   dayNumber: number;
+  requiredPeople: number;
   assignmentCount: number;
   taskCount: number;
   completedTaskCount: number;
@@ -121,7 +122,7 @@ function WorkOrderSpan({
 
   const renderAssignmentSlots = (day: WorkOrderDayGridData) => {
     const slots = [];
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < day.requiredPeople; i++) {
       const user = day.assignedUsers[i];
       if (user) {
         slots.push(
@@ -260,13 +261,15 @@ function SharedAssignmentRow({
   sharedUsers,
   allUsers,
   onRemoveShared,
+  maxSharedSlots,
 }: {
   sharedUsers: Array<Id<"users">>;
   allUsers: UserData[];
   onRemoveShared: (userId: Id<"users">) => void;
+  maxSharedSlots: number;
 }) {
   const slots: Array<React.ReactNode> = [];
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < maxSharedSlots; i++) {
     const userId = sharedUsers[i];
     const user = userId ? allUsers.find((u) => u._id === userId) : undefined;
     slots.push(
@@ -341,15 +344,18 @@ function DayColumnWithClick({
   allUsers,
   onRemove,
   onUserClick,
+  onUpdateRequiredPeople,
 }: {
-  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
+  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number; requiredPeople?: number };
   sharedUserCount: number;
   dayUsers: Array<Id<"users">>;
   allUsers: UserData[];
   onRemove: (dayId: Id<"workOrderDays">, userId: Id<"users">) => void;
   onUserClick: (userId: Id<"users">, userName: string) => void;
+  onUpdateRequiredPeople: (dayId: Id<"workOrderDays">, count: number) => void;
 }) {
-  const availableSlots = Math.max(0, 1 - sharedUserCount);
+  const requiredPeople = day.requiredPeople ?? 1;
+  const availableSlots = Math.max(0, requiredPeople - sharedUserCount);
   const slots: Array<React.ReactNode> = [];
 
   for (let i = 0; i < availableSlots; i++) {
@@ -372,11 +378,32 @@ function DayColumnWithClick({
     day: "numeric",
   });
 
+  const totalRequired = requiredPeople;
+  const assignedCount = sharedUserCount + dayUsers.length;
+
   return (
     <div className="flex-shrink-0 w-32 border-r border-gray-200 p-3">
-      <div className="text-xs font-bold text-gray-600 mb-3">{dateStr}</div>
+      <div className="text-xs font-bold text-gray-600 mb-1">{dateStr}</div>
+      <div className="flex items-center gap-1 mb-3">
+        <button
+          onClick={() => onUpdateRequiredPeople(day._id, Math.max(1, totalRequired - 1))}
+          className="w-5 h-5 border border-gray-300 text-gray-500 text-xs font-bold hover:bg-gray-100 disabled:opacity-30"
+          disabled={totalRequired <= 1}
+        >
+          -
+        </button>
+        <span className="text-xs font-bold px-1 text-gray-600">
+          {assignedCount}/{totalRequired}
+        </span>
+        <button
+          onClick={() => onUpdateRequiredPeople(day._id, totalRequired + 1)}
+          className="w-5 h-5 border border-gray-300 text-gray-500 text-xs font-bold hover:bg-gray-100"
+        >
+          +
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2">{slots}</div>
-      {availableSlots === 0 && (
+      {availableSlots === 0 && sharedUserCount > 0 && (
         <div className="text-xs text-gray-400 italic">Cubierto por compartidos</div>
       )}
     </div>
@@ -557,6 +584,7 @@ function WorkOrderAssignmentModal({
   const users = useQuery(api.shared.users.list);
   const assign = useMutation(api.admin.assignments.assign);
   const unassign = useMutation(api.admin.assignments.unassign);
+  const updateRequiredPeople = useMutation(api.admin.workOrderDays.updateRequiredPeople);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -570,6 +598,7 @@ function WorkOrderAssignmentModal({
 
   const allUsers: UserData[] = users ?? [];
   const days = workOrderDetails?.days ?? [];
+  const minRequiredPeople = days.length > 0 ? Math.min(...days.map(d => d.requiredPeople ?? 1)) : 1;
 
   useEffect(() => {
     if (!workOrderDetails || !users) return;
@@ -663,6 +692,10 @@ function WorkOrderAssignmentModal({
     unassign({ workOrderDayId: dayId, userId });
   };
 
+  const handleUpdateRequiredPeople = (dayId: Id<"workOrderDays">, count: number) => {
+    updateRequiredPeople({ id: dayId, requiredPeople: count });
+  };
+
   if (!isOpen || !workOrderId) return null;
 
   return (
@@ -743,6 +776,7 @@ function WorkOrderAssignmentModal({
                         sharedUsers={sharedUsers}
                         allUsers={allUsers}
                         onRemoveShared={handleRemoveShared}
+                        maxSharedSlots={minRequiredPeople}
                       />
 
                       <div className="flex-1 overflow-x-auto">
@@ -764,6 +798,7 @@ function WorkOrderAssignmentModal({
                                   dayDate: day.dayDate,
                                 });
                               }}
+                              onUpdateRequiredPeople={handleUpdateRequiredPeople}
                             />
                           ))}
                         </div>
@@ -824,6 +859,7 @@ function WorkOrderDrawer({
   const [name, setName] = useState("");
   const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [requiredPeoplePerDay, setRequiredPeoplePerDay] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -853,6 +889,7 @@ function WorkOrderDrawer({
     setName("");
     setEndDate("");
     setNotes("");
+    setRequiredPeoplePerDay(1);
     setError("");
   };
 
@@ -875,6 +912,7 @@ function WorkOrderDrawer({
         name: name.trim() || `Work Order - ${faena.name}`,
         startDate: new Date(startDateStr).getTime(),
         endDate: new Date(endDate).getTime(),
+        requiredPeoplePerDay,
         notes: notes.trim() || undefined,
       });
 
@@ -963,6 +1001,16 @@ function WorkOrderDrawer({
             </div>
           </div>
 
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Personas por Día *</label>
+            <input
+              type="number"
+              value={requiredPeoplePerDay}
+              onChange={(e) => setRequiredPeoplePerDay(Math.max(1, parseInt(e.target.value) || 1))}
+              min={1}
+              className="w-full border-2 border-black px-3 py-2 text-sm"
+            />
+          </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Notas</label>
@@ -1306,7 +1354,6 @@ export function GridView() {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- dataVersion triggers recomputation when ref data changes
   const gridData = useMemo(() => {
     if (chunkDataRef.current.size === 0) return null;
 
@@ -1322,6 +1369,7 @@ export function GridView() {
       faenas: Array.from(allFaenas.values()).sort((a, b) => a.name.localeCompare(b.name)),
       workOrderDays: allWorkOrderDays,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataVersion, weekChunks]);
 
   const dateRange = useMemo(() => {
