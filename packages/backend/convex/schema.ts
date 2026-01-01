@@ -125,6 +125,7 @@ export default defineSchema({
     dayDate: v.number(),
     dayNumber: v.number(),
     status: v.string(),
+    requiredPeople: v.optional(v.number()),
     notes: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
