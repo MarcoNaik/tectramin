@@ -1,7 +1,29 @@
 "use client";
 
+import { Camera, Image, FileText } from "lucide-react";
 import { InlineTextEditor } from "@/components/ui/InlineTextEditor";
 import type { FieldTemplateData } from "@/types";
+
+type AttachmentSource = "camera" | "gallery" | "document";
+
+interface AttachmentConfig {
+  sources?: AttachmentSource[];
+}
+
+const DEFAULT_SOURCES: AttachmentSource[] = ["camera", "gallery", "document"];
+
+function parseAttachmentConfig(displayStyle: string | undefined): AttachmentConfig {
+  if (!displayStyle) return {};
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as AttachmentConfig;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
 
 interface PreviewFieldAttachmentProps {
   field: FieldTemplateData;
@@ -22,6 +44,9 @@ export function PreviewFieldAttachment({
   onSelect,
   isSelected,
 }: PreviewFieldAttachmentProps) {
+  const config = parseAttachmentConfig(field.displayStyle);
+  const sources = config.sources || DEFAULT_SOURCES;
+
   return (
     <div
       onClick={onSelect}
@@ -46,19 +71,22 @@ export function PreviewFieldAttachment({
       {field.subheader && (
         <div className="text-xs text-gray-500 mb-1.5">{field.subheader}</div>
       )}
-      <div className="flex gap-2">
-        <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
-          <span className="text-xl">📷</span>
-          <div className="text-xs text-gray-600 mt-1">Camara</div>
-        </div>
-        <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
-          <span className="text-xl">🖼️</span>
-          <div className="text-xs text-gray-600 mt-1">Galeria</div>
-        </div>
-        <div className="flex-1 bg-gray-100 py-3 rounded-lg text-center border border-gray-200">
-          <span className="text-xl">📄</span>
-          <div className="text-xs text-gray-600 mt-1">Documento</div>
-        </div>
+      <div className="flex gap-1.5">
+        {sources.includes("camera") && (
+          <div className="flex-1 bg-gray-50 py-2 rounded-md flex items-center justify-center border border-gray-200">
+            <Camera size={16} className="text-gray-500" />
+          </div>
+        )}
+        {sources.includes("gallery") && (
+          <div className="flex-1 bg-gray-50 py-2 rounded-md flex items-center justify-center border border-gray-200">
+            <Image size={16} className="text-gray-500" />
+          </div>
+        )}
+        {sources.includes("document") && (
+          <div className="flex-1 bg-gray-50 py-2 rounded-md flex items-center justify-center border border-gray-200">
+            <FileText size={16} className="text-gray-500" />
+          </div>
+        )}
       </div>
     </div>
   );
