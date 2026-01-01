@@ -97,7 +97,6 @@ export const getWithDetails = query({
         v.object({
           _id: v.id("services"),
           name: v.string(),
-          requiredPeople: v.number(),
         })
       ),
       days: v.array(
@@ -142,7 +141,7 @@ export const getWithDetails = query({
     if (workOrder.serviceId) {
       const s = await ctx.db.get(workOrder.serviceId);
       if (s) {
-        service = { _id: s._id, name: s.name, requiredPeople: s.requiredPeople };
+        service = { _id: s._id, name: s.name };
       }
     }
 
@@ -315,6 +314,7 @@ export const createFromService = mutation({
     customerId: v.id("customers"),
     faenaId: v.id("faenas"),
     startDate: v.number(),
+    endDate: v.number(),
     name: v.optional(v.string()),
   },
   returns: v.id("workOrders"),
@@ -341,8 +341,10 @@ export const createFromService = mutation({
     const startDate = new Date(args.startDate);
     startDate.setHours(0, 0, 0, 0);
 
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + service.defaultDays - 1);
+    const endDate = new Date(args.endDate);
+    endDate.setHours(0, 0, 0, 0);
+
+    const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     const now = Date.now();
 
@@ -358,7 +360,7 @@ export const createFromService = mutation({
       updatedAt: now,
     });
 
-    for (let i = 0; i < service.defaultDays; i++) {
+    for (let i = 0; i < dayCount; i++) {
       const dayDate = new Date(startDate);
       dayDate.setDate(dayDate.getDate() + i);
 
