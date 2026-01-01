@@ -35,11 +35,12 @@ function TaskInstanceDetails({ instanceId }: { instanceId: Id<"taskInstances"> }
 }
 
 function DayRow({ day, users, assign, unassign }: {
-  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number; status: string; assignmentCount: number; taskCount: number };
+  day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number; status: string; requiredPeople?: number; assignmentCount: number; taskCount: number };
   users: Array<{ _id: Id<"users">; fullName?: string; email: string; clerkId: string }>;
   assign: ReturnType<typeof useMutation>;
   unassign: ReturnType<typeof useMutation>;
 }) {
+  const requiredPeople = day.requiredPeople ?? 1;
   const assignments = useQuery(api.admin.assignments.listByWorkOrderDay, { workOrderDayId: day._id });
   const taskInstances = useQuery(api.admin.taskInstances.listByWorkOrderDay, { workOrderDayId: day._id });
   const [selectedUsers, setSelectedUsers] = useState<Record<number, Id<"users"> | "">>({});
@@ -82,7 +83,9 @@ function DayRow({ day, users, assign, unassign }: {
             {day.status}
           </span>
           <span className="ml-2 text-xs text-gray-500">{day.taskCount} tareas</span>
-          <span className="ml-2 text-xs text-gray-400">({assignments?.length ?? 0} personas)</span>
+          <span className={`ml-2 text-xs font-bold ${(assignments?.length ?? 0) >= requiredPeople ? "text-green-600" : "text-orange-500"}`}>
+            ({assignments?.length ?? 0}/{requiredPeople} personas)
+          </span>
         </span>
       </div>
       {error && <div className="text-red-500 text-xs mt-1 font-medium">{error}</div>}
@@ -167,6 +170,7 @@ export function WorkOrdersTab() {
   const [selectedService, setSelectedService] = useState<Id<"services"> | "">("");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [requiredPeoplePerDay, setRequiredPeoplePerDay] = useState(1);
   const [expandedWO, setExpandedWO] = useState<Id<"workOrders"> | null>(null);
 
   const woDetails = useQuery(api.admin.workOrders.getWithDetails, expandedWO ? { id: expandedWO } : "skip");
@@ -181,10 +185,12 @@ export function WorkOrdersTab() {
       faenaId: selectedFaena,
       startDate: new Date(startDate).getTime(),
       endDate: new Date(endDate).getTime(),
+      requiredPeoplePerDay,
     });
     setSelectedCustomer("");
     setSelectedFaena("");
     setSelectedService("");
+    setRequiredPeoplePerDay(1);
   };
 
   const getCustomerName = (customerId: Id<"customers">) => customers?.find((c) => c._id === customerId)?.name ?? "?";
@@ -194,7 +200,7 @@ export function WorkOrdersTab() {
     <div className="space-y-4">
       <h3 className="text-lg font-bold">Órdenes de Trabajo ({workOrders?.length ?? 0})</h3>
       <div className="text-xs text-gray-500 mb-2 font-medium">Usuarios disponibles: {users?.length ?? 0}</div>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-7 gap-2">
         <select value={selectedCustomer} onChange={(e) => { setSelectedCustomer(e.target.value as Id<"customers"> | ""); setSelectedFaena(""); }} className="border-2 border-black px-2 py-2 text-sm">
           <option value="">Cliente...</option>
           {customers?.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
@@ -209,6 +215,7 @@ export function WorkOrdersTab() {
         </select>
         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border-2 border-black px-2 py-2 text-sm" />
         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border-2 border-black px-2 py-2 text-sm" />
+        <input type="number" value={requiredPeoplePerDay} onChange={(e) => setRequiredPeoplePerDay(Math.max(1, parseInt(e.target.value) || 1))} min={1} className="border-2 border-black px-2 py-2 text-sm" placeholder="Personas" title="Personas por día" />
         <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 text-sm font-bold border-2 border-black hover:bg-blue-600" disabled={!selectedCustomer || !selectedFaena || !selectedService}>Crear</button>
       </div>
       <div className="space-y-2">
