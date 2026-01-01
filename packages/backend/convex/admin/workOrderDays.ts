@@ -8,6 +8,7 @@ const workOrderDayValidator = v.object({
   dayDate: v.number(),
   dayNumber: v.number(),
   status: v.string(),
+  requiredPeople: v.optional(v.number()),
   notes: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
@@ -231,6 +232,24 @@ export const updateNotes = mutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
       notes: args.notes,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const updateRequiredPeople = mutation({
+  args: {
+    id: v.id("workOrderDays"),
+    requiredPeople: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (args.requiredPeople < 1) {
+      throw new Error("Required people must be at least 1");
+    }
+    await ctx.db.patch(args.id, {
+      requiredPeople: args.requiredPeople,
       updatedAt: Date.now(),
     });
     return null;
