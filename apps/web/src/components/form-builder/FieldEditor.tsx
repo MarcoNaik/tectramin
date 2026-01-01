@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex/react";
+import { Camera, Image, FileText } from "lucide-react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import type { FieldTemplateData, FieldConditionData } from "@/types";
@@ -16,6 +17,12 @@ interface SelectOption {
 interface EntitySelectConfig {
   entityTypeId?: string;
   filterByFieldId?: string;
+}
+
+type AttachmentSource = "camera" | "gallery" | "document";
+
+interface AttachmentConfig {
+  sources?: AttachmentSource[];
 }
 
 function parseSelectOptions(displayStyle: string | undefined): SelectOption[] {
@@ -44,6 +51,79 @@ function parseEntitySelectConfig(displayStyle: string | undefined): EntitySelect
   } catch {
     return {};
   }
+}
+
+function parseAttachmentConfig(displayStyle: string | undefined): AttachmentConfig {
+  if (!displayStyle) return {};
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as AttachmentConfig;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+const DEFAULT_ATTACHMENT_SOURCES: AttachmentSource[] = ["camera", "gallery", "document"];
+
+function AttachmentSourceEditor({
+  config,
+  onChange,
+}: {
+  config: AttachmentConfig;
+  onChange: (config: AttachmentConfig) => void;
+}) {
+  const sources = config.sources || DEFAULT_ATTACHMENT_SOURCES;
+
+  const toggleSource = (source: AttachmentSource) => {
+    const currentSources = config.sources || DEFAULT_ATTACHMENT_SOURCES;
+    const newSources = currentSources.includes(source)
+      ? currentSources.filter((s) => s !== source)
+      : [...currentSources, source];
+    if (newSources.length === 0) return;
+    onChange({ ...config, sources: newSources });
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-bold text-gray-700 mb-2">Fuentes de Adjunto</label>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sources.includes("camera")}
+            onChange={() => toggleSource("camera")}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <Camera size={14} className="text-gray-500" />
+          <span className="text-sm text-gray-700">Camara</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sources.includes("gallery")}
+            onChange={() => toggleSource("gallery")}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <Image size={14} className="text-gray-500" />
+          <span className="text-sm text-gray-700">Galeria</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={sources.includes("document")}
+            onChange={() => toggleSource("document")}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <FileText size={14} className="text-gray-500" />
+          <span className="text-sm text-gray-700">Documento</span>
+        </label>
+      </div>
+      <p className="text-xs text-gray-500 mt-2">Selecciona al menos una fuente</p>
+    </div>
+  );
 }
 
 function EntityTypeSelector({
@@ -297,6 +377,12 @@ export function FieldEditor({
               onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
               allFields={allFields}
               currentFieldId={selectedField._id}
+            />
+          )}
+          {selectedField.fieldType === "attachment" && (
+            <AttachmentSourceEditor
+              config={parseAttachmentConfig(selectedField.displayStyle)}
+              onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
             />
           )}
           <div>
