@@ -1,0 +1,1 @@
+ALTER TABLE `day_task_templates` ADD `is_repeatable` integer DEFAULT false NOT NULL;

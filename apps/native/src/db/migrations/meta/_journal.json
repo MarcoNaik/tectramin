@@ -57,6 +57,13 @@
       "when": 1767057397005,
       "tag": "0007_fixed_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1767258765822,
+      "tag": "0008_majestic_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }
