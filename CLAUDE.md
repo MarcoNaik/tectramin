@@ -69,8 +69,8 @@ Users table syncs from Clerk. Web dashboard has "Sync Current User to Database" 
 
 ### Web Debug Dashboard
 `apps/web/src/app/page.tsx` contains a tabbed debug UI for all CRUD operations:
-- Customers, Faenas, Task Templates, Services, Work Orders, Users tabs
-- Work Orders tab shows days with assignment slots based on `service.requiredPeople`
+- Customers, Faenas, Task Templates, Services (Routines), Work Orders, Users tabs
+- Work Orders tab shows days with user assignments
 - Task instances and field responses visible when mobile users fill them
 
 ## Development Workflow
