@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { Text } from "../components/Text";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
 import { db, resetDatabase } from "../db/client";
 import migrations from "../db/migrations/migrations";
