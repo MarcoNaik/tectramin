@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   Alert,
   StyleSheet,
 } from "react-native";
+import { Text } from "../../components/Text";
 import { FieldInput } from "../../components/fields";
 import { useFieldResponses } from "../../hooks/useFieldResponses";
 import { useTaskInstances } from "../../hooks/useTaskInstances";

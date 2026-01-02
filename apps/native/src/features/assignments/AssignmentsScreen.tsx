@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   FlatList,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import { Text } from "../../components/Text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useAssignments } from "../../hooks/useAssignments";

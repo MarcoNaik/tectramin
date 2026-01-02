@@ -1,8 +1,8 @@
 import {
   View,
-  Text,
   StyleSheet,
 } from "react-native";
+import { Text } from "../../components/Text";
 
 export function EmptyDayState() {
   return (

@@ -1,11 +1,11 @@
 import {
   View,
-  Text,
   ScrollView,
   RefreshControl,
   StyleSheet,
   Dimensions,
 } from "react-native";
+import { Text } from "../../components/Text";
 import { AssignmentTaskGroup } from "./AssignmentTaskGroup";
 import { EmptyDayState } from "./EmptyDayState";
 import { formatFullDate, type DayData } from "../../utils/dateUtils";
@@ -116,10 +116,11 @@ const styles = StyleSheet.create({
   },
   todayBadge: {
     backgroundColor: "#2563eb",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: 12,
     marginTop: 8,
+    flexShrink: 0,
   },
   todayBadgeText: {
     color: "#fff",
