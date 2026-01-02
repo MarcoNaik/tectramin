@@ -1,11 +1,15 @@
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   Modal,
   StyleSheet,
+  Keyboard,
+  Platform,
+  KeyboardAvoidingView,
+  Pressable,
 } from "react-native";
+import { Text } from "../Text";
 import type { SelectOption } from "../../types/select";
 
 interface OptionPickerModalProps {
@@ -25,50 +29,75 @@ export function OptionPickerModal({
   onClose,
   title,
 }: OptionPickerModalProps) {
+  const handleOpen = () => {
+    Keyboard.dismiss();
+  };
+
+  const handleSelect = (value: string) => {
+    onSelect(value);
+  };
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      onShow={handleOpen}
+      statusBarTranslucent={Platform.OS === "android"}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.optionsList}>
-            {options.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[
-                  styles.optionItem,
-                  selectedValue === opt.value && styles.optionItemSelected,
-                ]}
-                onPress={() => onSelect(opt.value)}
-              >
-                <Text style={[
-                  styles.optionItemText,
-                  selectedValue === opt.value && styles.optionItemTextSelected,
-                ]}>
-                  {opt.label}
-                </Text>
-                {selectedValue === opt.value && (
-                  <Text style={styles.optionItemCheck}>✓</Text>
-                )}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Pressable style={styles.modalOverlay} onPress={onClose}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{title}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
+            </View>
+            <ScrollView
+              style={styles.optionsList}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={true}
+            >
+              {options.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.optionItem,
+                    selectedValue === opt.value && styles.optionItemSelected,
+                  ]}
+                  onPress={() => handleSelect(opt.value)}
+                >
+                  <Text
+                    style={[
+                      styles.optionItemText,
+                      selectedValue === opt.value && styles.optionItemTextSelected,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {opt.label}
+                  </Text>
+                  {selectedValue === opt.value && (
+                    <Text style={styles.optionItemCheck}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -79,6 +108,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: "70%",
+    paddingBottom: Platform.OS === "android" ? 24 : 0,
   },
   modalHeader: {
     flexDirection: "row",
@@ -93,10 +123,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#111827",
   },
+  closeButton: {
+    padding: 8,
+  },
   modalClose: {
     fontSize: 20,
     color: "#6b7280",
-    padding: 4,
   },
   optionsList: {
     padding: 8,
@@ -114,6 +146,8 @@ const styles = StyleSheet.create({
   optionItemText: {
     fontSize: 16,
     color: "#374151",
+    flex: 1,
+    marginRight: 8,
   },
   optionItemTextSelected: {
     color: "#2563eb",
