@@ -1,8 +1,8 @@
 import {
   View,
-  Text,
   StyleSheet,
 } from "react-native";
+import { Text } from "../../components/Text";
 import { TaskCardButton } from "./TaskCardButton";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
@@ -55,6 +55,9 @@ export function AssignmentTaskGroup({
             ti.dayTaskTemplateServerId === template.serverId &&
             ti.workOrderDayServerId === assignment.serverId
         );
+        console.log("[AssignmentTaskGroup DEBUG] template:", template.taskTemplateName, "isRepeatable:", template.isRepeatable);
+        console.log("[AssignmentTaskGroup DEBUG] taskInstances total:", taskInstances.length);
+        console.log("[AssignmentTaskGroup DEBUG] filtered instances for template:", instances.length);
 
         if (template.isRepeatable) {
           return (
@@ -79,7 +82,7 @@ export function AssignmentTaskGroup({
               <View style={styles.taskCardInfo}>
                 <Text style={styles.taskCardName}>{template.taskTemplateName}</Text>
                 <View style={styles.taskCardMeta}>
-                  <Text style={styles.fieldCount}>{template.fields.length} campos</Text>
+                  <Text style={styles.fieldCount}>{template.fields.length}</Text>
                   <View style={styles.badges}>
                     {template.isRequired && (
                       <View style={styles.requiredBadge}>
@@ -148,9 +151,11 @@ const styles = StyleSheet.create({
     color: "#9ca3af",
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
+    flexShrink: 0,
+    marginLeft: 8,
   },
   pendingStatusBadge: {
     backgroundColor: "#fef3c7",
@@ -200,9 +205,10 @@ const styles = StyleSheet.create({
   },
   requiredBadge: {
     backgroundColor: "#fee2e2",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
+    flexShrink: 0,
   },
   requiredBadgeText: {
     fontSize: 10,
@@ -210,9 +216,10 @@ const styles = StyleSheet.create({
   },
   completedBadge: {
     backgroundColor: "#d1fae5",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
+    flexShrink: 0,
   },
   completedBadgeText: {
     fontSize: 10,

@@ -1,11 +1,11 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Pressable,
 } from "react-native";
+import { Text } from "../../components/Text";
 import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
 
@@ -26,6 +26,9 @@ export function RepeatableTaskCard({
   onSelectTask,
   onCreateAndSelectTask,
 }: RepeatableTaskCardProps) {
+  console.log("[RepeatableTaskCard DEBUG] template:", template.taskTemplateName, "serverId:", template.serverId);
+  console.log("[RepeatableTaskCard DEBUG] instances received:", instances.length, instances.map(i => ({ clientId: i.clientId, label: i.instanceLabel })));
+
   const [isExpanded, setIsExpanded] = useState(true);
 
   const completedCount = instances.filter((i) => i.status === "completed").length;
@@ -86,7 +89,7 @@ export function RepeatableTaskCard({
           <View style={styles.headerInfo}>
             <Text style={styles.taskName}>{template.taskTemplateName}</Text>
             <View style={styles.headerMeta}>
-              <Text style={styles.fieldCount}>{template.fields.length} campos</Text>
+              <Text style={styles.fieldCount}>{template.fields.length}</Text>
             </View>
           </View>
         </View>
@@ -207,12 +210,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
+    marginLeft: 8,
   },
   countBadge: {
     backgroundColor: "#dbeafe",
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 10,
+    flexShrink: 0,
   },
   countBadgeText: {
     fontSize: 11,
@@ -221,9 +227,10 @@ const styles = StyleSheet.create({
   },
   repeatableBadge: {
     backgroundColor: "#f3e8ff",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
+    flexShrink: 0,
   },
   repeatableBadgeText: {
     fontSize: 10,
@@ -268,6 +275,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
+    flexShrink: 0,
+    marginLeft: 8,
   },
   statusBadgeText: {
     fontSize: 11,

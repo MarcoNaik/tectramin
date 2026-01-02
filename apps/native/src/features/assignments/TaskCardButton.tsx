@@ -1,9 +1,9 @@
 import {
   TouchableOpacity,
-  Text,
   Alert,
   StyleSheet,
 } from "react-native";
+import { Text } from "../../components/Text";
 import { usePrerequisiteStatus } from "../../hooks/useTaskDependencies";
 import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
@@ -75,6 +75,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 6,
+    flexShrink: 0,
+    minWidth: 70,
+    alignItems: "center",
   },
   taskButtonText: {
     color: "#fff",
