@@ -1,12 +1,13 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSignIn, useSSO } from "@clerk/clerk-expo";
+import { Text } from "../components/Text";
 
 export function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -54,14 +55,16 @@ export function SignInScreen() {
         style={styles.oauthButton}
         onPress={() => handleOAuthSignIn("oauth_google")}
       >
-        <Text style={styles.oauthButtonText}>Iniciar sesión con Google</Text>
+        <Ionicons name="logo-google" size={22} color="#4285F4" />
+        <Text style={styles.oauthButtonText}>Google</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.oauthButton}
         onPress={() => handleOAuthSignIn("oauth_microsoft")}
       >
-        <Text style={styles.oauthButtonText}>Iniciar sesión con Microsoft</Text>
+        <Ionicons name="logo-microsoft" size={22} color="#00A4EF" />
+        <Text style={styles.oauthButtonText}>Microsoft</Text>
       </TouchableOpacity>
 
       <View style={styles.separator}>
@@ -134,16 +137,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#d1d5db",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
     width: "100%",
-    alignItems: "center",
     marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
   oauthButtonText: {
     color: "#374151",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
   },
   separator: {
