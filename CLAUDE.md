@@ -232,6 +232,21 @@ Server:            clientId: "abc-123", _id: "convex_xyz" → Convex
 
 ## Native App Conventions
 
+### IMPORTANT: Custom Text Component
+**NEVER use `Text` from `react-native` directly.** Always use the custom `Text` component from `src/components/Text.tsx`.
+
+This is required because React Native has a [known Android bug](https://github.com/facebook/react-native/issues/53286) that cuts off the last characters of text. Our custom component automatically applies the fix (`textBreakStrategy="simple"` + trailing spaces) on Android while keeping iOS unchanged.
+
+```typescript
+// ❌ WRONG - Do not do this
+import { Text } from "react-native";
+
+// ✅ CORRECT - Always do this
+import { Text } from "../components/Text";
+// or
+import { Text } from "../../components/Text";
+```
+
 ### Hook Pattern
 All data hooks follow this structure:
 ```typescript
