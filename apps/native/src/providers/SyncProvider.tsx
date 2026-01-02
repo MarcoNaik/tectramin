@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { useConvex, useQuery } from "convex/react";
 import { useUser } from "@clerk/clerk-expo";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { api } from "@packages/backend/convex/_generated/api";
 import { syncService } from "../sync/SyncService";
 import { db } from "../db/client";
@@ -192,6 +192,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
     prevInstancesRef.current = newHash;
 
     const syncInstances = async () => {
+      console.log("[SYNC DEBUG] serverTaskInstances count:", serverTaskInstances.length);
+      console.log("[SYNC DEBUG] serverTaskInstances:", serverTaskInstances.map(i => ({ clientId: i.clientId, label: i.instanceLabel, dayTaskTemplateServerId: i.dayTaskTemplateServerId })));
       for (const instance of serverTaskInstances) {
         const local = await db
           .select()
@@ -201,23 +203,6 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
         if (local.length > 0 && local[0].syncStatus === "pending") {
           continue;
-        }
-
-        const duplicates = await db
-          .select()
-          .from(taskInstances)
-          .where(
-            and(
-              eq(taskInstances.workOrderDayServerId, instance.workOrderDayServerId),
-              eq(taskInstances.dayTaskTemplateServerId, instance.dayTaskTemplateServerId),
-              eq(taskInstances.userId, instance.userId)
-            )
-          );
-
-        for (const dup of duplicates) {
-          if (dup.clientId !== instance.clientId) {
-            await db.delete(taskInstances).where(eq(taskInstances.clientId, dup.clientId));
-          }
         }
 
         if (local.length > 0) {
