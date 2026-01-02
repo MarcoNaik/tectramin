@@ -1,13 +1,13 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Image,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Text } from "./Text";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
@@ -39,6 +39,7 @@ interface AttachmentFieldProps {
   isRequired: boolean;
   displayStyle?: string | null;
   attachment: Attachment | null;
+  isLocalPreview?: boolean;
   onPickImage: (uri: string, fileName: string, mimeType: string, fileSize: number, source: "camera" | "gallery") => Promise<void>;
   onPickDocument: (uri: string, fileName: string, mimeType: string, fileSize: number) => Promise<void>;
   onRemove: () => Promise<void>;
@@ -49,6 +50,7 @@ export function AttachmentField({
   isRequired,
   displayStyle,
   attachment,
+  isLocalPreview = false,
   onPickImage,
   onPickDocument,
   onRemove,
@@ -198,9 +200,15 @@ export function AttachmentField({
           ) : (
             <View style={styles.documentPreview}>
               <Text style={styles.documentIcon}>📄</Text>
-              <Text style={styles.documentName} numberOfLines={1}>
+              <Text style={styles.documentName}>
                 {attachment.fileName}
               </Text>
+            </View>
+          )}
+          {isLocalPreview && (
+            <View style={styles.localPreviewBanner}>
+              <ActivityIndicator size="small" color="#6b7280" />
+              <Text style={styles.localPreviewText}>Sincronizando con base de datos...</Text>
             </View>
           )}
           <View style={styles.statusContainer}>
@@ -338,5 +346,21 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "500",
     fontSize: 14,
+  },
+  localPreviewBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fef3c7",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 8,
+    gap: 8,
+  },
+  localPreviewText: {
+    fontSize: 12,
+    color: "#92400e",
+    fontWeight: "500",
   },
 });

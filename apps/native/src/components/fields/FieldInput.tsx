@@ -1,9 +1,9 @@
 import {
   View,
-  Text,
   Switch,
   StyleSheet,
 } from "react-native";
+import { Text } from "../Text";
 import { SelectField } from "./SelectField";
 import { UserSelectField } from "./UserSelectField";
 import { EntitySelectField } from "./EntitySelectField";
@@ -32,7 +32,7 @@ export function FieldInput({
   ensureFieldResponse,
   getResponseForField,
 }: FieldInputProps) {
-  const { attachment, createAttachment, removeAttachment } = useAttachments(
+  const { attachment, isLocalPreview, createAttachment, removeAttachment } = useAttachments(
     fieldResponseClientId ?? "",
     userId
   );
@@ -97,6 +97,7 @@ export function FieldInput({
           isRequired={field.isRequired}
           displayStyle={field.displayStyle}
           attachment={attachment}
+          isLocalPreview={isLocalPreview}
           onPickImage={async (uri, fileName, mimeType, fileSize) => {
             const responseClientId = fieldResponseClientId || await ensureFieldResponse();
             const clientId = await createAttachment({
