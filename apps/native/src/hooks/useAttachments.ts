@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
@@ -28,17 +28,40 @@ export interface AttachmentInput {
 export function useAttachments(fieldResponseClientId: string, userId: string) {
   const convex = useConvex();
   const hasValidId = fieldResponseClientId && fieldResponseClientId.length > 0;
+  const [pendingAttachmentId, setPendingAttachmentId] = useState<string | null>(null);
+  const [localAttachment, setLocalAttachment] = useState<Attachment | null>(null);
+  const localAttachmentRef = useRef<Attachment | null>(null);
 
-  const { data: attachmentData } = useLiveQuery(
-    hasValidId
-      ? db
-          .select()
-          .from(attachments)
-          .where(eq(attachments.fieldResponseClientId, fieldResponseClientId))
-      : db.select().from(attachments).where(eq(attachments.clientId, "__never_match__"))
+  const { data: allUserAttachments } = useLiveQuery(
+    db.select().from(attachments).where(eq(attachments.userId, userId))
   );
 
-  const attachment = hasValidId ? (attachmentData?.[0] ?? null) : null;
+  const attachmentFromQuery = useMemo(() => {
+    if (!allUserAttachments) return null;
+    if (pendingAttachmentId) {
+      return allUserAttachments.find(a => a.clientId === pendingAttachmentId) ?? null;
+    }
+    if (hasValidId) {
+      return allUserAttachments.find(a => a.fieldResponseClientId === fieldResponseClientId) ?? null;
+    }
+    return null;
+  }, [allUserAttachments, pendingAttachmentId, hasValidId, fieldResponseClientId]);
+
+  useEffect(() => {
+    if (attachmentFromQuery && pendingAttachmentId) {
+      setPendingAttachmentId(null);
+    }
+  }, [attachmentFromQuery, pendingAttachmentId]);
+
+  useEffect(() => {
+    if (attachmentFromQuery && localAttachment) {
+      setLocalAttachment(null);
+      localAttachmentRef.current = null;
+    }
+  }, [attachmentFromQuery, localAttachment]);
+
+  const attachment = attachmentFromQuery ?? localAttachment ?? null;
+  const isLocalPreview = localAttachment !== null && !attachmentFromQuery;
 
   const createAttachment = useCallback(
     async (input: AttachmentInput): Promise<string> => {
@@ -48,10 +71,13 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
 
       const localUri = await saveToLocalStorage(input.uri, input.fileName);
 
-      await db.insert(attachments).values({
+      const newAttachment: Attachment = {
         clientId,
+        serverId: null,
         fieldResponseClientId: input.fieldResponseClientId,
         localUri,
+        storageId: null,
+        storageUrl: null,
         fileName: input.fileName,
         fileType,
         mimeType: input.mimeType,
@@ -61,7 +87,13 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
         createdAt: now,
         updatedAt: now,
         syncStatus: "pending",
-      });
+      };
+
+      await db.insert(attachments).values(newAttachment);
+
+      setLocalAttachment(newAttachment);
+      localAttachmentRef.current = newAttachment;
+      setPendingAttachmentId(clientId);
 
       if (networkMonitor.getIsOnline()) {
         try {
@@ -69,6 +101,11 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
             .update(attachments)
             .set({ uploadStatus: "uploading" })
             .where(eq(attachments.clientId, clientId));
+
+          if (localAttachmentRef.current?.clientId === clientId) {
+            setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "uploading" });
+            localAttachmentRef.current = { ...localAttachmentRef.current, uploadStatus: "uploading" };
+          }
 
           const result = await uploadAndSaveAttachment(
             convex,
@@ -92,11 +129,25 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
                 syncStatus: "synced",
               })
               .where(eq(attachments.clientId, clientId));
+
+            if (localAttachmentRef.current?.clientId === clientId) {
+              setLocalAttachment({
+                ...localAttachmentRef.current,
+                serverId: result.serverId ?? null,
+                storageId: result.storageId,
+                uploadStatus: "uploaded",
+                syncStatus: "synced",
+              });
+            }
           } else {
             await db
               .update(attachments)
               .set({ uploadStatus: "failed" })
               .where(eq(attachments.clientId, clientId));
+
+            if (localAttachmentRef.current?.clientId === clientId) {
+              setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "failed" });
+            }
 
             const payload = {
               clientId,
@@ -119,6 +170,10 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
             .update(attachments)
             .set({ uploadStatus: "failed" })
             .where(eq(attachments.clientId, clientId));
+
+          if (localAttachmentRef.current?.clientId === clientId) {
+            setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "failed" });
+          }
 
           const payload = {
             clientId,
@@ -172,11 +227,13 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
           clientId: attachment.clientId,
         });
       } catch {
-        // Ignore removal errors on server
       }
     }
 
     await db.delete(attachments).where(eq(attachments.clientId, attachment.clientId));
+    setLocalAttachment(null);
+    localAttachmentRef.current = null;
+    setPendingAttachmentId(null);
   }, [attachment, convex]);
 
   const retryUpload = useCallback(async (): Promise<void> => {
@@ -230,6 +287,7 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
 
   return {
     attachment,
+    isLocalPreview,
     createAttachment,
     removeAttachment,
     retryUpload,
