@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { Text } from "./Text";
 import { useSyncStatus } from "../hooks/useSyncStatus";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 
@@ -55,6 +56,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
   },
   dot: {
     width: 8,
