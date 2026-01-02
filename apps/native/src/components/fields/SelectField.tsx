@@ -1,10 +1,10 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { Text } from "../Text";
 import { OptionPickerModal } from "../common/OptionPickerModal";
 import { parseSelectOptions } from "../../types/select";
 import type { FieldTemplate } from "../../db/types";

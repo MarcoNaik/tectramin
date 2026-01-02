@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { Text } from "../Text";
 import { OptionPickerModal } from "../common/OptionPickerModal";
 import { useLookupEntities } from "../../hooks/useLookupEntities";
 import type { FieldTemplate } from "../../db/types";

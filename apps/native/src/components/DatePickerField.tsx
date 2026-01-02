@@ -1,11 +1,11 @@
 import { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
 } from "react-native";
+import { Text } from "./Text";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 interface DatePickerFieldProps {
