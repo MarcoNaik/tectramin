@@ -81,10 +81,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 6,
-    color: "#374151",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#111827",
   },
   input: {
     borderWidth: 1,
