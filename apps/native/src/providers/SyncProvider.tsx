@@ -359,12 +359,14 @@ export function SyncProvider({ children }: SyncProviderProps) {
             serverId: serverUser.serverId,
             fullName: serverUser.fullName,
             email: serverUser.email,
+            role: serverUser.role,
           })
           .onConflictDoUpdate({
             target: users.serverId,
             set: {
               fullName: serverUser.fullName,
               email: serverUser.email,
+              role: serverUser.role,
             },
           });
       }
