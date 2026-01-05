@@ -529,7 +529,7 @@ function WorkOrderDayTasks({
   };
 
   return (
-    <div className="p-3 bg-gray-50 border-2 border-black min-w-[200px]">
+    <div className="p-3 bg-gray-50 border-2 border-black w-[200px] flex-shrink-0">
       <div className="text-xs font-bold mb-2">
         Dia {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("es-CL", { weekday: "short", month: "short", day: "numeric" })}
       </div>
@@ -537,31 +537,32 @@ function WorkOrderDayTasks({
         <div className="space-y-1 mb-2">
           {dayTasks.map((task) => (
             <div key={task._id} className="flex items-center justify-between text-xs bg-white border-2 border-black px-2 py-1">
-              <span className="font-medium">{task.taskTemplateName}</span>
-              <button onClick={() => handleRemoveTask(task.taskTemplateId)} className="text-gray-400 hover:text-red-500 font-bold">×</button>
+              <span className="font-medium truncate flex-1">{task.taskTemplateName}</span>
+              <button onClick={() => handleRemoveTask(task.taskTemplateId)} className="text-gray-400 hover:text-red-500 font-bold ml-1 flex-shrink-0">×</button>
             </div>
           ))}
         </div>
       )}
       {availableTasks.length > 0 && (
-        <div className="flex gap-1">
+        <div className="space-y-1">
           <select
             value={selectedTask}
             onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
-            className="flex-1 border-2 border-black px-2 py-1 text-xs"
+            className="w-full border-2 border-black px-2 py-1 text-xs"
           >
             <option value="">Agregar tarea...</option>
             {availableTasks.map((t) => (
               <option key={t._id} value={t._id}>{t.name}</option>
             ))}
           </select>
-          <button
-            onClick={handleAddTask}
-            disabled={!selectedTask}
-            className="border-2 border-black bg-white px-2 py-1 text-xs font-bold hover:bg-gray-100 disabled:opacity-50"
-          >
-            Agregar
-          </button>
+          {selectedTask && (
+            <button
+              onClick={handleAddTask}
+              className="w-full border-2 border-black bg-white px-2 py-1 text-xs font-bold hover:bg-gray-100"
+            >
+              Agregar
+            </button>
+          )}
         </div>
       )}
     </div>
