@@ -1,2 +1,6 @@
 .env.local
 .env.production
+
+*.apk
+*.aab
+mapping-*.txt
