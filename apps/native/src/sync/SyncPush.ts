@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
-import { taskInstances, fieldResponses, attachments } from "../db/schema";
+import { taskInstances, fieldResponses, attachments, workOrderDays } from "../db/schema";
 import {
   getQueuedOperations,
   removeFromQueue,
@@ -12,6 +12,7 @@ import type {
   LocalTaskInstancePayload,
   LocalFieldResponsePayload,
   LocalAttachmentPayload,
+  LocalWorkOrderDayStatusPayload,
 } from "./types";
 import { uploadAndSaveAttachment } from "../services/AttachmentUploader";
 
@@ -172,6 +173,37 @@ export async function pushChanges(convex: ConvexReactClient): Promise<{
       await incrementRetryCount(op.id);
       errors.push(
         `Failed to push attachment ${op.operation}: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  const workOrderDayOps = operations.filter(
+    (op) => op.tableName === "workOrderDays"
+  );
+
+  for (const op of workOrderDayOps) {
+    if ((op.retryCount ?? 0) >= MAX_RETRIES) {
+      errors.push(`Operation ${op.id} exceeded max retries`);
+      continue;
+    }
+
+    try {
+      const payload = JSON.parse(op.payload) as LocalWorkOrderDayStatusPayload;
+      await convex.mutation(api.mobile.sync.updateWorkOrderDayStatus, {
+        workOrderDayServerId: payload.workOrderDayServerId,
+        status: payload.status,
+      });
+
+      await db
+        .update(workOrderDays)
+        .set({ syncStatus: "synced" })
+        .where(eq(workOrderDays.serverId, payload.workOrderDayServerId));
+
+      await removeFromQueue(op.id);
+    } catch (error) {
+      await incrementRetryCount(op.id);
+      errors.push(
+        `Failed to push workOrderDay status ${op.operation}: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }

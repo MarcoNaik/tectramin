@@ -58,3 +58,8 @@ export interface LocalAttachmentPayload {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface LocalWorkOrderDayStatusPayload {
+  workOrderDayServerId: string;
+  status: string;
+}
