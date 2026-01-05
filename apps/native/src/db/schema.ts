@@ -10,6 +10,7 @@ export const workOrderDays = sqliteTable("work_order_days", {
   dayNumber: integer("day_number").notNull(),
   status: text("status").notNull(),
   userId: text("user_id").notNull(),
+  syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default("synced"),
 });
 
 export const dayTaskTemplates = sqliteTable("day_task_templates", {
@@ -131,6 +132,7 @@ export const users = sqliteTable("users", {
   serverId: text("server_id").primaryKey(),
   fullName: text("full_name"),
   email: text("email").notNull(),
+  role: text("role"),
 });
 
 export const taskDependencies = sqliteTable("task_dependencies", {
