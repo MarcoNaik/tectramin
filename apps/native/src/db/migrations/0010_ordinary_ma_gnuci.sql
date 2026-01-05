@@ -1,0 +1,1 @@
+ALTER TABLE `work_order_days` ADD `sync_status` text DEFAULT 'synced';

@@ -64,6 +64,20 @@
       "when": 1767258765822,
       "tag": "0008_majestic_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1767598335773,
+      "tag": "0009_known_forgotten_one",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1767601876151,
+      "tag": "0010_ordinary_ma_gnuci",
+      "breakpoints": true
     }
   ]
 }

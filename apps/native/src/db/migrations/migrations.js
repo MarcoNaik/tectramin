@@ -10,6 +10,8 @@ import m0005 from './0005_glorious_firedrake.sql';
 import m0006 from './0006_shallow_iron_lad.sql';
 import m0007 from './0007_fixed_vapor.sql';
 import m0008 from './0008_majestic_phantom_reporter.sql';
+import m0009 from './0009_known_forgotten_one.sql';
+import m0010 from './0010_ordinary_ma_gnuci.sql';
 
   export default {
     journal,
@@ -22,7 +24,9 @@ m0004,
 m0005,
 m0006,
 m0007,
-m0008
+m0008,
+m0009,
+m0010
     }
   }
   
