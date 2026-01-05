@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { Attachment, AttachmentUploadStatus } from "../db/types";
+import { ImageViewerModal } from "./common";
 
 type AttachmentSource = "camera" | "gallery" | "document";
 
@@ -56,6 +57,7 @@ export function AttachmentField({
   onRemove,
 }: AttachmentFieldProps) {
   const [loading, setLoading] = useState(false);
+  const [viewerVisible, setViewerVisible] = useState(false);
   const config = parseAttachmentConfig(displayStyle);
   const enabledSources = config.sources && config.sources.length > 0 ? config.sources : DEFAULT_SOURCES;
 
@@ -196,7 +198,12 @@ export function AttachmentField({
       {!loading && attachment && (
         <View style={styles.previewContainer}>
           {isImage && attachment.localUri ? (
-            <Image source={{ uri: attachment.localUri }} style={styles.imagePreview} />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => setViewerVisible(true)}
+            >
+              <Image source={{ uri: attachment.localUri }} style={styles.imagePreview} />
+            </TouchableOpacity>
           ) : (
             <View style={styles.documentPreview}>
               <Text style={styles.documentIcon}>📄</Text>
@@ -244,6 +251,14 @@ export function AttachmentField({
           )}
         </View>
       )}
+
+      {isImage && attachment?.localUri && (
+        <ImageViewerModal
+          visible={viewerVisible}
+          imageUri={attachment.localUri}
+          onClose={() => setViewerVisible(false)}
+        />
+      )}
     </View>
   );
 }
@@ -253,10 +268,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 6,
-    color: "#374151",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+    color: "#111827",
   },
   loadingContainer: {
     flexDirection: "row",
