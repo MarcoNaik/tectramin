@@ -19,6 +19,31 @@
       "env": {
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_ZGFzaGluZy1nYXplbGxlLTkuY2xlcmsuYWNjb3VudHMuZGV2JA",
         "EXPO_PUBLIC_CONVEX_URL": "https://good-shark-120.convex.cloud"
+      },
+      "android": {
+        "gradleCommand": ":app:bundleRelease"
+      }
+    },
+    "production-local": {
+      "autoIncrement": true,
+      "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_ZGFzaGluZy1nYXplbGxlLTkuY2xlcmsuYWNjb3VudHMuZGV2JA",
+        "EXPO_PUBLIC_CONVEX_URL": "https://good-shark-120.convex.cloud"
+      },
+      "android": {
+        "gradleCommand": ":app:bundleRelease"
+      }
+    },
+    "production-apk": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_ZGFzaGluZy1nYXplbGxlLTkuY2xlcmsuYWNjb3VudHMuZGV2JA",
+        "EXPO_PUBLIC_CONVEX_URL": "https://good-shark-120.convex.cloud"
+      },
+      "android": {
+        "buildType": "apk"
       }
     }
   },
