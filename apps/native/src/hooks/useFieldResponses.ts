@@ -3,12 +3,13 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../db/client";
-import { fieldResponses } from "../db/schema";
+import { fieldResponses, taskInstances, workOrderDays } from "../db/schema";
 import { addToQueue } from "../sync/SyncQueue";
 import { syncService } from "../sync/SyncService";
 import { networkMonitor } from "../sync/NetworkMonitor";
 import { useConvex } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
+import { updateWorkOrderDayStatusDirect } from "./useWorkOrderDayStatus";
 import type { FieldResponse, FieldResponseInput } from "../db/types";
 
 export function useFieldResponses(taskInstanceClientId: string, userId: string) {
@@ -92,6 +93,27 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
           payload
         );
         await syncService.updatePendingCount();
+      }
+
+      if (isNew) {
+        const taskInstance = await db
+          .select()
+          .from(taskInstances)
+          .where(eq(taskInstances.clientId, input.taskInstanceClientId))
+          .limit(1);
+
+        if (taskInstance.length > 0) {
+          const workOrderDayServerId = taskInstance[0].workOrderDayServerId;
+          const assignment = await db
+            .select()
+            .from(workOrderDays)
+            .where(eq(workOrderDays.serverId, workOrderDayServerId))
+            .limit(1);
+
+          if (assignment.length > 0 && assignment[0].status === "pending") {
+            await updateWorkOrderDayStatusDirect(convex, workOrderDayServerId, "in_progress");
+          }
+        }
       }
 
       return clientId;
