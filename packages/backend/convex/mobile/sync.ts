@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 
 export const upsertTaskInstance = mutation({
   args: {
@@ -435,6 +436,7 @@ export const getUsers = query({
       serverId: v.string(),
       fullName: v.optional(v.string()),
       email: v.string(),
+      role: v.string(),
     })
   ),
   handler: async (ctx) => {
@@ -443,6 +445,7 @@ export const getUsers = query({
       serverId: u._id as string,
       fullName: u.fullName,
       email: u.email,
+      role: u.role,
     }));
   },
 });
@@ -643,5 +646,26 @@ export const getLookupEntities = query({
         displayOrder: e.displayOrder,
         isActive: e.isActive,
       }));
+  },
+});
+
+export const updateWorkOrderDayStatus = mutation({
+  args: {
+    workOrderDayServerId: v.string(),
+    status: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const validStatuses = ["pending", "in_progress", "completed"];
+    if (!validStatuses.includes(args.status)) {
+      throw new Error(`Invalid status: ${args.status}`);
+    }
+
+    const workOrderDayId = args.workOrderDayServerId as Id<"workOrderDays">;
+    await ctx.db.patch(workOrderDayId, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
