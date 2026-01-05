@@ -17,7 +17,7 @@ interface DayPageProps {
   day: DayData;
   taskInstances: TaskInstance[];
   allDependencies: TaskDependency[];
-  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
   refreshing: boolean;
   onRefresh: () => void;
