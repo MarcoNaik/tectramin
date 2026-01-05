@@ -14,7 +14,7 @@ interface TaskCardButtonProps {
   assignment: AssignmentWithTemplates;
   allTaskInstances: TaskInstance[];
   allDependencies: TaskDependency[];
-  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
 }
 
@@ -45,7 +45,7 @@ export function TaskCardButton({
       return;
     }
     if (instance) {
-      onSelectTask(instance.clientId, template);
+      onSelectTask(instance.clientId, template, assignment.serverId);
     } else {
       onCreateAndSelectTask(template, assignment.serverId);
     }
@@ -53,44 +53,53 @@ export function TaskCardButton({
 
   const isBlocked = !canStart && !isCompleted;
 
+  const getButtonContent = () => {
+    if (isCompleted) {
+      return { text: "Ver", icon: "›" };
+    }
+    if (canStart) {
+      return { text: "Llenar", icon: "›" };
+    }
+    return { text: "Bloqueado", icon: null };
+  };
+
+  const { text, icon } = getButtonContent();
+
   return (
     <TouchableOpacity
-      style={[
-        styles.taskButton,
-        isCompleted && styles.viewButton,
-        isBlocked && styles.blockedButton,
-      ]}
+      style={styles.taskButton}
       onPress={handlePress}
     >
       <Text style={[styles.taskButtonText, isBlocked && styles.blockedButtonText]}>
-        {isCompleted ? "Ver" : canStart ? "Llenar" : "Bloqueado"}
+        {text}
       </Text>
+      {icon && (
+        <Text style={[styles.chevron, isBlocked && styles.blockedButtonText]}>
+          {icon}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   taskButton: {
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    flexShrink: 0,
-    minWidth: 70,
+    flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
+    gap: 2,
   },
   taskButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
+    color: "#2563eb",
+    fontSize: 14,
+    fontWeight: "500",
   },
-  viewButton: {
-    backgroundColor: "#059669",
-  },
-  blockedButton: {
-    backgroundColor: "#9ca3af",
+  chevron: {
+    color: "#2563eb",
+    fontSize: 18,
+    fontWeight: "300",
   },
   blockedButtonText: {
-    color: "#f3f4f6",
+    color: "#9ca3af",
   },
 });
