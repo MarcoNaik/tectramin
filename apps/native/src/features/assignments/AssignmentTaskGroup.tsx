@@ -1,10 +1,12 @@
 import {
   View,
+  TouchableOpacity,
   StyleSheet,
 } from "react-native";
 import { Text } from "../../components/Text";
 import { TaskCardButton } from "./TaskCardButton";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
+import { useWorkOrderDayStatus } from "../../hooks/useWorkOrderDayStatus";
 import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
 
@@ -12,7 +14,7 @@ interface AssignmentTaskGroupProps {
   assignment: AssignmentWithTemplates;
   taskInstances: TaskInstance[];
   allDependencies: TaskDependency[];
-  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
 }
 
@@ -23,23 +25,36 @@ export function AssignmentTaskGroup({
   onSelectTask,
   onCreateAndSelectTask,
 }: AssignmentTaskGroupProps) {
+  const { updateStatus } = useWorkOrderDayStatus();
+
+  const allTasksCompleted = assignment.taskTemplates.every((template) => {
+    const instances = taskInstances.filter(
+      (ti) =>
+        ti.dayTaskTemplateServerId === template.serverId &&
+        ti.workOrderDayServerId === assignment.serverId
+    );
+
+    if (template.isRepeatable) {
+      return instances.every((i) => i.status === "completed");
+    }
+
+    return instances[0]?.status === "completed";
+  });
+
+  const canMarkComplete = allTasksCompleted && assignment.status !== "completed";
+
+  const handleMarkComplete = async () => {
+    await updateStatus(assignment.serverId, "completed");
+  };
+
   return (
     <View style={styles.assignmentGroup}>
       <View style={styles.assignmentGroupHeader}>
         <View style={styles.assignmentGroupTitleRow}>
           <Text style={styles.assignmentGroupTitle}>{assignment.workOrderName}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              assignment.status === "pending"
-                ? styles.pendingStatusBadge
-                : assignment.status === "in_progress"
-                  ? styles.inProgressStatusBadge
-                  : styles.completedStatusBadge,
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>{assignment.status}</Text>
-          </View>
+          <Text style={styles.statusIcon}>
+            {assignment.status === "completed" ? "●" : assignment.status === "in_progress" ? "◐" : "○"}
+          </Text>
         </View>
         <Text style={styles.assignmentGroupSubtitle}>
           {assignment.customerName} - {assignment.faenaName}
@@ -49,15 +64,12 @@ export function AssignmentTaskGroup({
         </Text>
       </View>
 
-      {assignment.taskTemplates.map((template) => {
+      {assignment.taskTemplates.map((template, index) => {
         const instances = taskInstances.filter(
           (ti) =>
             ti.dayTaskTemplateServerId === template.serverId &&
             ti.workOrderDayServerId === assignment.serverId
         );
-        console.log("[AssignmentTaskGroup DEBUG] template:", template.taskTemplateName, "isRepeatable:", template.isRepeatable);
-        console.log("[AssignmentTaskGroup DEBUG] taskInstances total:", taskInstances.length);
-        console.log("[AssignmentTaskGroup DEBUG] filtered instances for template:", instances.length);
 
         if (template.isRepeatable) {
           return (
@@ -66,9 +78,9 @@ export function AssignmentTaskGroup({
               template={template}
               instances={instances}
               assignment={assignment}
-              allDependencies={allDependencies}
               onSelectTask={onSelectTask}
               onCreateAndSelectTask={onCreateAndSelectTask}
+              index={index + 1}
             />
           );
         }
@@ -80,36 +92,42 @@ export function AssignmentTaskGroup({
           <View key={template.serverId} style={styles.taskCard}>
             <View style={styles.taskCardContent}>
               <View style={styles.taskCardInfo}>
-                <Text style={styles.taskCardName}>{template.taskTemplateName}</Text>
-                <View style={styles.taskCardMeta}>
-                  <Text style={styles.fieldCount}>{template.fields.length}</Text>
-                  <View style={styles.badges}>
-                    {template.isRequired && (
-                      <View style={styles.requiredBadge}>
-                        <Text style={styles.requiredBadgeText}>Requerido</Text>
-                      </View>
-                    )}
-                    {isCompleted && (
-                      <View style={styles.completedBadge}>
-                        <Text style={styles.completedBadgeText}>Completado</Text>
-                      </View>
-                    )}
-                  </View>
+                <View style={styles.taskCardNameRow}>
+                  <Text style={styles.taskCardName}>
+                    {index + 1}. {template.taskTemplateName}
+                  </Text>
+                  {template.isRequired && (
+                    <Text style={styles.requiredIcon}>*</Text>
+                  )}
                 </View>
               </View>
-              <TaskCardButton
-                template={template}
-                instance={instance}
-                assignment={assignment}
-                allTaskInstances={taskInstances}
-                allDependencies={allDependencies}
-                onSelectTask={onSelectTask}
-                onCreateAndSelectTask={onCreateAndSelectTask}
-              />
+              <View style={styles.taskCardActions}>
+                {isCompleted && (
+                  <Text style={styles.completedIcon}>●</Text>
+                )}
+                <TaskCardButton
+                  template={template}
+                  instance={instance}
+                  assignment={assignment}
+                  allTaskInstances={taskInstances}
+                  allDependencies={allDependencies}
+                  onSelectTask={onSelectTask}
+                  onCreateAndSelectTask={onCreateAndSelectTask}
+                />
+              </View>
             </View>
           </View>
         );
       })}
+
+      {canMarkComplete && (
+        <TouchableOpacity
+          style={styles.completeButton}
+          onPress={handleMarkComplete}
+        >
+          <Text style={styles.completeButtonText}>Marcar Rutina Completada</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -150,26 +168,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9ca3af",
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    flexShrink: 0,
+  statusIcon: {
+    fontSize: 14,
+    color: "#6b7280",
     marginLeft: 8,
-  },
-  pendingStatusBadge: {
-    backgroundColor: "#fef3c7",
-  },
-  inProgressStatusBadge: {
-    backgroundColor: "#dbeafe",
-  },
-  completedStatusBadge: {
-    backgroundColor: "#d1fae5",
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#374151",
   },
   taskCard: {
     borderBottomWidth: 1,
@@ -184,45 +186,42 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
-  taskCardName: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 4,
-  },
-  taskCardMeta: {
+  taskCardActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  fieldCount: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  badges: {
+  taskCardNameRow: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
-  requiredBadge: {
-    backgroundColor: "#fee2e2",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    flexShrink: 0,
+  taskCardName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
   },
-  requiredBadgeText: {
-    fontSize: 10,
+  requiredIcon: {
+    fontSize: 14,
     color: "#dc2626",
+    fontWeight: "700",
+    marginLeft: 4,
   },
-  completedBadge: {
-    backgroundColor: "#d1fae5",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    flexShrink: 0,
+  completedIcon: {
+    fontSize: 14,
+    color: "#6b7280",
   },
-  completedBadgeText: {
-    fontSize: 10,
-    color: "#059669",
+  completeButton: {
+    backgroundColor: "#059669",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    margin: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  completeButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
