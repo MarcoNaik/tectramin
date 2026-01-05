@@ -3,8 +3,12 @@ import { ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
 import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import Constants from "expo-constants";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!);
+const convexUrl = Constants.expoConfig?.extra?.convexUrl as string;
+const clerkPublishableKey = Constants.expoConfig?.extra?.clerkPublishableKey as string;
+
+const convex = new ConvexReactClient(convexUrl);
 
 export default function ConvexClientProvider({
   children,
@@ -13,7 +17,7 @@ export default function ConvexClientProvider({
 }) {
   return (
     <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      publishableKey={clerkPublishableKey}
       tokenCache={tokenCache}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
