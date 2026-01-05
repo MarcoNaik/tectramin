@@ -104,7 +104,7 @@ function TaskInstanceFormInner({
       {currentInstance?.instanceLabel && (
         <Text style={styles.formSubtitle}>{template.taskTemplateName}</Text>
       )}
-      {visibleFields.map((field) => (
+      {visibleFields.map((field, idx) => (
         <FieldInput
           key={field.serverId}
           field={field}
@@ -114,6 +114,7 @@ function TaskInstanceFormInner({
           userId={userId}
           ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
           getResponseForField={getResponseValueForField}
+          index={idx + 1}
         />
       ))}
       <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
