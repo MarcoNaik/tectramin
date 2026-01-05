@@ -6,40 +6,34 @@ import {
   Pressable,
 } from "react-native";
 import { Text } from "../../components/Text";
-import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
+import type { DayTaskTemplate, FieldTemplate, TaskInstance } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
 
 interface RepeatableTaskCardProps {
   template: DayTaskTemplate & { fields: FieldTemplate[] };
   instances: TaskInstance[];
   assignment: AssignmentWithTemplates;
-  allDependencies: TaskDependency[];
-  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }) => void;
+  onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
+  index: number;
 }
 
 export function RepeatableTaskCard({
   template,
   instances,
   assignment,
-  allDependencies,
   onSelectTask,
   onCreateAndSelectTask,
+  index,
 }: RepeatableTaskCardProps) {
-  console.log("[RepeatableTaskCard DEBUG] template:", template.taskTemplateName, "serverId:", template.serverId);
-  console.log("[RepeatableTaskCard DEBUG] instances received:", instances.length, instances.map(i => ({ clientId: i.clientId, label: i.instanceLabel })));
 
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const completedCount = instances.filter((i) => i.status === "completed").length;
   const totalCount = instances.length;
 
   const lastInstance = instances[instances.length - 1];
   const canAddAnother = instances.length === 0 || lastInstance?.status === "completed";
-
-  const prerequisiteIds = allDependencies
-    .filter((d) => d.dependentTaskServerId === template.serverId)
-    .map((d) => d.prerequisiteTaskServerId);
 
   const handleAddAnother = () => {
     const nextNumber = totalCount + 1;
@@ -48,32 +42,19 @@ export function RepeatableTaskCard({
   };
 
   const handleSelectInstance = (instance: TaskInstance) => {
-    onSelectTask(instance.clientId, template);
+    onSelectTask(instance.clientId, template, assignment.serverId);
   };
 
   const getInstanceLabel = (instance: TaskInstance, index: number): string => {
     return instance.instanceLabel || `${template.taskTemplateName} #${index + 1}`;
   };
 
-  const getStatusColor = (status: string): { bg: string; text: string } => {
+  const getStatusDisplay = (status: string): { type: "icon" | "text"; value: string; color: string } => {
     switch (status) {
       case "completed":
-        return { bg: "#d1fae5", text: "#059669" };
-      case "draft":
-        return { bg: "#fef3c7", text: "#d97706" };
+        return { type: "icon", value: "●", color: "#6b7280" };
       default:
-        return { bg: "#e5e7eb", text: "#6b7280" };
-    }
-  };
-
-  const getStatusLabel = (status: string): string => {
-    switch (status) {
-      case "completed":
-        return "Completado";
-      case "draft":
-        return "En progreso";
-      default:
-        return status;
+        return { type: "text", value: "Llenar", color: "#2563eb" };
     }
   };
 
@@ -86,22 +67,13 @@ export function RepeatableTaskCard({
       >
         <View style={styles.headerLeft}>
           <Text style={styles.chevron}>{isExpanded ? "▼" : "▶"}</Text>
-          <View style={styles.headerInfo}>
-            <Text style={styles.taskName}>{template.taskTemplateName}</Text>
-            <View style={styles.headerMeta}>
-              <Text style={styles.fieldCount}>{template.fields.length}</Text>
-            </View>
-          </View>
+          <Text style={styles.taskName}>{index}. {template.taskTemplateName}</Text>
         </View>
         <View style={styles.headerBadges}>
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>
-              {completedCount}/{totalCount}
-            </Text>
-          </View>
-          <View style={styles.repeatableBadge}>
-            <Text style={styles.repeatableBadgeText}>Repetible</Text>
-          </View>
+          <Text style={styles.repeatableIcon}>↻</Text>
+          <Text style={styles.countText}>
+            {completedCount}/{totalCount}
+          </Text>
         </View>
       </TouchableOpacity>
 
@@ -115,7 +87,7 @@ export function RepeatableTaskCard({
             </View>
           ) : (
             instances.map((instance, index) => {
-              const statusColors = getStatusColor(instance.status);
+              const statusDisplay = getStatusDisplay(instance.status);
               return (
                 <Pressable
                   key={instance.clientId}
@@ -128,11 +100,16 @@ export function RepeatableTaskCard({
                   <Text style={styles.instanceLabel}>
                     {getInstanceLabel(instance, index)}
                   </Text>
-                  <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusColors.text }]}>
-                      {getStatusLabel(instance.status)}
+                  {statusDisplay.type === "icon" ? (
+                    <Text style={[styles.statusIcon, { color: statusDisplay.color }]}>
+                      {statusDisplay.value}
                     </Text>
-                  </View>
+                  ) : (
+                    <View style={styles.textButton}>
+                      <Text style={styles.textButtonLabel}>{statusDisplay.value}</Text>
+                      <Text style={styles.textButtonChevron}>›</Text>
+                    </View>
+                  )}
                 </Pressable>
               );
             })
@@ -189,61 +166,33 @@ const styles = StyleSheet.create({
     marginRight: 8,
     width: 12,
   },
-  headerInfo: {
-    flex: 1,
-  },
   taskName: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 2,
-  },
-  headerMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  fieldCount: {
-    fontSize: 12,
-    color: "#6b7280",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    flex: 1,
   },
   headerBadges: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     flexShrink: 0,
     marginLeft: 8,
   },
-  countBadge: {
-    backgroundColor: "#dbeafe",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    flexShrink: 0,
+  repeatableIcon: {
+    fontSize: 14,
+    color: "#6b7280",
   },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#1d4ed8",
-  },
-  repeatableBadge: {
-    backgroundColor: "#f3e8ff",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    flexShrink: 0,
-  },
-  repeatableBadgeText: {
-    fontSize: 10,
-    color: "#7c3aed",
-    fontWeight: "500",
+  countText: {
+    fontSize: 12,
+    color: "#6b7280",
   },
   instanceList: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
     backgroundColor: "#ffffff",
   },
   emptyState: {
     paddingVertical: 16,
+    paddingHorizontal: 12,
     alignItems: "center",
   },
   emptyStateText: {
@@ -255,50 +204,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    marginTop: 8,
-    backgroundColor: "#f9fafb",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
+    paddingLeft: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
   instanceItemPressed: {
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#f3f4f6",
   },
   instanceLabel: {
     fontSize: 13,
     color: "#374151",
     flex: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    flexShrink: 0,
+  statusIcon: {
+    fontSize: 16,
+    fontWeight: "600",
     marginLeft: 8,
   },
-  statusBadgeText: {
-    fontSize: 11,
+  textButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  textButtonLabel: {
+    fontSize: 14,
     fontWeight: "500",
+    color: "#2563eb",
+  },
+  textButtonChevron: {
+    fontSize: 18,
+    fontWeight: "300",
+    color: "#2563eb",
   },
   addButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    backgroundColor: "#eff6ff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-    borderStyle: "dashed",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingLeft: 32,
   },
   addButtonDisabled: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#d1d5db",
+    opacity: 0.5,
   },
   addButtonText: {
     fontSize: 13,
-    fontWeight: "500",
     color: "#2563eb",
   },
   addButtonTextDisabled: {
@@ -307,7 +256,7 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: 11,
     color: "#9ca3af",
-    textAlign: "center",
-    marginTop: 6,
+    paddingLeft: 32,
+    paddingBottom: 8,
   },
 });
