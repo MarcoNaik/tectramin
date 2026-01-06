@@ -7,6 +7,9 @@ import {
 } from "react-native";
 import { Text } from "./Text";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { UTCDate } from "@date-fns/utc";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface DatePickerFieldProps {
   label: string;
@@ -25,7 +28,7 @@ export function DatePickerField({
 
   const currentDate = value ? new Date(value) : new Date();
   const displayValue = value
-    ? new Date(value).toLocaleDateString("es-CL")
+    ? format(new UTCDate(parseISO(value).getTime()), "d 'de' MMMM, yyyy", { locale: es })
     : "Seleccionar fecha...";
 
   const handleChange = (_event: unknown, selectedDate?: Date) => {
@@ -33,7 +36,12 @@ export function DatePickerField({
       setShowPicker(false);
     }
     if (selectedDate) {
-      onChange(selectedDate.toISOString());
+      const utcDate = new UTCDate(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate()
+      );
+      onChange(utcDate.toISOString());
     }
   };
 
