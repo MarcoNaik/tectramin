@@ -1,5 +1,6 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { normalizeToUTCMidnight } from "../shared/dateUtils";
 
 const assignedUserValidator = v.object({
   userId: v.id("users"),
@@ -68,17 +69,15 @@ export const getGridData = query({
       .filter((f) => f.isActive)
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const startOfDay = new Date(args.startDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(args.endDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const startOfRange = normalizeToUTCMidnight(args.startDate);
+    const endOfRange = normalizeToUTCMidnight(args.endDate);
 
     const allWorkOrderDays = await ctx.db
       .query("workOrderDays")
       .collect();
 
     const daysInRange = allWorkOrderDays.filter(
-      (day) => day.dayDate >= startOfDay.getTime() && day.dayDate <= endOfDay.getTime()
+      (day) => day.dayDate >= startOfRange && day.dayDate <= endOfRange
     );
 
     const workOrderDaysWithDetails = await Promise.all(
