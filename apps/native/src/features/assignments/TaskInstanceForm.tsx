@@ -1,24 +1,39 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   TouchableOpacity,
   Alert,
   StyleSheet,
+  FlatList,
+  ScrollView,
+  Dimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from "react-native";
+import Animated, {
+  useAnimatedScrollHandler,
+  type SharedValue,
+} from "react-native-reanimated";
 import { Text } from "../../components/Text";
 import { FieldInput } from "../../components/fields";
+import { PaginationDots } from "../../components/PaginationDots";
 import { useFieldResponses } from "../../hooks/useFieldResponses";
 import { useTaskInstances } from "../../hooks/useTaskInstances";
 import { useFieldConditions } from "../../hooks/useFieldConditions";
 import { getVisibleFields, getVisibleRequiredFields } from "../../utils/conditionEvaluator";
+import { paginateFields, type FieldPage } from "../../utils/paginateFields";
 import { PendingFieldValuesProvider, usePendingFieldValues } from "../../providers/PendingFieldValuesContext";
 import type { DayTaskTemplate, FieldTemplate } from "../../db/types";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
 interface TaskInstanceFormProps {
   taskInstanceClientId: string;
   template: DayTaskTemplate & { fields: FieldTemplate[] };
   userId: string;
   onComplete: () => void;
+  scrollY?: SharedValue<number>;
 }
 
 function TaskInstanceFormInner({
@@ -26,7 +41,11 @@ function TaskInstanceFormInner({
   template,
   userId,
   onComplete,
+  scrollY,
 }: TaskInstanceFormProps) {
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const flatListRef = useRef<FlatList<FieldPage>>(null);
+
   const { responses, upsertResponse, getResponseForField } = useFieldResponses(
     taskInstanceClientId,
     userId
@@ -50,6 +69,30 @@ function TaskInstanceFormInner({
     });
     return getVisibleFields(template.fields, conditions, responsesWithPending);
   }, [template.fields, conditions, responses, getAllPending]);
+
+  const pages = useMemo(() => {
+    return paginateFields(visibleFields, 10);
+  }, [visibleFields]);
+
+  const fieldIndices = useMemo(() => {
+    const indices = new Map<string, number>();
+    let inputFieldIndex = 0;
+    for (const field of visibleFields) {
+      if (field.fieldType !== "displayText") {
+        inputFieldIndex++;
+        indices.set(field.serverId, inputFieldIndex);
+      }
+    }
+    return indices;
+  }, [visibleFields]);
+
+  const isFormIncomplete = useMemo(() => {
+    const visibleRequired = getVisibleRequiredFields(template.fields, conditions, responses);
+    return visibleRequired.some((field) => {
+      const response = getResponseForField(field.serverId);
+      return !response?.value || response.value.trim() === "";
+    });
+  }, [template.fields, conditions, responses, getResponseForField]);
 
   const handleFieldChange = async (fieldTemplateServerId: string, value: string) => {
     await upsertResponse({
@@ -94,32 +137,102 @@ function TaskInstanceFormInner({
     onComplete();
   };
 
-  const formTitle = currentInstance?.instanceLabel || template.taskTemplateName;
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
+    if (pageIndex !== currentPageIndex) {
+      setCurrentPageIndex(pageIndex);
+    }
+  }, [currentPageIndex]);
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<FieldPage> | null | undefined, index: number) => ({
+      length: SCREEN_WIDTH,
+      offset: SCREEN_WIDTH * index,
+      index,
+    }),
+    []
+  );
+
+  const pageScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      if (scrollY) {
+        scrollY.value = event.contentOffset.y;
+      }
+    },
+  });
+
+  const renderPage = useCallback(
+    ({ item: page }: { item: FieldPage }) => (
+      <AnimatedScrollView
+        style={styles.pageContainer}
+        contentContainerStyle={styles.pageContent}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+        onScroll={pageScrollHandler}
+        scrollEventThrottle={16}
+      >
+        {page.fields.map((field) => (
+          <FieldInput
+            key={field.serverId}
+            field={field}
+            value={getResponseForField(field.serverId)?.value ?? undefined}
+            onChange={(value) => handleFieldChange(field.serverId, value)}
+            fieldResponseClientId={getResponseForField(field.serverId)?.clientId}
+            userId={userId}
+            ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
+            getResponseForField={getResponseValueForField}
+            index={fieldIndices.get(field.serverId)}
+          />
+        ))}
+      </AnimatedScrollView>
+    ),
+    [
+      getResponseForField,
+      handleFieldChange,
+      createEnsureFieldResponse,
+      getResponseValueForField,
+      userId,
+      fieldIndices,
+      pageScrollHandler,
+    ]
+  );
 
   return (
     <View style={styles.formContainer}>
-      <Text style={[styles.formTitle, !currentInstance?.instanceLabel && styles.formTitleNoSubtitle]}>
-        {formTitle}
-      </Text>
-      {currentInstance?.instanceLabel && (
-        <Text style={styles.formSubtitle}>{template.taskTemplateName}</Text>
-      )}
-      {visibleFields.map((field, idx) => (
-        <FieldInput
-          key={field.serverId}
-          field={field}
-          value={getResponseForField(field.serverId)?.value ?? undefined}
-          onChange={(value) => handleFieldChange(field.serverId, value)}
-          fieldResponseClientId={getResponseForField(field.serverId)?.clientId}
-          userId={userId}
-          ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
-          getResponseForField={getResponseValueForField}
-          index={idx + 1}
-        />
-      ))}
-      <TouchableOpacity style={styles.completeButton} onPress={handleComplete}>
-        <Text style={styles.completeButtonText}>Marcar Completado</Text>
-      </TouchableOpacity>
+      <FlatList
+        ref={flatListRef}
+        data={pages}
+        renderItem={renderPage}
+        keyExtractor={(item) => `page-${item.pageIndex}`}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        getItemLayout={getItemLayout}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        windowSize={3}
+        maxToRenderPerBatch={3}
+        removeClippedSubviews={false}
+        keyboardShouldPersistTaps="handled"
+      />
+      <View style={styles.bottomContainer}>
+        <PaginationDots totalPages={pages.length} currentPage={currentPageIndex} />
+        <TouchableOpacity
+          style={[styles.completeButton, isFormIncomplete && styles.completeButtonDisabled]}
+          onPress={handleComplete}
+          disabled={isFormIncomplete}
+        >
+          <Text
+            style={[
+              styles.completeButtonText,
+              isFormIncomplete && styles.completeButtonTextDisabled,
+            ]}
+          >
+            Marcar Completado
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -136,29 +249,35 @@ const styles = StyleSheet.create({
   formContainer: {
     flex: 1,
   },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 4,
+  pageContainer: {
+    width: SCREEN_WIDTH,
   },
-  formTitleNoSubtitle: {
-    marginBottom: 24,
+  pageContent: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
-  formSubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 24,
+  bottomContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    backgroundColor: "#fff",
   },
   completeButton: {
     backgroundColor: "#059669",
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 24,
+  },
+  completeButtonDisabled: {
+    backgroundColor: "#9ca3af",
+    opacity: 0.6,
   },
   completeButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  completeButtonTextDisabled: {
+    color: "#e5e7eb",
   },
 });
