@@ -38,9 +38,6 @@ export function useTaskInstances(userId: string) {
     })
   );
 
-  console.log("[useTaskInstances DEBUG] SQLite instances count:", instances?.length ?? 0);
-  console.log("[useTaskInstances DEBUG] SQLite instances:", instances?.map(i => ({ clientId: i.clientId, label: i.instanceLabel, dayTaskTemplateServerId: i.dayTaskTemplateServerId })));
-
   const createTaskInstance = useCallback(
     async (input: TaskInstanceInput) => {
       const now = new Date();
