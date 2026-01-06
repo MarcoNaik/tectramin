@@ -5,6 +5,15 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import {
+  dateStringToUTCMidnight,
+  utcMidnightToDateString,
+  addDaysUTC,
+  getUTCDateParts,
+  getTodayUTCMidnight,
+  formatUTCDate,
+  isSameUTCDay,
+} from "../../utils/dateUtils";
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -372,11 +381,7 @@ function DayColumnWithClick({
     );
   }
 
-  const dateStr = new Date(day.dayDate).toLocaleDateString("es-CL", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  const dateStr = formatUTCDate(day.dayDate, "EEE, d MMM");
 
   const totalRequired = requiredPeople;
   const assignedCount = sharedUserCount + dayUsers.length;
@@ -531,7 +536,7 @@ function WorkOrderDayTasks({
   return (
     <div className="p-3 bg-gray-50 border-2 border-black w-[200px] flex-shrink-0">
       <div className="text-xs font-bold mb-2">
-        Dia {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString("es-CL", { weekday: "short", month: "short", day: "numeric" })}
+        Dia {day.dayNumber} - {formatUTCDate(day.dayDate, "EEE, d MMM")}
       </div>
       {dayTasks.length > 0 && (
         <div className="space-y-1 mb-2">
@@ -867,12 +872,7 @@ function WorkOrderDrawer({
   const faenaData = faenas?.find((f) => f._id === faena?._id);
   const customerId = faenaData?.customerId;
 
-  const formatDateForInput = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toISOString().split("T")[0];
-  };
-
-  const startDateStr = formatDateForInput(startDate);
+  const startDateStr = utcMidnightToDateString(startDate);
 
   const handleServiceChange = (serviceId: Id<"services"> | "") => {
     setSelectedService(serviceId);
@@ -911,8 +911,8 @@ function WorkOrderDrawer({
         faenaId: faena._id,
         serviceId: selectedService,
         name: name.trim() || `Work Order - ${faena.name}`,
-        startDate: new Date(startDateStr).getTime(),
-        endDate: new Date(endDate).getTime(),
+        startDate: dateStringToUTCMidnight(startDateStr),
+        endDate: dateStringToUTCMidnight(endDate),
         requiredPeoplePerDay,
         notes: notes.trim() || undefined,
       });
@@ -945,7 +945,7 @@ function WorkOrderDrawer({
             <div className="text-sm font-bold text-blue-900">{faena?.name}</div>
             <div className="text-xs text-blue-700">{faena?.customerName}</div>
             <div className="text-xs text-blue-600 mt-1">
-              Inicio: {new Date(startDate).toLocaleDateString("es-CL", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              Inicio: {formatUTCDate(startDate, "EEEE, d 'de' MMMM, yyyy")}
             </div>
           </div>
 
@@ -1314,13 +1314,10 @@ function WeekDataLoader({
 
 export function GridView() {
   const [weekChunks, setWeekChunks] = useState<WeekChunk[]>(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = new Date(today);
-    start.setDate(start.getDate() - 7);
-    const end = new Date(today);
-    end.setDate(end.getDate() + 7);
-    return [{ start: start.getTime(), end: end.getTime() }];
+    const today = getTodayUTCMidnight();
+    const start = addDaysUTC(today, -7);
+    const end = addDaysUTC(today, 7);
+    return [{ start, end }];
   });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1382,14 +1379,12 @@ export function GridView() {
 
   const daysInRange = useMemo(() => {
     const days: number[] = [];
-    const current = new Date(dateRange.start);
-    current.setHours(0, 0, 0, 0);
-    const endDate = new Date(dateRange.end);
-    endDate.setHours(0, 0, 0, 0);
+    let current = dateRange.start;
+    const endTimestamp = dateRange.end;
 
-    while (current <= endDate) {
-      days.push(current.getTime());
-      current.setDate(current.getDate() + 1);
+    while (current <= endTimestamp) {
+      days.push(current);
+      current = addDaysUTC(current, 1);
     }
     return days;
   }, [dateRange]);
@@ -1397,9 +1392,7 @@ export function GridView() {
   const cellMap = useMemo(() => {
     const map = new Map<string, WorkOrderDayGridData>();
     gridData?.workOrderDays.forEach((day) => {
-      const dayStart = new Date(day.dayDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const key = `${day.faenaId}-${dayStart.getTime()}`;
+      const key = `${day.faenaId}-${day.dayDate}`;
       map.set(key, day);
     });
     return map;
@@ -1484,11 +1477,7 @@ export function GridView() {
   }, [gridData, throttledScrollCheck]);
 
   const formatDayHeader = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const weekday = date.toLocaleDateString("es-CL", { weekday: "short" });
-    const day = date.getDate();
-    const month = date.toLocaleDateString("es-CL", { month: "short" });
-    return { weekday, day, month };
+    return getUTCDateParts(timestamp);
   };
 
   const chunkLoaders = weekChunks.map((chunk) => (
@@ -1564,7 +1553,7 @@ export function GridView() {
             <div className="flex sticky top-0 bg-white z-5">
               {daysInRange.map((day) => {
                 const { weekday, day: dayNum, month } = formatDayHeader(day);
-                const isToday = new Date(day).toDateString() === new Date().toDateString();
+                const isToday = isSameUTCDay(day, getTodayUTCMidnight());
                 return (
                   <div
                     key={day}
