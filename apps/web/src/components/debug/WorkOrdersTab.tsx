@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
+import { format } from "date-fns";
+import { dateStringToUTCMidnight, formatUTCDate } from "../../utils/dateUtils";
 
 function TaskInstanceDetails({ instanceId }: { instanceId: Id<"taskInstances"> }) {
   const data = useQuery(api.admin.taskInstances.getWithResponses, { id: instanceId });
@@ -78,7 +80,7 @@ function DayRow({ day, users, assign, unassign }: {
     <div className="p-2 bg-gray-100 border-2 border-black text-sm">
       <div className="flex items-center justify-between">
         <span>
-          Día {day.dayNumber} - {new Date(day.dayDate).toLocaleDateString()}
+          Día {day.dayNumber} - {formatUTCDate(day.dayDate, "EEE, d MMM")}
           <span className={`ml-2 text-xs px-1 py-0.5 border border-black ${day.status === "pending" ? "bg-gray-200" : day.status === "in_progress" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
             {day.status}
           </span>
@@ -168,8 +170,8 @@ export function WorkOrdersTab() {
   const [selectedCustomer, setSelectedCustomer] = useState<Id<"customers"> | "">("");
   const [selectedFaena, setSelectedFaena] = useState<Id<"faenas"> | "">("");
   const [selectedService, setSelectedService] = useState<Id<"services"> | "">("");
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [requiredPeoplePerDay, setRequiredPeoplePerDay] = useState(1);
   const [expandedWO, setExpandedWO] = useState<Id<"workOrders"> | null>(null);
 
@@ -183,8 +185,8 @@ export function WorkOrdersTab() {
       serviceId: selectedService,
       customerId: selectedCustomer,
       faenaId: selectedFaena,
-      startDate: new Date(startDate).getTime(),
-      endDate: new Date(endDate).getTime(),
+      startDate: dateStringToUTCMidnight(startDate),
+      endDate: dateStringToUTCMidnight(endDate),
       requiredPeoplePerDay,
     });
     setSelectedCustomer("");
