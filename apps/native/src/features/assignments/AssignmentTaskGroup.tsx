@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
     overflow: "hidden",
+    zIndex: 1,
   },
   assignmentGroupHeader: {
     padding: 12,
