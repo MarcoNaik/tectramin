@@ -354,6 +354,25 @@ export function FormBuilder() {
     }
   };
 
+  const handleUpdateTaskDescription = async (description: string) => {
+    const selectedTask = routineTasks?.find((t) => t._id === selectedRoutineTaskId);
+    if (selectedTask) {
+      await updateTask({ id: selectedTask.taskTemplateId, description });
+    }
+  };
+
+  const handleUpdateTaskNameFromFieldView = async (name: string) => {
+    if (selectedTemplateId) {
+      await updateTask({ id: selectedTemplateId, name });
+    }
+  };
+
+  const handleUpdateTaskDescriptionFromFieldView = async (description: string) => {
+    if (selectedTemplateId) {
+      await updateTask({ id: selectedTemplateId, description });
+    }
+  };
+
   const handleRemoveSelectedTaskFromRoutine = async () => {
     const selectedTask = routineTasks?.find((t) => t._id === selectedRoutineTaskId);
     if (selectedTask && selectedRoutineId && selectedRoutineId !== "unassigned") {
@@ -624,9 +643,13 @@ export function FormBuilder() {
             selectedTemplateId={selectedTemplateId}
             allFields={localFields}
             conditions={conditions}
+            taskName={selectedTemplate?.name}
+            taskDescription={selectedTemplate?.description}
             onClose={() => setSelectedFieldId(null)}
             onUpdate={handleFieldUpdate}
             onDelete={handleDeleteField}
+            onUpdateTaskName={handleUpdateTaskNameFromFieldView}
+            onUpdateTaskDescription={handleUpdateTaskDescriptionFromFieldView}
           />
         ) : selectedRoutineId && selectedRoutineId !== "unassigned" ? (
           selectedRoutineTaskId ? (
@@ -642,12 +665,14 @@ export function FormBuilder() {
                   taskTemplateId={selectedTask.taskTemplateId}
                   serviceTaskTemplateId={selectedRoutineTaskId}
                   taskName={selectedTask.taskTemplateName}
+                  taskDescription={selectedTask.taskTemplateDescription}
                   orderNumber={taskIndex + 1}
                   isRepeatable={selectedTask.isRepeatable}
                   allTasksInRoutine={routineTasks ?? []}
                   currentDependencies={currentDeps}
                   onClose={() => setSelectedRoutineTaskId(null)}
                   onUpdateName={handleUpdateTaskName}
+                  onUpdateDescription={handleUpdateTaskDescription}
                   onUpdateRepeatable={handleUpdateTaskRepeatable}
                   onRemoveFromRoutine={handleRemoveSelectedTaskFromRoutine}
                   onEditFields={handleEditTaskFields}
