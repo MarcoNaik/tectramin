@@ -40,6 +40,7 @@ export interface ServiceTaskTemplate {
   _id: Id<"serviceTaskTemplates">;
   taskTemplateId: Id<"taskTemplates">;
   taskTemplateName: string;
+  taskTemplateDescription?: string;
   order: number;
   isRequired: boolean;
   isRepeatable: boolean;
