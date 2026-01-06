@@ -1,22 +1,32 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ScrollView,
   Modal,
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
-  Pressable,
   Animated,
   Dimensions,
+  Image,
 } from "react-native";
 import { Text } from "../Text";
+import { ImageViewerModal } from "./ImageViewerModal";
+
+interface AnswerAttachment {
+  localUri: string | null;
+  fileName: string;
+  fileType: string;
+  mimeType: string;
+}
 
 interface Answer {
   label: string;
   value: string;
   fieldType: string;
+  attachment?: AnswerAttachment | null;
 }
 
 interface CompletedTaskModalProps {
@@ -63,6 +73,8 @@ export function CompletedTaskModal({
 }: CompletedTaskModalProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const displayAnswers = answers.filter((a) => a.fieldType !== "displayText");
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -105,14 +117,17 @@ export function CompletedTaskModal({
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Pressable style={styles.modalOverlay} onPress={handleClose}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={handleClose}>
+            <View style={styles.backdrop} />
+          </TouchableWithoutFeedback>
           <Animated.View
             style={[
               styles.modalContent,
               { transform: [{ translateY: slideAnim }] },
             ]}
           >
-            <Pressable onPress={(e) => e.stopPropagation()}>
+            <View>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle} numberOfLines={2}>
                   {taskName}
@@ -122,16 +137,11 @@ export function CompletedTaskModal({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.statusBadgeContainer}>
-                <View style={styles.completedBadge}>
-                  <Text style={styles.completedBadgeText}>Completado</Text>
-                </View>
-              </View>
-
               <ScrollView
                 style={styles.answersContainer}
                 contentContainerStyle={styles.answersContent}
                 showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
               >
                 {displayAnswers.length === 0 ? (
                   <Text style={styles.noAnswersText}>
@@ -141,9 +151,30 @@ export function CompletedTaskModal({
                   displayAnswers.map((answer, index) => (
                     <View key={index} style={styles.answerRow}>
                       <Text style={styles.answerLabel}>{answer.label}</Text>
-                      <Text style={styles.answerValue}>
-                        {formatValue(answer.value, answer.fieldType)}
-                      </Text>
+                      {answer.fieldType === "attachment" && answer.attachment ? (
+                        answer.attachment.fileType === "image" && answer.attachment.localUri ? (
+                          <TouchableOpacity
+                            onPress={() => {
+                              setSelectedImageUri(answer.attachment!.localUri);
+                              setViewerVisible(true);
+                            }}
+                          >
+                            <Image
+                              source={{ uri: answer.attachment.localUri }}
+                              style={styles.attachmentPreview}
+                            />
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.documentPreview}>
+                            <Text style={styles.documentIcon}>📄</Text>
+                            <Text style={styles.documentName}>{answer.attachment.fileName}</Text>
+                          </View>
+                        )
+                      ) : (
+                        <Text style={styles.answerValue}>
+                          {formatValue(answer.value, answer.fieldType)}
+                        </Text>
+                      )}
                     </View>
                   ))
                 )}
@@ -158,10 +189,20 @@ export function CompletedTaskModal({
                   <Text style={styles.closeActionButtonText}>Cerrar</Text>
                 </TouchableOpacity>
               </View>
-            </Pressable>
+            </View>
           </Animated.View>
-        </Pressable>
+        </View>
       </KeyboardAvoidingView>
+      {selectedImageUri && (
+        <ImageViewerModal
+          visible={viewerVisible}
+          imageUri={selectedImageUri}
+          onClose={() => {
+            setViewerVisible(false);
+            setSelectedImageUri(null);
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -172,8 +213,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
     backgroundColor: "#fff",
@@ -204,24 +248,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#6b7280",
   },
-  statusBadgeContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  completedBadge: {
-    backgroundColor: "#d1fae5",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: "flex-start",
-  },
-  completedBadgeText: {
-    fontSize: 12,
-    color: "#059669",
-    fontWeight: "600",
-  },
   answersContainer: {
-    maxHeight: 300,
+    maxHeight: SCREEN_HEIGHT * 0.5,
   },
   answersContent: {
     padding: 16,
@@ -276,5 +304,28 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 16,
     fontWeight: "500",
+  },
+  attachmentPreview: {
+    width: "100%",
+    height: 120,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  documentPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  documentIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  documentName: {
+    flex: 1,
+    fontSize: 14,
+    color: "#374151",
   },
 });
