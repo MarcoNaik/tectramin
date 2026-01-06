@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   FlatList,
-  ScrollView,
   Alert,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
+  Image,
 } from "react-native";
+import { useSharedValue } from "react-native-reanimated";
 import { Text } from "../../components/Text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -15,6 +15,10 @@ import { useAssignments } from "../../hooks/useAssignments";
 import { useTaskInstances, type TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 import { useAllTaskDependencies } from "../../hooks/useTaskDependencies";
 import { useUsers } from "../../hooks/useUsers";
+import { useLookupEntities } from "../../hooks/useLookupEntities";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { db } from "../../db/client";
+import { attachments } from "../../db/schema";
 import { SyncStatusIcon } from "../../components/SyncStatusIcon";
 import { UserAvatarButton } from "../../components/UserAvatarButton";
 import { UserProfileModal } from "../../components/UserProfileModal";
@@ -24,7 +28,8 @@ import { syncService } from "../../sync/SyncService";
 import { generateMonthDays, formatFullDate, type DayData } from "../../utils/dateUtils";
 import { DayPage } from "./DayPage";
 import { TaskInstanceForm } from "./TaskInstanceForm";
-import type { DayTaskTemplate, FieldTemplate, User } from "../../db/types";
+import { CollapsibleFormHeader } from "../../components/CollapsibleFormHeader";
+import type { DayTaskTemplate, FieldTemplate, User, LookupEntity } from "../../db/types";
 
 interface PendingTaskAction {
   type: "select" | "create";
@@ -35,17 +40,26 @@ interface PendingTaskAction {
   dayData: DayData;
 }
 
+interface AnswerAttachment {
+  localUri: string | null;
+  fileName: string;
+  fileType: string;
+  mimeType: string;
+}
+
 interface Answer {
   label: string;
   value: string;
   fieldType: string;
+  attachment?: AnswerAttachment | null;
 }
 
 function formatFieldValue(
   value: string,
   fieldType: string,
   field: FieldTemplate,
-  users: User[]
+  users: User[],
+  lookupEntities: LookupEntity[]
 ): string {
   if (!value) return "-";
   switch (fieldType) {
@@ -75,13 +89,14 @@ function formatFieldValue(
       const foundUser = users.find((u) => u.serverId === value);
       return foundUser?.fullName || value;
     case "entitySelect":
-      return value;
+      const foundEntity = lookupEntities.find((e) => e.serverId === value);
+      return foundEntity?.label || value;
     default:
       return value;
   }
 }
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export function AssignmentsScreen() {
   const insets = useSafeAreaInsets();
@@ -91,6 +106,10 @@ export function AssignmentsScreen() {
   const { taskInstances, createTaskInstance } = useTaskInstances(user?.id ?? "");
   const { dependencies: allDependencies } = useAllTaskDependencies();
   const { users: localUsers } = useUsers();
+  const { entities: lookupEntities } = useLookupEntities();
+  const { data: allAttachments } = useLiveQuery(
+    db.select().from(attachments)
+  );
   const [activeTaskInstanceClientId, setActiveTaskInstanceClientId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<(DayTaskTemplate & { fields: FieldTemplate[] }) | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -101,6 +120,7 @@ export function AssignmentsScreen() {
   const [completedTaskModalVisible, setCompletedTaskModalVisible] = useState(false);
   const [pendingTaskAction, setPendingTaskAction] = useState<PendingTaskAction | null>(null);
   const flatListRef = useRef<FlatList<DayData>>(null);
+  const formScrollY = useSharedValue(0);
 
   const currentUserRole = useMemo(() => {
     const email = user?.primaryEmailAddress?.emailAddress;
@@ -193,19 +213,37 @@ export function AssignmentsScreen() {
           const response = instance.responses.find(
             (r) => r.fieldTemplateServerId === field.serverId
           );
+
+          let attachment: AnswerAttachment | null = null;
+          if (field.fieldType === "attachment" && response?.clientId) {
+            const foundAttachment = (allAttachments ?? []).find(
+              (a) => a.fieldResponseClientId === response.clientId
+            );
+            if (foundAttachment) {
+              attachment = {
+                localUri: foundAttachment.localUri,
+                fileName: foundAttachment.fileName,
+                fileType: foundAttachment.fileType,
+                mimeType: foundAttachment.mimeType,
+              };
+            }
+          }
+
           return {
             label: field.label,
             value: formatFieldValue(
               response?.value ?? "",
               field.fieldType,
               field,
-              localUsers
+              localUsers,
+              lookupEntities
             ),
             fieldType: field.fieldType,
+            attachment,
           };
         });
     },
-    [taskInstances, localUsers]
+    [taskInstances, localUsers, lookupEntities, allAttachments]
   );
 
   const handleSelectTaskWithChecks = useCallback(
@@ -358,40 +396,67 @@ export function AssignmentsScreen() {
   }, [user?.id]);
 
   if (activeTaskInstanceClientId && activeTemplate) {
+    const currentInstance = taskInstances.find(
+      (ti) => ti.clientId === activeTaskInstanceClientId
+    );
+    const formTitle = currentInstance?.instanceLabel || activeTemplate.taskTemplateName;
+    const formSubtitle = currentInstance?.instanceLabel ? activeTemplate.taskTemplateName : undefined;
+
+    const inputFields = activeTemplate.fields.filter((f) => f.fieldType !== "displayText");
+    const totalFields = inputFields.length;
+    const answeredFields = inputFields.filter((field) => {
+      const response = currentInstance?.responses.find(
+        (r) => r.fieldTemplateServerId === field.serverId
+      );
+      return response?.value && response.value.trim() !== "";
+    }).length;
+    const requiredFields = inputFields.filter((f) => f.isRequired);
+    const isComplete = requiredFields.every((field) => {
+      const response = currentInstance?.responses.find(
+        (r) => r.fieldTemplateServerId === field.serverId
+      );
+      return response?.value && response.value.trim() !== "";
+    });
+
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          onPress={() => {
+        <CollapsibleFormHeader
+          title={formTitle}
+          subtitle={formSubtitle}
+          description={activeTemplate.description ?? undefined}
+          onBack={() => {
             setActiveTaskInstanceClientId(null);
             setActiveTemplate(null);
           }}
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>Volver a Tareas</Text>
-        </TouchableOpacity>
-        <ScrollView
-          style={styles.formScrollView}
-          contentContainerStyle={styles.formScrollContent}
-          showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
-        >
-          <TaskInstanceForm
-            key={activeTaskInstanceClientId}
-            taskInstanceClientId={activeTaskInstanceClientId}
-            template={activeTemplate}
-            userId={user?.id ?? ""}
-            onComplete={() => {
-              setActiveTaskInstanceClientId(null);
-              setActiveTemplate(null);
-            }}
-          />
-        </ScrollView>
+          scrollY={formScrollY}
+          answeredFields={answeredFields}
+          totalFields={totalFields}
+          isComplete={isComplete}
+        />
+        <TaskInstanceForm
+          key={activeTaskInstanceClientId}
+          taskInstanceClientId={activeTaskInstanceClientId}
+          template={activeTemplate}
+          userId={user?.id ?? ""}
+          onComplete={() => {
+            setActiveTaskInstanceClientId(null);
+            setActiveTemplate(null);
+          }}
+          scrollY={formScrollY}
+        />
       </View>
     );
   }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.backgroundIconContainer}>
+        <Image
+          source={require("../../../assets/icon.png")}
+          style={styles.backgroundIcon}
+          resizeMode="contain"
+        />
+      </View>
       <View style={styles.appHeader}>
         <View style={styles.headerLeft}>
           <SyncStatusIcon />
@@ -483,6 +548,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  backgroundIconContainer: {
+    position: "absolute",
+    top: SCREEN_HEIGHT * 0.25,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    pointerEvents: "none",
+    zIndex: 0,
+  },
+  backgroundIcon: {
+    width: SCREEN_WIDTH * 0.7,
+    height: SCREEN_WIDTH * 0.7,
+    opacity: 0.1,
+    borderRadius: SCREEN_WIDTH * 0.7 * 0.2,
+  },
   appHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -491,6 +573,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    zIndex: 1,
   },
   appTitle: {
     fontSize: 20,
@@ -504,14 +588,6 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 100,
     alignItems: "flex-end",
-  },
-  backButton: {
-    marginBottom: 16,
-  },
-  backButtonText: {
-    color: "#2563eb",
-    fontSize: 14,
-    fontWeight: "500",
   },
   formScrollView: {
     flex: 1,
