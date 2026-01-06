@@ -54,3 +54,59 @@ export function DebouncedInput({
     />
   );
 }
+
+interface DebouncedTextareaProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  rows?: number;
+}
+
+export function DebouncedTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+  rows = 3,
+}: DebouncedTextareaProps) {
+  const [localValue, setLocalValue] = useState(value);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      onChange(newValue);
+    }, 300);
+  };
+
+  const handleBlur = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    if (localValue !== value) {
+      onChange(localValue);
+    }
+  };
+
+  return (
+    <textarea
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      className={className}
+      placeholder={placeholder}
+      rows={rows}
+    />
+  );
+}
