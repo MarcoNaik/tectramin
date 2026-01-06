@@ -2,8 +2,8 @@ import {
   View,
   ScrollView,
   RefreshControl,
-  StyleSheet,
   Dimensions,
+  StyleSheet,
 } from "react-native";
 import { Text } from "../../components/Text";
 import { AssignmentTaskGroup } from "./AssignmentTaskGroup";
