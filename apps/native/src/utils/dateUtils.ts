@@ -1,3 +1,6 @@
+import { UTCDate } from "@date-fns/utc";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 import type { AssignmentWithTemplates } from "../hooks/useAssignments";
 
 export interface DayData {
@@ -7,6 +10,38 @@ export interface DayData {
   dayNumber: number;
   isToday: boolean;
   assignments: AssignmentWithTemplates[];
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export function dateStringToUTCMidnight(dateString: string): number {
+  const parsed = parseISO(dateString);
+  const utcDate = new UTCDate(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    parsed.getDate()
+  );
+  return utcDate.getTime();
+}
+
+export function utcMidnightToDateString(timestamp: number): string {
+  const utcDate = new UTCDate(timestamp);
+  return format(utcDate, "yyyy-MM-dd");
+}
+
+export function formatUTCDateKey(timestamp: number): string {
+  const utcDate = new UTCDate(timestamp);
+  return format(utcDate, "yyyy-MM-dd");
+}
+
+export function getTodayUTCMidnight(): number {
+  const now = new Date();
+  const utcDate = new UTCDate(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+  return utcDate.getTime();
 }
 
 export function formatDateKey(date: Date): string {
@@ -22,7 +57,7 @@ export function groupAssignmentsByDate(
   const grouped = new Map<string, AssignmentWithTemplates[]>();
 
   for (const assignment of assignments) {
-    const dateKey = formatDateKey(new Date(assignment.dayDate));
+    const dateKey = formatUTCDateKey(assignment.dayDate);
     const existing = grouped.get(dateKey) || [];
     grouped.set(dateKey, [...existing, assignment]);
   }
@@ -34,9 +69,8 @@ export function generateMonthDays(
   referenceDate: Date,
   assignments: AssignmentWithTemplates[]
 ): { days: DayData[]; todayIndex: number } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = formatDateKey(today);
+  const todayTimestamp = getTodayUTCMidnight();
+  const todayKey = formatUTCDateKey(todayTimestamp);
 
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth();
@@ -61,7 +95,7 @@ export function generateMonthDays(
     days.push({
       dateKey,
       date: new Date(current),
-      dayOfWeek: current.toLocaleDateString("es-CL", { weekday: "long" }),
+      dayOfWeek: format(current, "EEEE", { locale: es }),
       dayNumber: current.getDate(),
       isToday,
       assignments: assignmentsByDate.get(dateKey) || [],
@@ -74,13 +108,14 @@ export function generateMonthDays(
 }
 
 export function formatMonthYear(date: Date): string {
-  return date.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  return format(date, "MMMM yyyy", { locale: es });
 }
 
 export function formatFullDate(date: Date): string {
-  return date.toLocaleDateString("es-CL", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return format(date, "d 'de' MMMM, yyyy", { locale: es });
+}
+
+export function formatUTCFullDate(timestamp: number): string {
+  const utcDate = new UTCDate(timestamp);
+  return format(utcDate, "d 'de' MMMM, yyyy", { locale: es });
 }
