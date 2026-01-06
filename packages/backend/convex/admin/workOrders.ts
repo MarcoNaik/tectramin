@@ -1,6 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { normalizeToUTCMidnight, addDaysUTC, daysBetween } from "../shared/dateUtils";
 
 const workOrderValidator = v.object({
   _id: v.id("workOrders"),
@@ -257,27 +258,21 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    const startDay = new Date(args.startDate);
-    startDay.setHours(0, 0, 0, 0);
-    const endDay = new Date(args.endDate);
-    endDay.setHours(0, 0, 0, 0);
+    const startDay = normalizeToUTCMidnight(args.startDate);
+    const endDay = normalizeToUTCMidnight(args.endDate);
+    const totalDays = daysBetween(startDay, endDay);
 
-    let dayNumber = 1;
-    const currentDay = new Date(startDay);
-
-    while (currentDay <= endDay) {
+    for (let i = 0; i < totalDays; i++) {
+      const dayDate = addDaysUTC(startDay, i);
       await ctx.db.insert("workOrderDays", {
         workOrderId,
-        dayDate: currentDay.getTime(),
-        dayNumber,
+        dayDate,
+        dayNumber: i + 1,
         status: "pending",
         requiredPeople: args.requiredPeoplePerDay,
         createdAt: now,
         updatedAt: now,
       });
-
-      currentDay.setDate(currentDay.getDate() + 1);
-      dayNumber++;
     }
 
     if (args.serviceId) {
@@ -343,13 +338,9 @@ export const createFromService = mutation({
       throw new Error("Faena does not belong to customer");
     }
 
-    const startDate = new Date(args.startDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(args.endDate);
-    endDate.setHours(0, 0, 0, 0);
-
-    const dayCount = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const startDate = normalizeToUTCMidnight(args.startDate);
+    const endDate = normalizeToUTCMidnight(args.endDate);
+    const dayCount = daysBetween(startDate, endDate);
 
     const now = Date.now();
 
@@ -359,19 +350,17 @@ export const createFromService = mutation({
       serviceId: args.serviceId,
       name: args.name ?? `${service.name} - ${customer.name}`,
       status: "draft",
-      startDate: startDate.getTime(),
-      endDate: endDate.getTime(),
+      startDate,
+      endDate,
       createdAt: now,
       updatedAt: now,
     });
 
     for (let i = 0; i < dayCount; i++) {
-      const dayDate = new Date(startDate);
-      dayDate.setDate(dayDate.getDate() + i);
-
+      const dayDate = addDaysUTC(startDate, i);
       await ctx.db.insert("workOrderDays", {
         workOrderId,
-        dayDate: dayDate.getTime(),
+        dayDate,
         dayNumber: i + 1,
         status: "pending",
         requiredPeople: args.requiredPeoplePerDay,
