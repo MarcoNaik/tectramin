@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from "react";
 import { useConvex, useQuery } from "convex/react";
 import { useUser } from "@clerk/clerk-expo";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { api } from "@packages/backend/convex/_generated/api";
 import { syncService } from "../sync/SyncService";
 import { db } from "../db/client";
@@ -132,6 +132,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
               workOrderDayServerId: assignment.workOrderDayServerId,
               taskTemplateServerId: tt.taskTemplateServerId,
               taskTemplateName: tt.taskTemplateName,
+              description: tt.description,
               order: tt.order,
               isRequired: tt.isRequired,
               isRepeatable: tt.isRepeatable,
@@ -140,6 +141,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
               target: dayTaskTemplates.serverId,
               set: {
                 taskTemplateName: tt.taskTemplateName,
+                description: tt.description,
                 order: tt.order,
                 isRequired: tt.isRequired,
                 isRepeatable: tt.isRepeatable,
@@ -192,8 +194,6 @@ export function SyncProvider({ children }: SyncProviderProps) {
     prevInstancesRef.current = newHash;
 
     const syncInstances = async () => {
-      console.log("[SYNC DEBUG] serverTaskInstances count:", serverTaskInstances.length);
-      console.log("[SYNC DEBUG] serverTaskInstances:", serverTaskInstances.map(i => ({ clientId: i.clientId, label: i.instanceLabel, dayTaskTemplateServerId: i.dayTaskTemplateServerId })));
       for (const instance of serverTaskInstances) {
         const local = await db
           .select()
@@ -250,28 +250,24 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
     const syncResponses = async () => {
       for (const response of serverFieldResponses) {
-        const local = await db
+        const localByTaskField = await db
           .select()
           .from(fieldResponses)
-          .where(eq(fieldResponses.clientId, response.clientId))
+          .where(
+            and(
+              eq(fieldResponses.taskInstanceClientId, response.taskInstanceClientId),
+              eq(fieldResponses.fieldTemplateServerId, response.fieldTemplateServerId)
+            )
+          )
           .limit(1);
 
-        if (local.length > 0 && local[0].syncStatus === "pending") {
+        if (localByTaskField.length > 0 && localByTaskField[0].syncStatus === "pending") {
           continue;
         }
 
-        if (local.length > 0) {
-          await db
-            .update(fieldResponses)
-            .set({
-              serverId: response.serverId,
-              value: response.value,
-              updatedAt: new Date(response.updatedAt),
-              syncStatus: "synced",
-            })
-            .where(eq(fieldResponses.clientId, response.clientId));
-        } else {
-          await db.insert(fieldResponses).values({
+        await db
+          .insert(fieldResponses)
+          .values({
             clientId: response.clientId,
             serverId: response.serverId,
             taskInstanceClientId: response.taskInstanceClientId,
@@ -281,8 +277,17 @@ export function SyncProvider({ children }: SyncProviderProps) {
             createdAt: new Date(response.createdAt),
             updatedAt: new Date(response.updatedAt),
             syncStatus: "synced",
+          })
+          .onConflictDoUpdate({
+            target: [fieldResponses.taskInstanceClientId, fieldResponses.fieldTemplateServerId],
+            set: {
+              clientId: response.clientId,
+              serverId: response.serverId,
+              value: response.value,
+              updatedAt: new Date(response.updatedAt),
+              syncStatus: "synced",
+            },
           });
-        }
       }
     };
 

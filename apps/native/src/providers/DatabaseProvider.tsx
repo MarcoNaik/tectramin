@@ -22,22 +22,14 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    console.log("[DatabaseProvider] Migration status - success:", success, "error:", error);
     if (success) {
-      console.log("[DatabaseProvider] Migrations completed successfully");
       setIsReady(true);
     }
   }, [success, error]);
 
-  useEffect(() => {
-    console.log("[DatabaseProvider] isReady:", isReady);
-  }, [isReady]);
-
   const handleReset = () => {
-    console.log("[DatabaseProvider] Resetting database...");
     const didReset = resetDatabase();
     if (didReset) {
-      console.log("[DatabaseProvider] Database reset successfully");
       Alert.alert(
         "Database Reset",
         "Database has been cleared. Please close and reopen the app.",
@@ -63,15 +55,12 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   }
 
   if (!isReady) {
-    console.log("[DatabaseProvider] Database not ready yet, waiting for migrations...");
     return (
       <View style={styles.loadingContainer}>
         <Text>Loading database...</Text>
       </View>
     );
   }
-
-  console.log("[DatabaseProvider] Database ready, rendering children");
 
   return (
     <DatabaseContext.Provider value={{ db, isReady, error }}>
