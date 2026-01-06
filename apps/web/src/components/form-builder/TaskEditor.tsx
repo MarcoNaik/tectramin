@@ -1,19 +1,21 @@
 "use client";
 
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
-import { DebouncedInput } from "@/components/ui/DebouncedInput";
+import { DebouncedInput, DebouncedTextarea } from "@/components/ui/DebouncedInput";
 import type { ServiceTaskTemplate } from "@/types";
 
 interface TaskEditorProps {
   taskTemplateId: Id<"taskTemplates">;
   serviceTaskTemplateId: Id<"serviceTaskTemplates">;
   taskName: string;
+  taskDescription?: string;
   orderNumber: number;
   isRepeatable: boolean;
   allTasksInRoutine: ServiceTaskTemplate[];
   currentDependencies: Id<"serviceTaskTemplates">[];
   onClose: () => void;
   onUpdateName: (name: string) => void;
+  onUpdateDescription: (description: string) => void;
   onUpdateRepeatable: (isRepeatable: boolean) => void;
   onRemoveFromRoutine: () => void;
   onEditFields: () => void;
@@ -23,12 +25,14 @@ interface TaskEditorProps {
 export function TaskEditor({
   serviceTaskTemplateId,
   taskName,
+  taskDescription,
   orderNumber,
   isRepeatable,
   allTasksInRoutine,
   currentDependencies,
   onClose,
   onUpdateName,
+  onUpdateDescription,
   onUpdateRepeatable,
   onRemoveFromRoutine,
   onEditFields,
@@ -67,6 +71,17 @@ export function TaskEditor({
               value={taskName}
               onChange={onUpdateName}
               className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Descripción de la Tarea</label>
+            <DebouncedTextarea
+              value={taskDescription ?? ""}
+              onChange={onUpdateDescription}
+              placeholder="Descripción opcional de la tarea..."
+              className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
             />
           </div>
 
