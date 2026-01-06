@@ -6,7 +6,7 @@ import { Camera, Image, FileText } from "lucide-react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import type { FieldTemplateData, FieldConditionData } from "@/types";
-import { DebouncedInput } from "@/components/ui/DebouncedInput";
+import { DebouncedInput, DebouncedTextarea } from "@/components/ui/DebouncedInput";
 import { ConditionEditor } from "./ConditionEditor";
 
 interface SelectOption {
@@ -270,6 +270,8 @@ interface FieldEditorProps {
   selectedTemplateId: Id<"taskTemplates"> | null;
   allFields: FieldTemplateData[];
   conditions: FieldConditionData[];
+  taskName?: string;
+  taskDescription?: string;
   onClose: () => void;
   onUpdate: (fieldId: Id<"fieldTemplates">, updates: {
     label?: string;
@@ -281,6 +283,8 @@ interface FieldEditorProps {
     conditionLogic?: "AND" | "OR" | null;
   }) => void;
   onDelete: (fieldId: Id<"fieldTemplates">) => void;
+  onUpdateTaskName?: (name: string) => void;
+  onUpdateTaskDescription?: (description: string) => void;
 }
 
 export function FieldEditor({
@@ -288,9 +292,13 @@ export function FieldEditor({
   selectedTemplateId,
   allFields,
   conditions,
+  taskName,
+  taskDescription,
   onClose,
   onUpdate,
   onDelete,
+  onUpdateTaskName,
+  onUpdateTaskDescription,
 }: FieldEditorProps) {
   if (!selectedTemplateId) {
     return null;
@@ -299,10 +307,34 @@ export function FieldEditor({
   if (!selectedField) {
     return (
       <div className="w-72 flex-shrink-0">
-        <div className="border-l border-gray-200 bg-gray-50 h-full flex items-center justify-center p-6">
-          <p className="text-gray-400 text-center text-sm font-medium">
-            Selecciona un campo para editar sus propiedades
-          </p>
+        <div className="border-l border-gray-200 bg-white h-full flex flex-col">
+          <div className="flex justify-between items-center p-4 border-b border-gray-200">
+            <h3 className="font-bold text-gray-900">Detalles de la Tarea</h3>
+          </div>
+          <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Nombre de la Tarea</label>
+              <DebouncedInput
+                value={taskName ?? ""}
+                onChange={(value) => onUpdateTaskName?.(value)}
+                className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Descripción de la Tarea</label>
+              <DebouncedTextarea
+                value={taskDescription ?? ""}
+                onChange={(value) => onUpdateTaskDescription?.(value)}
+                placeholder="Descripción opcional de la tarea..."
+                className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows={4}
+              />
+            </div>
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700 font-medium">Selecciona un campo para editar</p>
+              <p className="text-xs text-blue-600 mt-1">Haz clic en un campo del formulario para ver sus propiedades</p>
+            </div>
+          </div>
         </div>
       </div>
     );
