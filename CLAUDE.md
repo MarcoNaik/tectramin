@@ -361,6 +361,81 @@ export function EntityList({ userId }: { userId: string }) {
 | Periodic sync (30s) | Balance between real-time and battery life |
 | Separate sync functions | Decouples mobile sync from web CRUD operations |
 
+## Date Handling (UTC Midnight Pattern)
+
+All calendar dates (work orders, work order days, etc.) use **UTC midnight normalization** to ensure consistent display across timezones.
+
+### Why UTC Midnight?
+- User enters "2025-01-28" → Stored as `2025-01-28T00:00:00.000Z` (UTC midnight)
+- Displayed as "January 28" regardless of viewer's timezone
+- Prevents off-by-one day errors when users are in different timezones
+
+### Date Utility Locations
+| Package | File | Purpose |
+|---------|------|---------|
+| Backend | `packages/backend/convex/shared/dateUtils.ts` | Server-side UTC utilities |
+| Web | `apps/web/src/utils/dateUtils.ts` | Web UTC utilities |
+| Native | `apps/native/src/utils/dateUtils.ts` | Mobile UTC utilities |
+
+### Key Functions
+```typescript
+import { UTCDate } from "@date-fns/utc";
+import { format, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
+
+dateStringToUTCMidnight("2025-01-28")  // → UTC timestamp for midnight
+utcMidnightToDateString(timestamp)     // → "2025-01-28"
+normalizeToUTCMidnight(timestamp)      // → Normalize any timestamp to UTC midnight
+addDaysUTC(timestamp, days)            // → Add days without timezone drift
+formatUTCDate(timestamp, "EEE, d MMM") // → "lun, 28 ene" (Spanish locale)
+```
+
+### Usage Patterns
+
+**Backend (Convex mutations):**
+```typescript
+import { normalizeToUTCMidnight, addDaysUTC, daysBetween } from "../shared/dateUtils";
+
+const startDay = normalizeToUTCMidnight(args.startDate);
+const endDay = normalizeToUTCMidnight(args.endDate);
+const totalDays = daysBetween(startDay, endDay);
+
+for (let i = 0; i < totalDays; i++) {
+  const dayDate = addDaysUTC(startDay, i);
+  await ctx.db.insert("workOrderDays", { dayDate, ... });
+}
+```
+
+**Web (date inputs):**
+```typescript
+import { dateStringToUTCMidnight, utcMidnightToDateString, formatUTCDate } from "../../utils/dateUtils";
+
+const startDateStr = utcMidnightToDateString(startDate);
+<input type="date" value={startDateStr} />
+
+await createWorkOrder({
+  startDate: dateStringToUTCMidnight(startDateStr),
+  endDate: dateStringToUTCMidnight(endDate),
+});
+
+{formatUTCDate(day.dayDate, "EEE, d MMM")}
+```
+
+**Native (date display):**
+```typescript
+import { formatUTCDateKey, formatUTCFullDate } from "../utils/dateUtils";
+
+const dateKey = formatUTCDateKey(assignment.dayDate);
+const displayDate = formatUTCFullDate(timestamp);
+```
+
+### IMPORTANT Rules
+1. **NEVER use `new Date(dateString).getTime()`** for calendar dates - it interprets in local timezone
+2. **ALWAYS use `dateStringToUTCMidnight()`** when converting user input to timestamps
+3. **ALWAYS use `UTCDate` from `@date-fns/utc`** when formatting timestamps for display
+4. **Use Spanish locale (`es`)** for all date formatting in this project
+5. Store dates as `v.number()` (milliseconds) in Convex schema
+
 ---
 
 # Convex guidelines
