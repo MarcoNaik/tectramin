@@ -7,12 +7,13 @@ import { Text } from "../../components/Text";
 import { TaskCardButton } from "./TaskCardButton";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import { useWorkOrderDayStatus } from "../../hooks/useWorkOrderDayStatus";
-import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
+import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
+import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 
 interface AssignmentTaskGroupProps {
   assignment: AssignmentWithTemplates;
-  taskInstances: TaskInstance[];
+  taskInstances: TaskInstanceWithResponses[];
   allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
@@ -86,7 +87,6 @@ export function AssignmentTaskGroup({
         }
 
         const instance = instances[0];
-        const isCompleted = instance?.status === "completed";
 
         return (
           <View key={template.serverId} style={styles.taskCard}>
@@ -102,9 +102,6 @@ export function AssignmentTaskGroup({
                 </View>
               </View>
               <View style={styles.taskCardActions}>
-                {isCompleted && (
-                  <Text style={styles.completedIcon}>●</Text>
-                )}
                 <TaskCardButton
                   template={template}
                   instance={instance}
@@ -207,10 +204,6 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "700",
     marginLeft: 4,
-  },
-  completedIcon: {
-    fontSize: 14,
-    color: "#6b7280",
   },
   completeButton: {
     backgroundColor: "#059669",
