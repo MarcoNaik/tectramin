@@ -17,6 +17,7 @@ import Animated, {
 import { Text } from "../../components/Text";
 import { FieldInput } from "../../components/fields";
 import { PaginationDots } from "../../components/PaginationDots";
+import { CompletedTaskModal } from "../../components/common/CompletedTaskModal";
 import { useFieldResponses } from "../../hooks/useFieldResponses";
 import { useTaskInstances } from "../../hooks/useTaskInstances";
 import { useFieldConditions } from "../../hooks/useFieldConditions";
@@ -27,6 +28,20 @@ import type { DayTaskTemplate, FieldTemplate } from "../../db/types";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
+
+interface AnswerAttachment {
+  localUri: string | null;
+  fileName: string;
+  fileType: string;
+  mimeType: string;
+}
+
+interface Answer {
+  label: string;
+  value: string;
+  fieldType: string;
+  attachment?: AnswerAttachment | null;
+}
 
 interface TaskInstanceFormProps {
   taskInstanceClientId: string;
@@ -44,6 +59,8 @@ function TaskInstanceFormInner({
   scrollY,
 }: TaskInstanceFormProps) {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [pendingAnswers, setPendingAnswers] = useState<Answer[]>([]);
   const flatListRef = useRef<FlatList<FieldPage>>(null);
 
   const { responses, upsertResponse, getResponseForField } = useFieldResponses(
@@ -115,6 +132,22 @@ function TaskInstanceFormInner({
     return getResponseForField(fieldServerId)?.value ?? undefined;
   };
 
+  const buildAnswersFromResponses = (): Answer[] => {
+    return visibleFields
+      .filter((f) => f.fieldType !== "displayText")
+      .map((field) => {
+        const response = responses.find(
+          (r) => r.fieldTemplateServerId === field.serverId
+        );
+        return {
+          label: field.label,
+          value: response?.value ?? "",
+          fieldType: field.fieldType,
+          attachment: null,
+        };
+      });
+  };
+
   const handleComplete = async () => {
     flushAll();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -133,7 +166,14 @@ function TaskInstanceFormInner({
       return;
     }
 
+    const answers = buildAnswersFromResponses();
+    setPendingAnswers(answers);
+    setConfirmModalVisible(true);
+  };
+
+  const confirmComplete = async () => {
     await updateTaskInstanceStatus(taskInstanceClientId, "completed");
+    setConfirmModalVisible(false);
     onComplete();
   };
 
@@ -199,41 +239,52 @@ function TaskInstanceFormInner({
   );
 
   return (
-    <View style={styles.formContainer}>
-      <FlatList
-        ref={flatListRef}
-        data={pages}
-        renderItem={renderPage}
-        keyExtractor={(item) => `page-${item.pageIndex}`}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={getItemLayout}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        windowSize={3}
-        maxToRenderPerBatch={3}
-        removeClippedSubviews={false}
-        keyboardShouldPersistTaps="handled"
-      />
-      <View style={styles.bottomContainer}>
-        <PaginationDots totalPages={pages.length} currentPage={currentPageIndex} />
-        <TouchableOpacity
-          style={[styles.completeButton, isFormIncomplete && styles.completeButtonDisabled]}
-          onPress={handleComplete}
-          disabled={isFormIncomplete}
-        >
-          <Text
-            style={[
-              styles.completeButtonText,
-              isFormIncomplete && styles.completeButtonTextDisabled,
-            ]}
+    <>
+      <View style={styles.formContainer}>
+        <FlatList
+          ref={flatListRef}
+          data={pages}
+          renderItem={renderPage}
+          keyExtractor={(item) => `page-${item.pageIndex}`}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          getItemLayout={getItemLayout}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          windowSize={3}
+          maxToRenderPerBatch={3}
+          removeClippedSubviews={false}
+          keyboardShouldPersistTaps="handled"
+        />
+        <View style={styles.bottomContainer}>
+          <PaginationDots totalPages={pages.length} currentPage={currentPageIndex} />
+          <TouchableOpacity
+            style={[styles.completeButton, isFormIncomplete && styles.completeButtonDisabled]}
+            onPress={handleComplete}
+            disabled={isFormIncomplete}
           >
-            Marcar Completado
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.completeButtonText,
+                isFormIncomplete && styles.completeButtonTextDisabled,
+              ]}
+            >
+              Marcar Completado
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+      <CompletedTaskModal
+        visible={confirmModalVisible}
+        mode="confirm"
+        taskName={template.taskTemplateName}
+        answers={pendingAnswers}
+        onClose={() => setConfirmModalVisible(false)}
+        onConfirm={confirmComplete}
+        onEdit={() => {}}
+      />
+    </>
   );
 }
 
