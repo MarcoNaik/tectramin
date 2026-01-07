@@ -24,10 +24,10 @@
   "dependencies": {
     "@date-fns/utc": "^2.1.1",
     "date-fns": "^4.1.0",
-    "expo": "~54.0.30",
+    "expo": "~54.0.31",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-worklets": "^0.5.1"
+    "react-native-worklets": "0.5.1"
   },
   "version": "1.0.0"
 }
