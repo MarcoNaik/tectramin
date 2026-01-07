@@ -11,7 +11,13 @@ import {
   Animated,
   Dimensions,
   Image,
+  Alert,
+  PanResponder,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Defs, RadialGradient, Stop, Rect } from "react-native-svg";
+import LottieView from "lottie-react-native";
 import { Text } from "../Text";
 import { ImageViewerModal } from "./ImageViewerModal";
 
@@ -33,11 +39,436 @@ interface CompletedTaskModalProps {
   visible: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onConfirm?: () => void;
   taskName: string;
   answers: Answer[];
+  mode?: "view" | "confirm";
 }
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const SLIDER_WIDTH = SCREEN_WIDTH - 64;
+const THUMB_SIZE = 56;
+const TRACK_HEIGHT = 56;
+const CONFIRM_THRESHOLD = 0.98;
+
+interface SlideToConfirmProps {
+  onConfirm: () => void;
+  onProgressChange?: (progress: number) => void;
+}
+
+function VignetteOverlay({ progress }: { progress: number }) {
+  const opacity = progress * 0.9;
+
+  return (
+    <View style={vignetteStyles.container} pointerEvents="none">
+      <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT}>
+        <Defs>
+          <RadialGradient id="vignette" cx="50%" cy="88%" rx="120%" ry="50%">
+            <Stop offset="0" stopColor="black" stopOpacity={0} />
+            <Stop offset="0.15" stopColor="black" stopOpacity={0} />
+            <Stop offset="0.25" stopColor="black" stopOpacity={opacity * 0.15} />
+            <Stop offset="1" stopColor="black" stopOpacity={opacity} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width={SCREEN_WIDTH} height={SCREEN_HEIGHT} fill="url(#vignette)" />
+      </Svg>
+    </View>
+  );
+}
+
+const vignetteStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+    elevation: 9999,
+  },
+});
+
+type CelebrationPhase = "idle" | "takeover" | "celebrating" | "exiting";
+
+function SuccessOverlay({
+  phase,
+  lottieRef,
+}: {
+  phase: Exclude<CelebrationPhase, "idle">;
+  lottieRef: React.RefObject<LottieView | null>;
+}) {
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateY = useRef(new Animated.Value(20)).current;
+  const containerOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (phase === "takeover") {
+      Animated.timing(containerOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else if (phase === "celebrating") {
+      lottieRef.current?.play();
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 200,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 300,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textTranslateY, {
+          toValue: 0,
+          duration: 300,
+          delay: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else if (phase === "exiting") {
+      Animated.timing(containerOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [phase, containerOpacity, scaleAnim, textOpacity, textTranslateY, lottieRef]);
+
+  return (
+    <Animated.View style={[successStyles.container, { opacity: containerOpacity }]}>
+      <LinearGradient
+        colors={["#059669", "#047857"]}
+        style={StyleSheet.absoluteFill}
+      />
+      <LottieView
+        ref={lottieRef}
+        source={require("../../../assets/confetti.json")}
+        style={successStyles.confetti}
+        autoPlay={false}
+        loop={false}
+        resizeMode="cover"
+      />
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Text style={successStyles.checkmark}>✓</Text>
+      </Animated.View>
+      <Animated.Text
+        style={[
+          successStyles.text,
+          { opacity: textOpacity, transform: [{ translateY: textTranslateY }] },
+        ]}
+      >
+        ¡Completado!
+      </Animated.Text>
+    </Animated.View>
+  );
+}
+
+const successStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10000,
+    elevation: 10000,
+  },
+  confetti: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  checkmark: {
+    fontSize: 80,
+    color: "#fff",
+    fontWeight: "700",
+    zIndex: 2,
+    textShadowColor: "rgba(0,0,0,0.2)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  text: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#fff",
+    marginTop: 16,
+    zIndex: 2,
+    textShadowColor: "rgba(0,0,0,0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+});
+
+function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const thumbScale = useRef(new Animated.Value(1)).current;
+  const checkmarkScale = useRef(new Animated.Value(0)).current;
+  const checkmarkOpacity = useRef(new Animated.Value(0)).current;
+  const [confirmed, setConfirmed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const hapticInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentProgress = useRef(0);
+  const maxSlide = SLIDER_WIDTH - THUMB_SIZE + 24;
+
+  const startHapticLoop = () => {
+    if (hapticInterval.current) return;
+    hapticInterval.current = setInterval(() => {
+      const prog = currentProgress.current;
+      if (prog > 0) {
+        const intensity = Math.min(prog / 0.75, 1);
+        if (intensity >= 1) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } else if (intensity >= 0.5) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
+    }, 16);
+  };
+
+  const stopHapticLoop = () => {
+    if (hapticInterval.current) {
+      clearInterval(hapticInterval.current);
+      hapticInterval.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      Animated.spring(thumbScale, {
+        toValue: 1.1,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 10,
+      }).start();
+    } else {
+      thumbScale.setValue(1);
+    }
+  }, [isDragging, thumbScale]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        startHapticLoop();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const newX = Math.max(0, Math.min(gestureState.dx, maxSlide));
+        translateX.setValue(newX);
+        currentProgress.current = newX / maxSlide;
+        setProgress(currentProgress.current);
+        onProgressChange?.(currentProgress.current);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        setIsDragging(false);
+        stopHapticLoop();
+        const prog = gestureState.dx / maxSlide;
+        if (prog >= CONFIRM_THRESHOLD) {
+          setProgress(1);
+          onProgressChange?.(0);
+          Animated.timing(translateX, {
+            toValue: maxSlide,
+            duration: 150,
+            useNativeDriver: true,
+          }).start(() => {
+            setConfirmed(true);
+            Animated.parallel([
+              Animated.spring(checkmarkScale, {
+                toValue: 1,
+                useNativeDriver: true,
+                tension: 200,
+                friction: 8,
+              }),
+              Animated.timing(checkmarkOpacity, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+            ]).start(() => {
+              onConfirm();
+            });
+          });
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          setProgress(0);
+          onProgressChange?.(0);
+          translateX.setValue(0);
+        }
+        currentProgress.current = 0;
+      },
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
+        stopHapticLoop();
+        setProgress(0);
+        onProgressChange?.(0);
+        translateX.setValue(0);
+        currentProgress.current = 0;
+      },
+    })
+  ).current;
+
+  const releaseTextOpacity = translateX.interpolate({
+    inputRange: [maxSlide * 0.5, maxSlide * 0.75],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+
+  const progressWidth = THUMB_SIZE + 8 + progress * (SLIDER_WIDTH - THUMB_SIZE - 8);
+
+  if (confirmed) {
+    return (
+      <View style={slideStyles.container}>
+        <View style={[slideStyles.outerWrapper, slideStyles.confirmedTrack]}>
+          <View style={slideStyles.confirmedContent}>
+            <Animated.Text
+              style={[
+                slideStyles.checkmark,
+                {
+                  transform: [{ scale: checkmarkScale }],
+                  opacity: checkmarkOpacity,
+                },
+              ]}
+            >
+              ✓
+            </Animated.Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={slideStyles.container}>
+      <View style={slideStyles.outerWrapper}>
+        <View style={slideStyles.track}>
+          {isDragging && <View style={[slideStyles.progressFill, { width: progressWidth }]} />}
+          <LinearGradient
+            colors={["rgba(0,0,0,0.3)", "transparent", "transparent", "rgba(255,255,255,0.1)"]}
+            locations={[0, 0.15, 0.85, 1]}
+            style={slideStyles.innerShadowGradient}
+            pointerEvents="none"
+          />
+          {!isDragging && (
+            <Text style={slideStyles.text}>
+              Desliza para confirmar
+            </Text>
+          )}
+          {isDragging && (
+            <Animated.Text
+              style={[
+                slideStyles.text,
+                slideStyles.releaseText,
+                { opacity: releaseTextOpacity },
+              ]}
+            >
+              ¡Suelta para confirmar!
+            </Animated.Text>
+          )}
+          <Animated.View
+            style={[
+              slideStyles.thumb,
+              {
+                transform: [{ translateX }, { scale: thumbScale }],
+                shadowOpacity: 0.25 + (progress > 0.5 ? (progress - 0.5) * 1.5 : 0),
+                shadowRadius: 4 + (progress > 0.5 ? (progress - 0.5) * 20 : 0),
+              },
+            ]}
+            {...panResponder.panHandlers}
+          >
+            <Text style={slideStyles.arrow}>→</Text>
+          </Animated.View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const slideStyles = StyleSheet.create({
+  container: {
+    width: "100%",
+  },
+  outerWrapper: {
+    height: TRACK_HEIGHT,
+    borderRadius: TRACK_HEIGHT / 2,
+    backgroundColor: "#047857",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  track: {
+    height: TRACK_HEIGHT,
+    backgroundColor: "#059669",
+    borderRadius: TRACK_HEIGHT / 2,
+    justifyContent: "center",
+    paddingLeft: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "#047857",
+    borderRadius: TRACK_HEIGHT / 2,
+  },
+  innerShadowGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: TRACK_HEIGHT / 2,
+  },
+  text: {
+    position: "absolute",
+    width: "100%",
+    textAlign: "center",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  releaseText: {
+    color: "#bbf7d0",
+  },
+  thumb: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE - 8,
+    backgroundColor: "#fff",
+    borderRadius: (THUMB_SIZE - 8) / 2,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  arrow: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#059669",
+  },
+  confirmedTrack: {
+    backgroundColor: "#047857",
+  },
+  confirmedContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmark: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#fff",
+  },
+});
 
 function formatValue(value: string, fieldType: string): string {
   if (!value) return "-";
@@ -68,13 +499,18 @@ export function CompletedTaskModal({
   visible,
   onClose,
   onEdit,
+  onConfirm,
   taskName,
   answers,
+  mode = "view",
 }: CompletedTaskModalProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const displayAnswers = answers.filter((a) => a.fieldType !== "displayText");
   const [viewerVisible, setViewerVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [slideProgress, setSlideProgress] = useState(0);
+  const [celebrationPhase, setCelebrationPhase] = useState<CelebrationPhase>("idle");
+  const lottieRef = useRef<LottieView>(null);
 
   useEffect(() => {
     if (visible) {
@@ -86,6 +522,8 @@ export function CompletedTaskModal({
       }).start();
     } else {
       slideAnim.setValue(SCREEN_HEIGHT);
+      setSlideProgress(0);
+      setCelebrationPhase("idle");
     }
   }, [visible, slideAnim]);
 
@@ -98,11 +536,23 @@ export function CompletedTaskModal({
   };
 
   const handleEdit = () => {
-    Animated.timing(slideAnim, {
-      toValue: SCREEN_HEIGHT,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => onEdit());
+    Alert.alert(
+      "Edición No Disponible",
+      "Contacte a soporte si necesita editar un campo."
+    );
+  };
+
+  const handleConfirm = async () => {
+    setCelebrationPhase("takeover");
+    await new Promise((r) => setTimeout(r, 200));
+
+    setCelebrationPhase("celebrating");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await new Promise((r) => setTimeout(r, 1500));
+
+    if (onConfirm) {
+      await onConfirm();
+    }
   };
 
   return (
@@ -136,6 +586,14 @@ export function CompletedTaskModal({
                   <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
               </View>
+
+              {mode === "confirm" && (
+                <View style={styles.warningBanner}>
+                  <Text style={styles.warningText}>
+                    Una vez completada, no podrá editar esta tarea.
+                  </Text>
+                </View>
+              )}
 
               <ScrollView
                 style={styles.answersContainer}
@@ -181,13 +639,23 @@ export function CompletedTaskModal({
               </ScrollView>
 
               <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
-                  <Text style={styles.editButtonText}>Editar</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.closeActionButton} onPress={handleClose}>
-                  <Text style={styles.closeActionButtonText}>Cerrar</Text>
-                </TouchableOpacity>
+                {mode === "confirm" ? (
+                  <>
+                    <SlideToConfirm onConfirm={handleConfirm} onProgressChange={setSlideProgress} />
+                    <TouchableOpacity style={styles.closeActionButton} onPress={handleClose}>
+                      <Text style={styles.closeActionButtonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity style={styles.editButtonDisabled} onPress={handleEdit}>
+                      <Text style={styles.editButtonText}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.closeActionButton} onPress={handleClose}>
+                      <Text style={styles.closeActionButtonText}>Cerrar</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             </View>
           </Animated.View>
@@ -202,6 +670,12 @@ export function CompletedTaskModal({
             setSelectedImageUri(null);
           }}
         />
+      )}
+      {mode === "confirm" && slideProgress > 0 && celebrationPhase === "idle" && (
+        <VignetteOverlay progress={slideProgress} />
+      )}
+      {celebrationPhase !== "idle" && (
+        <SuccessOverlay phase={celebrationPhase} lottieRef={lottieRef} />
       )}
     </Modal>
   );
@@ -304,6 +778,36 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontSize: 16,
     fontWeight: "500",
+  },
+  warningBanner: {
+    backgroundColor: "#fef2f2",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#fca5a5",
+  },
+  warningText: {
+    color: "#991b1b",
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  confirmButton: {
+    backgroundColor: "#059669",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  editButtonDisabled: {
+    backgroundColor: "#9ca3af",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
   },
   attachmentPreview: {
     width: "100%",
