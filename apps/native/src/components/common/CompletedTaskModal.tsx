@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Defs, RadialGradient, Stop, Rect } from "react-native-svg";
 import LottieView from "lottie-react-native";
 import { Text } from "../Text";
 import { ImageViewerModal } from "./ImageViewerModal";
@@ -54,34 +53,46 @@ const CONFIRM_THRESHOLD = 0.98;
 
 interface SlideToConfirmProps {
   onConfirm: () => void;
+  onConfirmStart?: () => void;
   onProgressChange?: (progress: number) => void;
 }
 
-function VignetteOverlay({ progress }: { progress: number }) {
-  const opacity = progress * 0.9;
+function DarkOverlay({ progress, fadeOut }: { progress: number; fadeOut: boolean }) {
+  const animatedOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (fadeOut) {
+      Animated.timing(animatedOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      animatedOpacity.setValue(progress * 0.85);
+    }
+  }, [progress, fadeOut, animatedOpacity]);
 
   return (
-    <View style={vignetteStyles.container} pointerEvents="none">
-      <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT}>
-        <Defs>
-          <RadialGradient id="vignette" cx="50%" cy="88%" rx="120%" ry="50%">
-            <Stop offset="0" stopColor="black" stopOpacity={0} />
-            <Stop offset="0.15" stopColor="black" stopOpacity={0} />
-            <Stop offset="0.25" stopColor="black" stopOpacity={opacity * 0.15} />
-            <Stop offset="1" stopColor="black" stopOpacity={opacity} />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width={SCREEN_WIDTH} height={SCREEN_HEIGHT} fill="url(#vignette)" />
-      </Svg>
-    </View>
+    <Animated.View
+      style={[
+        overlayStyles.container,
+        { opacity: animatedOpacity },
+      ]}
+      pointerEvents="none"
+    />
   );
 }
 
-const vignetteStyles = StyleSheet.create({
+const overlayStyles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    elevation: 9999,
+    position: "absolute",
+    top: -SCREEN_HEIGHT,
+    left: -32,
+    width: SCREEN_WIDTH + 64,
+    height: SCREEN_HEIGHT * 2,
+    backgroundColor: "#000",
+    zIndex: 1,
+    elevation: 1,
   },
 });
 
@@ -199,7 +210,7 @@ const successStyles = StyleSheet.create({
   },
 });
 
-function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
+function SlideToConfirm({ onConfirm, onConfirmStart, onProgressChange }: SlideToConfirmProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const thumbScale = useRef(new Animated.Value(1)).current;
   const checkmarkScale = useRef(new Animated.Value(0)).current;
@@ -270,7 +281,7 @@ function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
         const prog = gestureState.dx / maxSlide;
         if (prog >= CONFIRM_THRESHOLD) {
           setProgress(1);
-          onProgressChange?.(0);
+          onConfirmStart?.();
           Animated.timing(translateX, {
             toValue: maxSlide,
             duration: 150,
@@ -318,7 +329,7 @@ function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
     extrapolate: "clamp",
   });
 
-  const progressWidth = THUMB_SIZE + 8 + progress * (SLIDER_WIDTH - THUMB_SIZE - 8);
+  const progressWidth = THUMB_SIZE + 8 + progress * (maxSlide - 8);
 
   if (confirmed) {
     return (
@@ -347,12 +358,6 @@ function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
       <View style={slideStyles.outerWrapper}>
         <View style={slideStyles.track}>
           {isDragging && <View style={[slideStyles.progressFill, { width: progressWidth }]} />}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.3)", "transparent", "transparent", "rgba(255,255,255,0.1)"]}
-            locations={[0, 0.15, 0.85, 1]}
-            style={slideStyles.innerShadowGradient}
-            pointerEvents="none"
-          />
           {!isDragging && (
             <Text style={slideStyles.text}>
               Desliza para confirmar
@@ -371,16 +376,32 @@ function SlideToConfirm({ onConfirm, onProgressChange }: SlideToConfirmProps) {
           )}
           <Animated.View
             style={[
-              slideStyles.thumb,
+              slideStyles.thumbGlowOuter,
               {
                 transform: [{ translateX }, { scale: thumbScale }],
-                shadowOpacity: 0.25 + (progress > 0.5 ? (progress - 0.5) * 1.5 : 0),
-                shadowRadius: 4 + (progress > 0.5 ? (progress - 0.5) * 20 : 0),
+              },
+              isDragging && {
+                shadowColor: "#fff",
+                shadowOpacity: 0.8,
+                shadowRadius: 30 + progress * 40,
               },
             ]}
             {...panResponder.panHandlers}
           >
-            <Text style={slideStyles.arrow}>→</Text>
+            <View
+              style={[
+                slideStyles.thumbGlowInner,
+                isDragging && {
+                  shadowColor: "#fff",
+                  shadowOpacity: 1,
+                  shadowRadius: 8 + progress * 10,
+                },
+              ]}
+            >
+              <View style={slideStyles.thumb}>
+                <Text style={slideStyles.arrow}>→</Text>
+              </View>
+            </View>
           </Animated.View>
         </View>
       </View>
@@ -408,7 +429,6 @@ const slideStyles = StyleSheet.create({
     borderRadius: TRACK_HEIGHT / 2,
     justifyContent: "center",
     paddingLeft: 4,
-    overflow: "hidden",
   },
   progressFill: {
     position: "absolute",
@@ -416,14 +436,6 @@ const slideStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: "#047857",
-    borderRadius: TRACK_HEIGHT / 2,
-  },
-  innerShadowGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     borderRadius: TRACK_HEIGHT / 2,
   },
   text: {
@@ -436,6 +448,17 @@ const slideStyles = StyleSheet.create({
   },
   releaseText: {
     color: "#bbf7d0",
+  },
+  thumbGlowOuter: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE - 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  thumbGlowInner: {
+    width: THUMB_SIZE,
+    height: THUMB_SIZE - 8,
+    borderRadius: (THUMB_SIZE - 8) / 2,
+    shadowOffset: { width: 0, height: 0 },
   },
   thumb: {
     width: THUMB_SIZE,
@@ -509,6 +532,7 @@ export function CompletedTaskModal({
   const [viewerVisible, setViewerVisible] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [slideProgress, setSlideProgress] = useState(0);
+  const [overlayFadeOut, setOverlayFadeOut] = useState(false);
   const [celebrationPhase, setCelebrationPhase] = useState<CelebrationPhase>("idle");
   const lottieRef = useRef<LottieView>(null);
 
@@ -523,6 +547,7 @@ export function CompletedTaskModal({
     } else {
       slideAnim.setValue(SCREEN_HEIGHT);
       setSlideProgress(0);
+      setOverlayFadeOut(false);
       setCelebrationPhase("idle");
     }
   }, [visible, slideAnim]);
@@ -542,7 +567,13 @@ export function CompletedTaskModal({
     );
   };
 
+  const handleConfirmStart = () => {
+    setOverlayFadeOut(true);
+  };
+
   const handleConfirm = async () => {
+    setSlideProgress(0);
+    setOverlayFadeOut(false);
     setCelebrationPhase("takeover");
     await new Promise((r) => setTimeout(r, 200));
 
@@ -638,10 +669,16 @@ export function CompletedTaskModal({
                 )}
               </ScrollView>
 
+              {mode === "confirm" && (slideProgress > 0 || overlayFadeOut) && (
+                <DarkOverlay progress={slideProgress} fadeOut={overlayFadeOut} />
+              )}
+
               <View style={styles.buttonContainer}>
                 {mode === "confirm" ? (
                   <>
-                    <SlideToConfirm onConfirm={handleConfirm} onProgressChange={setSlideProgress} />
+                    <View style={styles.sliderWrapper}>
+                      <SlideToConfirm onConfirm={handleConfirm} onConfirmStart={handleConfirmStart} onProgressChange={setSlideProgress} />
+                    </View>
                     <TouchableOpacity style={styles.closeActionButton} onPress={handleClose}>
                       <Text style={styles.closeActionButtonText}>Cancelar</Text>
                     </TouchableOpacity>
@@ -671,9 +708,6 @@ export function CompletedTaskModal({
           }}
         />
       )}
-      {mode === "confirm" && slideProgress > 0 && celebrationPhase === "idle" && (
-        <VignetteOverlay progress={slideProgress} />
-      )}
       {celebrationPhase !== "idle" && (
         <SuccessOverlay phase={celebrationPhase} lottieRef={lottieRef} />
       )}
@@ -699,6 +733,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     maxHeight: "80%",
     paddingBottom: Platform.OS === "android" ? 24 : 0,
+    position: "relative",
+    zIndex: 10,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
@@ -755,6 +792,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
     gap: 12,
+  },
+  sliderWrapper: {
+    zIndex: 10,
+    elevation: 10,
   },
   editButton: {
     backgroundColor: "#2563eb",
