@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "lint": "eslint src/",
     "prod:android": "ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=$(/usr/libexec/java_home -v17) eas build -p android --profile production --local",
-    "prod:android:apk": "ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=$(/usr/libexec/java_home -v17) eas build -p android --profile production-apk --local"
+    "prod:android:apk": "ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=$(/usr/libexec/java_home -v17) eas build -p android --profile production-apk --local",
+    "prod:ios": "eas build -p ios --profile production --local",
+    "prod:ios:simulator": "eas build -p ios --profile production-simulator --local"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.13.2",
