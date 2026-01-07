@@ -9,13 +9,14 @@ import { Text } from "../../components/Text";
 import { AssignmentTaskGroup } from "./AssignmentTaskGroup";
 import { EmptyDayState } from "./EmptyDayState";
 import { formatFullDate, type DayData } from "../../utils/dateUtils";
-import type { DayTaskTemplate, FieldTemplate, TaskInstance, TaskDependency } from "../../db/types";
+import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
+import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface DayPageProps {
   day: DayData;
-  taskInstances: TaskInstance[];
+  taskInstances: TaskInstanceWithResponses[];
   allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
