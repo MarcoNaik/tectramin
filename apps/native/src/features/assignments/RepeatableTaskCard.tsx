@@ -3,15 +3,17 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
+  Alert,
 } from "react-native";
 import { Text } from "../../components/Text";
-import type { DayTaskTemplate, FieldTemplate, TaskInstance } from "../../db/types";
+import { ProgressButton } from "./TaskCardButton";
+import type { DayTaskTemplate, FieldTemplate } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
+import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 
 interface RepeatableTaskCardProps {
   template: DayTaskTemplate & { fields: FieldTemplate[] };
-  instances: TaskInstance[];
+  instances: TaskInstanceWithResponses[];
   assignment: AssignmentWithTemplates;
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
@@ -36,26 +38,54 @@ export function RepeatableTaskCard({
   const canAddAnother = instances.length === 0 || lastInstance?.status === "completed";
 
   const handleAddAnother = () => {
+    if (!canAddAnother) {
+      Alert.alert(
+        "Instancia Incompleta",
+        "Completa la instancia actual para agregar otra"
+      );
+      return;
+    }
     const nextNumber = totalCount + 1;
     const label = `${template.taskTemplateName} #${nextNumber}`;
     onCreateAndSelectTask(template, assignment.serverId, label);
   };
 
-  const handleSelectInstance = (instance: TaskInstance) => {
+  const handleSelectInstance = (instance: TaskInstanceWithResponses) => {
     onSelectTask(instance.clientId, template, assignment.serverId);
   };
 
-  const getInstanceLabel = (instance: TaskInstance, index: number): string => {
-    return instance.instanceLabel || `${template.taskTemplateName} #${index + 1}`;
+  const getInstanceLabel = (instance: TaskInstanceWithResponses, idx: number): string => {
+    return instance.instanceLabel || `${template.taskTemplateName} #${idx + 1}`;
   };
 
-  const getStatusDisplay = (status: string): { type: "icon" | "text"; value: string; color: string } => {
-    switch (status) {
-      case "completed":
-        return { type: "icon", value: "●", color: "#6b7280" };
-      default:
-        return { type: "text", value: "Llenar", color: "#2563eb" };
-    }
+  const inputFields = template.fields.filter((f) => f.fieldType !== "displayText");
+  const totalFields = inputFields.length;
+
+  const requiredFields = inputFields.filter((f) => f.isRequired);
+
+  const getInstanceProgress = (instance: TaskInstanceWithResponses): { progress: number; hasResponses: boolean; isCompleted: boolean; isRequiredComplete: boolean } => {
+    const isCompleted = instance.status === "completed";
+    const answeredFields = inputFields.filter((field) => {
+      const response = instance.responses.find(
+        (r) => r.fieldTemplateServerId === field.serverId
+      );
+      return response?.value && response.value.trim() !== "";
+    }).length;
+    const isRequiredComplete = requiredFields.length === 0 || requiredFields.every((field) => {
+      const response = instance.responses.find(
+        (r) => r.fieldTemplateServerId === field.serverId
+      );
+      return response?.value && response.value.trim() !== "";
+    });
+    const hasResponses = answeredFields > 0;
+    const progress = isCompleted ? 1 : totalFields > 0 ? answeredFields / totalFields : 0;
+    return { progress, hasResponses, isCompleted, isRequiredComplete };
+  };
+
+  const getButtonText = (instance: TaskInstanceWithResponses): string => {
+    const { hasResponses, isCompleted } = getInstanceProgress(instance);
+    if (isCompleted) return "Ver";
+    return hasResponses ? "Continuar" : "Llenar";
   };
 
   return (
@@ -86,38 +116,27 @@ export function RepeatableTaskCard({
               </Text>
             </View>
           ) : (
-            instances.map((instance, index) => {
-              const statusDisplay = getStatusDisplay(instance.status);
+            instances.map((instance, idx) => {
+              const { progress, isCompleted, isRequiredComplete } = getInstanceProgress(instance);
               return (
-                <Pressable
-                  key={instance.clientId}
-                  onPress={() => handleSelectInstance(instance)}
-                  style={({ pressed }) => [
-                    styles.instanceItem,
-                    pressed && styles.instanceItemPressed,
-                  ]}
-                >
+                <View key={instance.clientId} style={styles.instanceItem}>
                   <Text style={styles.instanceLabel}>
-                    {getInstanceLabel(instance, index)}
+                    {getInstanceLabel(instance, idx)}
                   </Text>
-                  {statusDisplay.type === "icon" ? (
-                    <Text style={[styles.statusIcon, { color: statusDisplay.color }]}>
-                      {statusDisplay.value}
-                    </Text>
-                  ) : (
-                    <View style={styles.textButton}>
-                      <Text style={styles.textButtonLabel}>{statusDisplay.value}</Text>
-                      <Text style={styles.textButtonChevron}>›</Text>
-                    </View>
-                  )}
-                </Pressable>
+                  <ProgressButton
+                    text={getButtonText(instance)}
+                    progress={progress}
+                    isCompleted={isCompleted}
+                    isRequiredComplete={isRequiredComplete}
+                    onPress={() => handleSelectInstance(instance)}
+                  />
+                </View>
               );
             })
           )}
 
           <TouchableOpacity
             onPress={handleAddAnother}
-            disabled={!canAddAnother}
             style={[
               styles.addButton,
               !canAddAnother && styles.addButtonDisabled,
@@ -132,11 +151,6 @@ export function RepeatableTaskCard({
               + Agregar Otra Instancia
             </Text>
           </TouchableOpacity>
-          {!canAddAnother && (
-            <Text style={styles.helperText}>
-              Completa la instancia actual para agregar otra
-            </Text>
-          )}
         </View>
       )}
     </View>
@@ -204,39 +218,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     paddingLeft: 32,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-  instanceItemPressed: {
-    backgroundColor: "#f3f4f6",
-  },
   instanceLabel: {
     fontSize: 13,
     color: "#374151",
     flex: 1,
-  },
-  statusIcon: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  textButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  textButtonLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#2563eb",
-  },
-  textButtonChevron: {
-    fontSize: 18,
-    fontWeight: "300",
-    color: "#2563eb",
+    marginRight: 12,
   },
   addButton: {
     paddingVertical: 12,
@@ -252,11 +244,5 @@ const styles = StyleSheet.create({
   },
   addButtonTextDisabled: {
     color: "#9ca3af",
-  },
-  helperText: {
-    fontSize: 11,
-    color: "#9ca3af",
-    paddingLeft: 32,
-    paddingBottom: 8,
   },
 });
