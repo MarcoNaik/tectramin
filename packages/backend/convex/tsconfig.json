@@ -6,7 +6,8 @@
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "target": "ESNext",
-    "module": "ESNext"
+    "module": "ESNext",
+    "noEmit": true
   },
   "include": ["./**/*"],
   "exclude": ["_generated"]
