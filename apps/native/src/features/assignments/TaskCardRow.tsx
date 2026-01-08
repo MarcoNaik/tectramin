@@ -72,6 +72,11 @@ export function TaskCardRow({
               <Text style={styles.requiredIcon}>*</Text>
             )}
           </View>
+          {template.description && (
+            <Text style={styles.taskCardDescription} numberOfLines={2}>
+              {template.description}
+            </Text>
+          )}
         </View>
         <View style={styles.taskCardActions}>
           <TaskCardButton
@@ -118,6 +123,11 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "700",
     marginLeft: 4,
+  },
+  taskCardDescription: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
   },
   taskCardActions: {
     flexDirection: "row",
