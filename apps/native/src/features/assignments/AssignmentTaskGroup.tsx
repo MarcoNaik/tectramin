@@ -4,7 +4,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { Text } from "../../components/Text";
-import { TaskCardButton } from "./TaskCardButton";
+import { TaskCardRow } from "./TaskCardRow";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import { useWorkOrderDayStatus } from "../../hooks/useWorkOrderDayStatus";
 import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
@@ -17,6 +17,7 @@ interface AssignmentTaskGroupProps {
   allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
+  onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
 }
 
 export function AssignmentTaskGroup({
@@ -25,6 +26,7 @@ export function AssignmentTaskGroup({
   allDependencies,
   onSelectTask,
   onCreateAndSelectTask,
+  onCreateInstance,
 }: AssignmentTaskGroupProps) {
   const { updateStatus } = useWorkOrderDayStatus();
 
@@ -80,7 +82,7 @@ export function AssignmentTaskGroup({
               instances={instances}
               assignment={assignment}
               onSelectTask={onSelectTask}
-              onCreateAndSelectTask={onCreateAndSelectTask}
+              onCreateInstance={onCreateInstance}
               index={index + 1}
             />
           );
@@ -89,31 +91,17 @@ export function AssignmentTaskGroup({
         const instance = instances[0];
 
         return (
-          <View key={template.serverId} style={styles.taskCard}>
-            <View style={styles.taskCardContent}>
-              <View style={styles.taskCardInfo}>
-                <View style={styles.taskCardNameRow}>
-                  <Text style={styles.taskCardName}>
-                    {index + 1}. {template.taskTemplateName}
-                  </Text>
-                  {template.isRequired && (
-                    <Text style={styles.requiredIcon}>*</Text>
-                  )}
-                </View>
-              </View>
-              <View style={styles.taskCardActions}>
-                <TaskCardButton
-                  template={template}
-                  instance={instance}
-                  assignment={assignment}
-                  allTaskInstances={taskInstances}
-                  allDependencies={allDependencies}
-                  onSelectTask={onSelectTask}
-                  onCreateAndSelectTask={onCreateAndSelectTask}
-                />
-              </View>
-            </View>
-          </View>
+          <TaskCardRow
+            key={template.serverId}
+            template={template}
+            instance={instance}
+            assignment={assignment}
+            allTaskInstances={taskInstances}
+            allDependencies={allDependencies}
+            onSelectTask={onSelectTask}
+            onCreateAndSelectTask={onCreateAndSelectTask}
+            index={index + 1}
+          />
         );
       })}
 
@@ -170,40 +158,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     marginLeft: 8,
-  },
-  taskCard: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  taskCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-  },
-  taskCardInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  taskCardActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  taskCardNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  taskCardName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  requiredIcon: {
-    fontSize: 14,
-    color: "#dc2626",
-    fontWeight: "700",
-    marginLeft: 4,
   },
   completeButton: {
     backgroundColor: "#059669",
