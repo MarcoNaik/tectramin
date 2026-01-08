@@ -5,22 +5,15 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  useDerivedValue,
-  runOnJS,
   interpolateColor,
-  type SharedValue,
 } from "react-native-reanimated";
 import { Text } from "./Text";
-
-const COLLAPSE_THRESHOLD = 50;
-const EXPAND_THRESHOLD = 10;
 
 interface CollapsibleFormHeaderProps {
   title: string;
   subtitle?: string;
   description?: string;
   onBack: () => void;
-  scrollY: SharedValue<number>;
   answeredFields: number;
   totalFields: number;
   isComplete: boolean;
@@ -31,7 +24,6 @@ export function CollapsibleFormHeader({
   subtitle,
   description,
   onBack,
-  scrollY,
   answeredFields,
   totalFields,
   isComplete,
@@ -40,7 +32,6 @@ export function CollapsibleFormHeader({
   const animatedProgress = useSharedValue(progress);
   const animatedComplete = useSharedValue(isComplete ? 1 : 0);
   const isExpanded = useSharedValue(1);
-  const manuallyToggled = useSharedValue(false);
 
   useEffect(() => {
     animatedProgress.value = withTiming(progress, { duration: 300 });
@@ -59,27 +50,9 @@ export function CollapsibleFormHeader({
     ),
   }));
 
-  const updateExpandState = (newScrollY: number) => {
-    if (newScrollY < EXPAND_THRESHOLD) {
-      isExpanded.value = withTiming(1, { duration: 300 });
-      manuallyToggled.value = false;
-    } else if (
-      newScrollY > COLLAPSE_THRESHOLD &&
-      isExpanded.value === 1 &&
-      !manuallyToggled.value
-    ) {
-      isExpanded.value = withTiming(0, { duration: 300 });
-    }
-  };
-
-  useDerivedValue(() => {
-    runOnJS(updateExpandState)(scrollY.value);
-  }, [scrollY]);
-
   const handleToggle = () => {
     const newValue = isExpanded.value === 1 ? 0 : 1;
     isExpanded.value = withTiming(newValue, { duration: 300 });
-    manuallyToggled.value = true;
   };
 
   const descriptionStyle = useAnimatedStyle(() => ({
