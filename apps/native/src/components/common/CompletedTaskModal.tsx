@@ -19,6 +19,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import LottieView from "lottie-react-native";
 import { Text } from "../Text";
 import { ImageViewerModal } from "./ImageViewerModal";
+import { formatFieldValue } from "../../utils/formatFieldValue";
+import type { FieldTemplate, User, LookupEntity } from "../../db/types";
 
 interface AnswerAttachment {
   localUri: string | null;
@@ -31,6 +33,7 @@ interface Answer {
   label: string;
   value: string;
   fieldType: string;
+  fieldServerId: string;
   attachment?: AnswerAttachment | null;
 }
 
@@ -41,6 +44,9 @@ interface CompletedTaskModalProps {
   onConfirm?: () => void;
   taskName: string;
   answers: Answer[];
+  fields: FieldTemplate[];
+  users: User[];
+  lookupEntities: LookupEntity[];
   mode?: "view" | "confirm";
 }
 
@@ -493,31 +499,6 @@ const slideStyles = StyleSheet.create({
   },
 });
 
-function formatValue(value: string, fieldType: string): string {
-  if (!value) return "-";
-
-  switch (fieldType) {
-    case "boolean":
-      return value === "true" ? "Si" : "No";
-    case "date":
-      try {
-        return new Date(value).toLocaleDateString("es-CL", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
-      } catch {
-        return value;
-      }
-    case "attachment":
-      return "Archivo adjunto";
-    case "displayText":
-      return "";
-    default:
-      return value;
-  }
-}
-
 export function CompletedTaskModal({
   visible,
   onClose,
@@ -525,6 +506,9 @@ export function CompletedTaskModal({
   onConfirm,
   taskName,
   answers,
+  fields,
+  users,
+  lookupEntities,
   mode = "view",
 }: CompletedTaskModalProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -661,7 +645,13 @@ export function CompletedTaskModal({
                         )
                       ) : (
                         <Text style={styles.answerValue}>
-                          {formatValue(answer.value, answer.fieldType)}
+                          {formatFieldValue(
+                            answer.value,
+                            answer.fieldType,
+                            fields.find((f) => f.serverId === answer.fieldServerId),
+                            users,
+                            lookupEntities
+                          )}
                         </Text>
                       )}
                     </View>
