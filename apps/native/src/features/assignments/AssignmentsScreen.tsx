@@ -51,49 +51,8 @@ interface Answer {
   label: string;
   value: string;
   fieldType: string;
+  fieldServerId: string;
   attachment?: AnswerAttachment | null;
-}
-
-function formatFieldValue(
-  value: string,
-  fieldType: string,
-  field: FieldTemplate,
-  users: User[],
-  lookupEntities: LookupEntity[]
-): string {
-  if (!value) return "-";
-  switch (fieldType) {
-    case "boolean":
-      return value === "true" ? "Si" : "No";
-    case "date":
-      try {
-        return new Date(value).toLocaleDateString("es-CL", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
-      } catch {
-        return value;
-      }
-    case "attachment":
-      return "Archivo adjunto";
-    case "select":
-      try {
-        const options = JSON.parse(field.defaultValue || "[]");
-        const option = options.find((o: { value: string; label: string }) => o.value === value);
-        return option?.label || value;
-      } catch {
-        return value;
-      }
-    case "userSelect":
-      const foundUser = users.find((u) => u.serverId === value);
-      return foundUser?.fullName || value;
-    case "entitySelect":
-      const foundEntity = lookupEntities.find((e) => e.serverId === value);
-      return foundEntity?.label || value;
-    default:
-      return value;
-  }
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -176,6 +135,27 @@ export function AssignmentsScreen() {
     [createTaskInstance, user?.id]
   );
 
+  const handleCreateInstance = useCallback(
+    async (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => {
+      if (!user?.id) {
+        Alert.alert("Error", "Usuario no autenticado");
+        return;
+      }
+      try {
+        await createTaskInstance({
+          workOrderDayServerId,
+          dayTaskTemplateServerId: template.serverId,
+          taskTemplateServerId: template.taskTemplateServerId,
+          instanceLabel,
+        });
+      } catch (error) {
+        console.error("Failed to create task instance:", error);
+        Alert.alert("Error", `Error al crear instancia de tarea: ${error instanceof Error ? error.message : "Error desconocido"}`);
+      }
+    },
+    [createTaskInstance, user?.id]
+  );
+
   const handleSync = useCallback(async () => {
     setSyncing(true);
     await syncService.sync();
@@ -231,19 +211,14 @@ export function AssignmentsScreen() {
 
           return {
             label: field.label,
-            value: formatFieldValue(
-              response?.value ?? "",
-              field.fieldType,
-              field,
-              localUsers,
-              lookupEntities
-            ),
+            value: response?.value ?? "",
             fieldType: field.fieldType,
+            fieldServerId: field.serverId,
             attachment,
           };
         });
     },
-    [taskInstances, localUsers, lookupEntities, allAttachments]
+    [taskInstances, allAttachments]
   );
 
   const handleSelectTaskWithChecks = useCallback(
@@ -382,11 +357,12 @@ export function AssignmentsScreen() {
         allDependencies={allDependencies}
         onSelectTask={handleSelectTaskWithChecks}
         onCreateAndSelectTask={handleCreateAndSelectTaskWithChecks}
+        onCreateInstance={handleCreateInstance}
         refreshing={syncing}
         onRefresh={handleSync}
       />
     ),
-    [taskInstances, allDependencies, handleSelectTaskWithChecks, handleCreateAndSelectTaskWithChecks, syncing, handleSync]
+    [taskInstances, allDependencies, handleSelectTaskWithChecks, handleCreateAndSelectTaskWithChecks, handleCreateInstance, syncing, handleSync]
   );
 
   useEffect(() => {
@@ -538,6 +514,9 @@ export function AssignmentsScreen() {
               )
             : []
         }
+        fields={pendingTaskAction?.template.fields ?? []}
+        users={localUsers}
+        lookupEntities={lookupEntities}
       />
     </View>
   );
