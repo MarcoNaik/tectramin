@@ -165,6 +165,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
               taskTemplateServerId: tt.taskTemplateServerId,
               taskTemplateName: tt.taskTemplateName,
               description: tt.description,
+              readme: tt.readme,
               order: tt.order,
               isRequired: tt.isRequired,
               isRepeatable: tt.isRepeatable,
@@ -174,6 +175,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
               set: {
                 taskTemplateName: tt.taskTemplateName,
                 description: tt.description,
+                readme: tt.readme,
                 order: tt.order,
                 isRequired: tt.isRequired,
                 isRepeatable: tt.isRepeatable,
