@@ -55,7 +55,7 @@ export function AssignmentTaskGroup({
       <View style={styles.assignmentGroupHeader}>
         <View style={styles.assignmentGroupTitleRow}>
           <Text style={styles.assignmentGroupTitle}>{assignment.workOrderName}</Text>
-          <Text style={styles.statusIcon}>
+          <Text style={[styles.statusIcon, assignment.status === "completed" && styles.statusIconCompleted]}>
             {assignment.status === "completed" ? "●" : assignment.status === "in_progress" ? "◐" : "○"}
           </Text>
         </View>
@@ -158,6 +158,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     marginLeft: 8,
+  },
+  statusIconCompleted: {
+    color: "#22c55e",
   },
   completeButton: {
     backgroundColor: "#059669",
