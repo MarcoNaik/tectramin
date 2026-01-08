@@ -14,6 +14,7 @@ export function TaskTemplatesTab() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
+  const [readme, setReadme] = useState("");
   const [isRepeatable, setIsRepeatable] = useState(false);
   const [expandedTemplate, setExpandedTemplate] = useState<Id<"taskTemplates"> | null>(null);
   const [newFieldLabel, setNewFieldLabel] = useState("");
@@ -24,9 +25,10 @@ export function TaskTemplatesTab() {
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    await createTemplate({ name, category: category || undefined, isRepeatable });
+    await createTemplate({ name, category: category || undefined, readme: readme || undefined, isRepeatable });
     setName("");
     setCategory("");
+    setReadme("");
     setIsRepeatable(false);
   };
 
@@ -46,7 +48,7 @@ export function TaskTemplatesTab() {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-bold">Plantillas de Tareas ({templates?.length ?? 0})</h3>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center flex-wrap">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre de Plantilla *" className="border-2 border-black px-3 py-2 flex-1" />
         <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Categoría" className="border-2 border-black px-3 py-2 w-32" />
         <label className="flex items-center gap-1 text-sm font-medium">
@@ -54,6 +56,9 @@ export function TaskTemplatesTab() {
           Repetible
         </label>
         <button onClick={handleCreate} className="bg-blue-500 text-white px-4 py-2 font-bold border-2 border-black hover:bg-blue-600">Agregar</button>
+      </div>
+      <div className="flex gap-2 items-start">
+        <textarea value={readme} onChange={(e) => setReadme(e.target.value)} placeholder="Readme (instrucciones detalladas)" className="border-2 border-black px-3 py-2 flex-1" rows={2} />
       </div>
       <div className="space-y-2">
         {templates?.map((t) => (
@@ -71,6 +76,11 @@ export function TaskTemplatesTab() {
             </div>
             {expandedTemplate === t._id && templateWithFields && (
               <div className="p-3 bg-white border-t-2 border-black space-y-3">
+                {t.readme && (
+                  <div className="text-sm text-gray-600 p-2 bg-gray-50 rounded border border-gray-200">
+                    <span className="font-medium">Readme:</span> {t.readme}
+                  </div>
+                )}
                 <div className="text-sm font-bold text-gray-700">Campos:</div>
                 {templateWithFields.fields.map((f) => (
                   <div key={f._id} className="flex items-center justify-between p-2 bg-gray-100 border-2 border-black text-sm">
