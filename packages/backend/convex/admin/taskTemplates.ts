@@ -6,6 +6,7 @@ const taskTemplateValidator = v.object({
   _creationTime: v.number(),
   name: v.string(),
   description: v.optional(v.string()),
+  readme: v.optional(v.string()),
   category: v.optional(v.string()),
   isRepeatable: v.boolean(),
   isActive: v.boolean(),
@@ -124,6 +125,7 @@ export const create = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
+    readme: v.optional(v.string()),
     category: v.optional(v.string()),
     isRepeatable: v.optional(v.boolean()),
   },
@@ -133,6 +135,7 @@ export const create = mutation({
     return await ctx.db.insert("taskTemplates", {
       name: args.name,
       description: args.description,
+      readme: args.readme,
       category: args.category,
       isRepeatable: args.isRepeatable ?? false,
       isActive: true,
@@ -147,6 +150,7 @@ export const update = mutation({
     id: v.id("taskTemplates"),
     name: v.optional(v.string()),
     description: v.optional(v.string()),
+    readme: v.optional(v.string()),
     category: v.optional(v.string()),
     isRepeatable: v.optional(v.boolean()),
     isActive: v.optional(v.boolean()),
@@ -223,6 +227,7 @@ export const duplicate = mutation({
     const newTemplateId = await ctx.db.insert("taskTemplates", {
       name: args.newName,
       description: original.description,
+      readme: original.readme,
       category: original.category,
       isRepeatable: original.isRepeatable,
       isActive: true,
