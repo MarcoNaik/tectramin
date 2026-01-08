@@ -399,12 +399,11 @@ export function AssignmentsScreen() {
         <CollapsibleFormHeader
           title={formTitle}
           subtitle={formSubtitle}
-          description={activeTemplate.description ?? undefined}
+          description={activeTemplate.readme ?? undefined}
           onBack={() => {
             setActiveTaskInstanceClientId(null);
             setActiveTemplate(null);
           }}
-          scrollY={formScrollY}
           answeredFields={answeredFields}
           totalFields={totalFields}
           isComplete={isComplete}
