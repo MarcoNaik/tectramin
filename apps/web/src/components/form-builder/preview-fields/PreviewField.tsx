@@ -8,8 +8,11 @@ import { PreviewFieldDate } from "./PreviewFieldDate";
 import { PreviewFieldAttachment } from "./PreviewFieldAttachment";
 import { PreviewFieldDisplayText } from "./PreviewFieldDisplayText";
 import { PreviewFieldSelect } from "./PreviewFieldSelect";
+import { PreviewFieldMultiSelect } from "./PreviewFieldMultiSelect";
 import { PreviewFieldUserSelect } from "./PreviewFieldUserSelect";
+import { PreviewFieldMultiUserSelect } from "./PreviewFieldMultiUserSelect";
 import { PreviewFieldEntitySelect } from "./PreviewFieldEntitySelect";
+import { PreviewFieldMultiEntitySelect } from "./PreviewFieldMultiEntitySelect";
 
 interface PreviewFieldProps {
   field: FieldTemplateData;
@@ -57,10 +60,16 @@ export function PreviewField({
       return <PreviewFieldDisplayText field={field} onSelect={onSelect} isSelected={isSelected} />;
     case "select":
       return <PreviewFieldSelect {...commonProps} />;
+    case "multiSelect":
+      return <PreviewFieldMultiSelect {...commonProps} />;
     case "userSelect":
       return <PreviewFieldUserSelect {...commonProps} />;
+    case "multiUserSelect":
+      return <PreviewFieldMultiUserSelect {...commonProps} />;
     case "entitySelect":
       return <PreviewFieldEntitySelect {...commonProps} />;
+    case "multiEntitySelect":
+      return <PreviewFieldMultiEntitySelect {...commonProps} />;
     default:
       return <PreviewFieldText {...commonProps} onEditPlaceholder={onEditPlaceholder} />;
   }
