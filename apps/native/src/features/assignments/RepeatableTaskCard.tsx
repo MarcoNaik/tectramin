@@ -16,7 +16,7 @@ interface RepeatableTaskCardProps {
   instances: TaskInstanceWithResponses[];
   assignment: AssignmentWithTemplates;
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
-  onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
+  onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
   index: number;
 }
 
@@ -25,19 +25,20 @@ export function RepeatableTaskCard({
   instances,
   assignment,
   onSelectTask,
-  onCreateAndSelectTask,
+  onCreateInstance,
   index,
 }: RepeatableTaskCardProps) {
-
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const completedCount = instances.filter((i) => i.status === "completed").length;
   const totalCount = instances.length;
 
   const lastInstance = instances[instances.length - 1];
-  const canAddAnother = instances.length === 0 || lastInstance?.status === "completed";
+  const isAssignmentComplete = assignment.status === "completed";
+  const canAddAnother = !isAssignmentComplete && (instances.length === 0 || lastInstance?.status === "completed");
 
-  const handleAddAnother = () => {
+  const handleAddAnother = async () => {
     if (!canAddAnother) {
       Alert.alert(
         "Instancia Incompleta",
@@ -45,9 +46,15 @@ export function RepeatableTaskCard({
       );
       return;
     }
-    const nextNumber = totalCount + 1;
-    const label = `${template.taskTemplateName} #${nextNumber}`;
-    onCreateAndSelectTask(template, assignment.serverId, label);
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      const nextNumber = totalCount + 1;
+      const label = `${template.taskTemplateName} #${nextNumber}`;
+      await onCreateInstance(template, assignment.serverId, label);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleSelectInstance = (instance: TaskInstanceWithResponses) => {
@@ -119,7 +126,12 @@ export function RepeatableTaskCard({
             instances.map((instance, idx) => {
               const { progress, isCompleted, isRequiredComplete } = getInstanceProgress(instance);
               return (
-                <View key={instance.clientId} style={styles.instanceItem}>
+                <TouchableOpacity
+                  key={instance.clientId}
+                  style={styles.instanceItem}
+                  onPress={() => handleSelectInstance(instance)}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.instanceLabel}>
                     {getInstanceLabel(instance, idx)}
                   </Text>
@@ -130,27 +142,30 @@ export function RepeatableTaskCard({
                     isRequiredComplete={isRequiredComplete}
                     onPress={() => handleSelectInstance(instance)}
                   />
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
 
-          <TouchableOpacity
-            onPress={handleAddAnother}
-            style={[
-              styles.addButton,
-              !canAddAnother && styles.addButtonDisabled,
-            ]}
-          >
-            <Text
+          {!isAssignmentComplete && (
+            <TouchableOpacity
+              onPress={handleAddAnother}
+              disabled={isCreating || !canAddAnother}
               style={[
-                styles.addButtonText,
-                !canAddAnother && styles.addButtonTextDisabled,
+                styles.addButton,
+                (isCreating || !canAddAnother) && styles.addButtonDisabled,
               ]}
             >
-              + Agregar Otra Instancia
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.addButtonText,
+                  (isCreating || !canAddAnother) && styles.addButtonTextDisabled,
+                ]}
+              >
+                {isCreating ? "Creando..." : "+ Agregar Otra Instancia"}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
