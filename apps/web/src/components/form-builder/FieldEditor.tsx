@@ -6,6 +6,7 @@ import { Camera, Image, FileText } from "lucide-react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import type { FieldTemplateData, FieldConditionData } from "@/types";
+import { FIELD_TYPE_LABELS } from "@/types";
 import { DebouncedInput, DebouncedTextarea } from "@/components/ui/DebouncedInput";
 import { ConditionEditor } from "./ConditionEditor";
 
@@ -67,6 +68,30 @@ function parseAttachmentConfig(displayStyle: string | undefined): AttachmentConf
 }
 
 const DEFAULT_ATTACHMENT_SOURCES: AttachmentSource[] = ["camera", "gallery", "document"];
+
+const SELECTION_FIELD_PAIRS: Record<string, string> = {
+  select: "multiSelect",
+  multiSelect: "select",
+  userSelect: "multiUserSelect",
+  multiUserSelect: "userSelect",
+  entitySelect: "multiEntitySelect",
+  multiEntitySelect: "entitySelect",
+};
+
+function isSelectionField(fieldType: string): boolean {
+  return fieldType in SELECTION_FIELD_PAIRS;
+}
+
+function isMultiSelect(fieldType: string): boolean {
+  return fieldType.startsWith("multi");
+}
+
+function getBaseFieldType(fieldType: string): string {
+  if (fieldType === "multiSelect") return "select";
+  if (fieldType === "multiUserSelect") return "userSelect";
+  if (fieldType === "multiEntitySelect") return "entitySelect";
+  return fieldType;
+}
 
 function AttachmentSourceEditor({
   config,
@@ -141,7 +166,7 @@ function EntityTypeSelector({
   const entityTypes = useQuery(api.admin.lookupEntityTypes.listActive);
   const selectedType = entityTypes?.find((t) => t._id === config.entityTypeId);
   const parentEntitySelectFields = allFields.filter(
-    (f) => f.fieldType === "entitySelect" && f._id !== currentFieldId && f.order < (allFields.find((af) => af._id === currentFieldId)?.order ?? 0)
+    (f) => (f.fieldType === "entitySelect" || f.fieldType === "multiEntitySelect") && f._id !== currentFieldId && f.order < (allFields.find((af) => af._id === currentFieldId)?.order ?? 0)
   );
 
   return (
@@ -358,7 +383,12 @@ export function FieldEditor({
     <div className="w-72 flex-shrink-0">
       <div className="border-l border-gray-200 bg-white h-full flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-200">
-          <h3 className="font-bold text-gray-900">Editar Campo</h3>
+          <div>
+            <h3 className="font-bold text-gray-900">Editar Campo</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {FIELD_TYPE_LABELS[getBaseFieldType(selectedField.fieldType)] || selectedField.fieldType}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl font-bold"
@@ -375,24 +405,27 @@ export function FieldEditor({
               className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Tipo de Campo</label>
-            <select
-              value={selectedField.fieldType}
-              onChange={(e) => onUpdate(selectedField._id, { fieldType: e.target.value })}
-              className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="text">Texto</option>
-              <option value="number">Número</option>
-              <option value="boolean">Sí/No</option>
-              <option value="date">Fecha</option>
-              <option value="attachment">Adjunto</option>
-              <option value="displayText">Texto de Visualización</option>
-              <option value="select">Selección</option>
-              <option value="userSelect">Selección de Usuario</option>
-              <option value="entitySelect">Selección de Entidad</option>
-            </select>
-          </div>
+          {isSelectionField(selectedField.fieldType) && (
+            <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Selección múltiple</p>
+                <p className="text-xs text-gray-500">Permitir seleccionar varias opciones</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onUpdate(selectedField._id, { fieldType: SELECTION_FIELD_PAIRS[selectedField.fieldType] })}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  isMultiSelect(selectedField.fieldType) ? "bg-blue-600" : "bg-gray-200"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isMultiSelect(selectedField.fieldType) ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
           {selectedField.fieldType === "displayText" && (
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Estilo de Visualización</label>
@@ -406,19 +439,23 @@ export function FieldEditor({
               </select>
             </div>
           )}
-          {selectedField.fieldType === "select" && (
+          {(selectedField.fieldType === "select" || selectedField.fieldType === "multiSelect") && (
             <SelectOptionsEditor
               options={parseSelectOptions(selectedField.displayStyle)}
               onChange={(options) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(options) })}
             />
           )}
-          {selectedField.fieldType === "userSelect" && (
+          {(selectedField.fieldType === "userSelect" || selectedField.fieldType === "multiUserSelect") && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700 font-medium">Opciones cargadas de la tabla de usuarios</p>
-              <p className="text-xs text-blue-600 mt-1">Todos los usuarios aparecerán en el menú desplegable</p>
+              <p className="text-xs text-blue-600 mt-1">
+                {selectedField.fieldType === "multiUserSelect"
+                  ? "Los usuarios podrán seleccionar múltiples opciones"
+                  : "Todos los usuarios aparecerán en el menú desplegable"}
+              </p>
             </div>
           )}
-          {selectedField.fieldType === "entitySelect" && (
+          {(selectedField.fieldType === "entitySelect" || selectedField.fieldType === "multiEntitySelect") && (
             <EntityTypeSelector
               config={parseEntitySelectConfig(selectedField.displayStyle)}
               onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
