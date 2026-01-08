@@ -1,0 +1,1 @@
+ALTER TABLE `day_task_templates` ADD `readme` text;
