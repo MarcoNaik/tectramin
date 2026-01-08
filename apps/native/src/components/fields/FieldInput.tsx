@@ -22,6 +22,7 @@ interface FieldInputProps {
   ensureFieldResponse: () => Promise<string>;
   getResponseForField?: (fieldServerId: string) => string | undefined;
   index?: number;
+  marginBottom?: number;
 }
 
 export function FieldInput({
@@ -33,6 +34,7 @@ export function FieldInput({
   ensureFieldResponse,
   getResponseForField,
   index,
+  marginBottom = 16,
 }: FieldInputProps) {
   const { attachment, isLocalPreview, createAttachment, removeAttachment } = useAttachments(
     fieldResponseClientId ?? "",
@@ -43,10 +45,12 @@ export function FieldInput({
     return index !== undefined ? `${index}. ${label}` : label;
   };
 
+  const containerStyle = [styles.fieldContainer, { marginBottom }];
+
   if (field.fieldType === "displayText") {
     const isHeader = field.displayStyle === "header";
     return (
-      <View style={styles.fieldContainer}>
+      <View style={containerStyle}>
         <Text style={isHeader ? styles.displayHeader : styles.displayText}>
           {formatLabel(field.label)}
         </Text>
@@ -61,7 +65,7 @@ export function FieldInput({
     const isTrue = value === "true";
     const isFalse = value === "false";
     return (
-      <View style={styles.fieldContainer}>
+      <View style={containerStyle}>
         <Text style={styles.fieldLabel}>
           {formatLabel(field.label)}
           {field.isRequired ? " *" : ""}
@@ -101,7 +105,7 @@ export function FieldInput({
 
   if (field.fieldType === "date") {
     return (
-      <View style={styles.fieldContainer}>
+      <View style={containerStyle}>
         <DatePickerField
           label={formatLabel(field.label)}
           isRequired={field.isRequired}
@@ -117,7 +121,7 @@ export function FieldInput({
 
   if (field.fieldType === "attachment") {
     return (
-      <View style={styles.fieldContainer}>
+      <View style={containerStyle}>
         <AttachmentField
           label={formatLabel(field.label)}
           isRequired={field.isRequired}
@@ -166,6 +170,7 @@ export function FieldInput({
         field={fieldWithFormattedLabel}
         value={value}
         onChange={onChange}
+        marginBottom={marginBottom}
       />
     );
   }
@@ -176,6 +181,7 @@ export function FieldInput({
         field={fieldWithFormattedLabel}
         value={value}
         onChange={onChange}
+        marginBottom={marginBottom}
       />
     );
   }
@@ -187,12 +193,13 @@ export function FieldInput({
         value={value}
         onChange={onChange}
         getResponseForField={getResponseForField}
+        marginBottom={marginBottom}
       />
     );
   }
 
   return (
-    <View style={styles.fieldContainer}>
+    <View style={containerStyle}>
       <Text style={styles.fieldLabel}>
         {formatLabel(field.label)}
         {field.isRequired ? " *" : ""}
@@ -214,9 +221,7 @@ export function FieldInput({
 }
 
 const styles = StyleSheet.create({
-  fieldContainer: {
-    marginBottom: 16,
-  },
+  fieldContainer: {},
   fieldLabel: {
     fontSize: 18,
     fontWeight: "600",
@@ -230,12 +235,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   displayHeader: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     color: "#111827",
   },
   displayText: {
-    fontSize: 14,
+    fontSize: 18,
     color: "#374151",
   },
   fieldInput: {
