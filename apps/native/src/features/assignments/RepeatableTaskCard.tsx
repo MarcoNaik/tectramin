@@ -104,7 +104,14 @@ export function RepeatableTaskCard({
       >
         <View style={styles.headerLeft}>
           <Text style={styles.chevron}>{isExpanded ? "▼" : "▶"}</Text>
-          <Text style={styles.taskName}>{index}. {template.taskTemplateName}</Text>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.taskName}>{index}. {template.taskTemplateName}</Text>
+            {template.description && (
+              <Text style={styles.taskDescription} numberOfLines={1}>
+                {template.description}
+              </Text>
+            )}
+          </View>
         </View>
         <View style={styles.headerBadges}>
           <Text style={styles.repeatableIcon}>↻</Text>
@@ -186,7 +193,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     flex: 1,
   },
   chevron: {
@@ -194,12 +201,20 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     marginRight: 8,
     width: 12,
+    marginTop: 4,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   taskName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
-    flex: 1,
+  },
+  taskDescription: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
   },
   headerBadges: {
     flexDirection: "row",
