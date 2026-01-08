@@ -100,6 +100,38 @@ export function SyncProvider({ children }: SyncProviderProps) {
     prevAssignmentsRef.current = newHash;
 
     const syncAssignments = async () => {
+      const existingDays = await db
+        .select()
+        .from(workOrderDays)
+        .where(eq(workOrderDays.userId, user.id));
+      const serverIds = new Set(serverAssignments.map((a) => a.workOrderDayServerId));
+
+      for (const existing of existingDays) {
+        if (!serverIds.has(existing.serverId)) {
+          const relatedInstances = await db
+            .select()
+            .from(taskInstances)
+            .where(eq(taskInstances.workOrderDayServerId, existing.serverId));
+
+          for (const instance of relatedInstances) {
+            const relatedResponses = await db
+              .select()
+              .from(fieldResponses)
+              .where(eq(fieldResponses.taskInstanceClientId, instance.clientId));
+
+            for (const response of relatedResponses) {
+              await db.delete(attachments).where(eq(attachments.fieldResponseClientId, response.clientId));
+            }
+
+            await db.delete(fieldResponses).where(eq(fieldResponses.taskInstanceClientId, instance.clientId));
+          }
+
+          await db.delete(taskInstances).where(eq(taskInstances.workOrderDayServerId, existing.serverId));
+          await db.delete(dayTaskTemplates).where(eq(dayTaskTemplates.workOrderDayServerId, existing.serverId));
+          await db.delete(workOrderDays).where(eq(workOrderDays.serverId, existing.serverId));
+        }
+      }
+
       for (const assignment of serverAssignments) {
         await db
           .insert(workOrderDays)
