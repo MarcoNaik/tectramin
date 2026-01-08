@@ -32,6 +32,7 @@ interface EntitySelectFieldProps {
   value: string | undefined;
   onChange: (value: string) => void;
   getResponseForField?: (fieldServerId: string) => string | undefined;
+  marginBottom?: number;
 }
 
 export function EntitySelectField({
@@ -39,6 +40,7 @@ export function EntitySelectField({
   value,
   onChange,
   getResponseForField,
+  marginBottom = 16,
 }: EntitySelectFieldProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const config = parseEntitySelectConfig(field.displayStyle ?? undefined);
@@ -71,7 +73,7 @@ export function EntitySelectField({
     : "Seleccionar...";
 
   return (
-    <View style={styles.fieldContainer}>
+    <View style={[styles.fieldContainer, { marginBottom }]}>
       <Text style={styles.fieldLabel}>
         {field.label}
         {field.isRequired ? " *" : ""}
@@ -117,9 +119,7 @@ export function EntitySelectField({
 }
 
 const styles = StyleSheet.create({
-  fieldContainer: {
-    marginBottom: 16,
-  },
+  fieldContainer: {},
   fieldLabel: {
     fontSize: 18,
     fontWeight: "600",
