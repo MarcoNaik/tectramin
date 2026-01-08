@@ -5,12 +5,16 @@ import {
 } from "react-native";
 import { Text } from "../Text";
 import { SelectField } from "./SelectField";
+import { MultiSelectField } from "./MultiSelectField";
 import { UserSelectField } from "./UserSelectField";
+import { MultiUserSelectField } from "./MultiUserSelectField";
 import { EntitySelectField } from "./EntitySelectField";
+import { MultiEntitySelectField } from "./MultiEntitySelectField";
 import { DatePickerField } from "../DatePickerField";
 import { AttachmentField } from "../AttachmentField";
 import { DebouncedTextInput } from "../DebouncedTextInput";
 import { useAttachments } from "../../hooks/useAttachments";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import type { FieldTemplate } from "../../db/types";
 
 interface FieldInputProps {
@@ -36,10 +40,11 @@ export function FieldInput({
   index,
   marginBottom = 16,
 }: FieldInputProps) {
-  const { attachment, isLocalPreview, createAttachment, removeAttachment } = useAttachments(
+  const { attachment, isLocalPreview, createAttachment, removeAttachment, retryUpload } = useAttachments(
     fieldResponseClientId ?? "",
     userId
   );
+  const isOnline = useNetworkStatus();
 
   const formatLabel = (label: string) => {
     return index !== undefined ? `${index}. ${label}` : label;
@@ -128,6 +133,7 @@ export function FieldInput({
           displayStyle={field.displayStyle}
           attachment={attachment}
           isLocalPreview={isLocalPreview}
+          isOnline={isOnline}
           onPickImage={async (uri, fileName, mimeType, fileSize) => {
             const responseClientId = fieldResponseClientId || await ensureFieldResponse();
             const clientId = await createAttachment({
@@ -154,6 +160,7 @@ export function FieldInput({
             await removeAttachment();
             onChange("");
           }}
+          onRetry={retryUpload}
         />
         {field.subheader && (
           <Text style={styles.fieldSubheader}>{field.subheader}</Text>
@@ -175,6 +182,17 @@ export function FieldInput({
     );
   }
 
+  if (field.fieldType === "multiSelect") {
+    return (
+      <MultiSelectField
+        field={fieldWithFormattedLabel}
+        value={value}
+        onChange={onChange}
+        marginBottom={marginBottom}
+      />
+    );
+  }
+
   if (field.fieldType === "userSelect") {
     return (
       <UserSelectField
@@ -186,9 +204,32 @@ export function FieldInput({
     );
   }
 
+  if (field.fieldType === "multiUserSelect") {
+    return (
+      <MultiUserSelectField
+        field={fieldWithFormattedLabel}
+        value={value}
+        onChange={onChange}
+        marginBottom={marginBottom}
+      />
+    );
+  }
+
   if (field.fieldType === "entitySelect") {
     return (
       <EntitySelectField
+        field={fieldWithFormattedLabel}
+        value={value}
+        onChange={onChange}
+        getResponseForField={getResponseForField}
+        marginBottom={marginBottom}
+      />
+    );
+  }
+
+  if (field.fieldType === "multiEntitySelect") {
+    return (
+      <MultiEntitySelectField
         field={fieldWithFormattedLabel}
         value={value}
         onChange={onChange}
