@@ -13,19 +13,21 @@ interface SelectFieldProps {
   field: FieldTemplate;
   value: string | undefined;
   onChange: (value: string) => void;
+  marginBottom?: number;
 }
 
 export function SelectField({
   field,
   value,
   onChange,
+  marginBottom = 16,
 }: SelectFieldProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const options = parseSelectOptions(field.displayStyle);
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
-    <View style={styles.fieldContainer}>
+    <View style={[styles.fieldContainer, { marginBottom }]}>
       <Text style={styles.fieldLabel}>
         {field.label}
         {field.isRequired ? " *" : ""}
@@ -59,9 +61,7 @@ export function SelectField({
 }
 
 const styles = StyleSheet.create({
-  fieldContainer: {
-    marginBottom: 16,
-  },
+  fieldContainer: {},
   fieldLabel: {
     fontSize: 18,
     fontWeight: "600",
