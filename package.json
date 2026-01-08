@@ -7,7 +7,11 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "build:ios": "cd apps/native && eas build -p ios --profile production --local",
+    "build:ios:simulator": "cd apps/native && eas build -p ios --profile production-simulator --local",
+    "build:android": "cd apps/native && ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=$(/usr/libexec/java_home -v17) eas build -p android --profile production --local",
+    "build:android:apk": "cd apps/native && ANDROID_HOME=/opt/homebrew/share/android-commandlinetools JAVA_HOME=$(/usr/libexec/java_home -v17) eas build -p android --profile production-apk --local"
   },
   "devDependencies": {
     "prettier": "3.5.3",
