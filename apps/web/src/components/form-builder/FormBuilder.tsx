@@ -361,6 +361,13 @@ export function FormBuilder() {
     }
   };
 
+  const handleUpdateTaskReadme = async (readme: string) => {
+    const selectedTask = routineTasks?.find((t) => t._id === selectedRoutineTaskId);
+    if (selectedTask) {
+      await updateTask({ id: selectedTask.taskTemplateId, readme });
+    }
+  };
+
   const handleUpdateTaskNameFromFieldView = async (name: string) => {
     if (selectedTemplateId) {
       await updateTask({ id: selectedTemplateId, name });
@@ -370,6 +377,12 @@ export function FormBuilder() {
   const handleUpdateTaskDescriptionFromFieldView = async (description: string) => {
     if (selectedTemplateId) {
       await updateTask({ id: selectedTemplateId, description });
+    }
+  };
+
+  const handleUpdateTaskReadmeFromFieldView = async (readme: string) => {
+    if (selectedTemplateId) {
+      await updateTask({ id: selectedTemplateId, readme });
     }
   };
 
@@ -645,11 +658,13 @@ export function FormBuilder() {
             conditions={conditions}
             taskName={selectedTemplate?.name}
             taskDescription={selectedTemplate?.description}
+            taskReadme={selectedTemplate?.readme}
             onClose={() => setSelectedFieldId(null)}
             onUpdate={handleFieldUpdate}
             onDelete={handleDeleteField}
             onUpdateTaskName={handleUpdateTaskNameFromFieldView}
             onUpdateTaskDescription={handleUpdateTaskDescriptionFromFieldView}
+            onUpdateTaskReadme={handleUpdateTaskReadmeFromFieldView}
           />
         ) : selectedRoutineId && selectedRoutineId !== "unassigned" ? (
           selectedRoutineTaskId ? (
@@ -666,6 +681,7 @@ export function FormBuilder() {
                   serviceTaskTemplateId={selectedRoutineTaskId}
                   taskName={selectedTask.taskTemplateName}
                   taskDescription={selectedTask.taskTemplateDescription}
+                  taskReadme={selectedTask.taskTemplateReadme}
                   orderNumber={taskIndex + 1}
                   isRepeatable={selectedTask.isRepeatable}
                   allTasksInRoutine={routineTasks ?? []}
@@ -673,6 +689,7 @@ export function FormBuilder() {
                   onClose={() => setSelectedRoutineTaskId(null)}
                   onUpdateName={handleUpdateTaskName}
                   onUpdateDescription={handleUpdateTaskDescription}
+                  onUpdateReadme={handleUpdateTaskReadme}
                   onUpdateRepeatable={handleUpdateTaskRepeatable}
                   onRemoveFromRoutine={handleRemoveSelectedTaskFromRoutine}
                   onEditFields={handleEditTaskFields}
