@@ -14,6 +14,9 @@ import Animated, {
   useAnimatedScrollHandler,
   type SharedValue,
 } from "react-native-reanimated";
+import { useLiveQuery } from "drizzle-orm/expo-sqlite";
+import { db } from "../../db/client";
+import { attachments } from "../../db/schema";
 import { Text } from "../../components/Text";
 import { FieldInput } from "../../components/fields";
 import { PaginationDots } from "../../components/PaginationDots";
@@ -21,8 +24,11 @@ import { CompletedTaskModal } from "../../components/common/CompletedTaskModal";
 import { useFieldResponses } from "../../hooks/useFieldResponses";
 import { useTaskInstances } from "../../hooks/useTaskInstances";
 import { useFieldConditions } from "../../hooks/useFieldConditions";
+import { useUsers } from "../../hooks/useUsers";
+import { useLookupEntities } from "../../hooks/useLookupEntities";
 import { getVisibleFields, getVisibleRequiredFields } from "../../utils/conditionEvaluator";
 import { paginateFields, type FieldPage } from "../../utils/paginateFields";
+import { useResponsivePadding, useResponsiveFieldGap } from "../../utils/responsive";
 import { PendingFieldValuesProvider, usePendingFieldValues } from "../../providers/PendingFieldValuesContext";
 import type { DayTaskTemplate, FieldTemplate } from "../../db/types";
 
@@ -40,6 +46,7 @@ interface Answer {
   label: string;
   value: string;
   fieldType: string;
+  fieldServerId: string;
   attachment?: AnswerAttachment | null;
 }
 
@@ -62,6 +69,8 @@ function TaskInstanceFormInner({
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [pendingAnswers, setPendingAnswers] = useState<Answer[]>([]);
   const flatListRef = useRef<FlatList<FieldPage>>(null);
+  const horizontalPadding = useResponsivePadding();
+  const fieldGap = useResponsiveFieldGap();
 
   const { responses, upsertResponse, getResponseForField } = useFieldResponses(
     taskInstanceClientId,
@@ -70,6 +79,11 @@ function TaskInstanceFormInner({
   const { taskInstances, updateTaskInstanceStatus } = useTaskInstances(userId);
   const { conditions } = useFieldConditions();
   const { flushAll, getAllPending } = usePendingFieldValues();
+  const { users: localUsers } = useUsers();
+  const { entities: lookupEntities } = useLookupEntities();
+  const { data: allAttachments } = useLiveQuery(
+    db.select().from(attachments)
+  );
 
   const currentInstance = taskInstances.find(
     (ti) => ti.clientId === taskInstanceClientId
@@ -139,11 +153,28 @@ function TaskInstanceFormInner({
         const response = responses.find(
           (r) => r.fieldTemplateServerId === field.serverId
         );
+
+        let attachment: AnswerAttachment | null = null;
+        if (field.fieldType === "attachment" && response?.clientId) {
+          const foundAttachment = (allAttachments ?? []).find(
+            (a) => a.fieldResponseClientId === response.clientId
+          );
+          if (foundAttachment) {
+            attachment = {
+              localUri: foundAttachment.localUri,
+              fileName: foundAttachment.fileName,
+              fileType: foundAttachment.fileType,
+              mimeType: foundAttachment.mimeType,
+            };
+          }
+        }
+
         return {
           label: field.label,
           value: response?.value ?? "",
           fieldType: field.fieldType,
-          attachment: null,
+          fieldServerId: field.serverId,
+          attachment,
         };
       });
   };
@@ -206,7 +237,7 @@ function TaskInstanceFormInner({
     ({ item: page }: { item: FieldPage }) => (
       <AnimatedScrollView
         style={styles.pageContainer}
-        contentContainerStyle={styles.pageContent}
+        contentContainerStyle={[styles.pageContent, { paddingHorizontal: horizontalPadding }]}
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
         onScroll={pageScrollHandler}
@@ -223,6 +254,7 @@ function TaskInstanceFormInner({
             ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
             getResponseForField={getResponseValueForField}
             index={fieldIndices.get(field.serverId)}
+            marginBottom={fieldGap}
           />
         ))}
       </AnimatedScrollView>
@@ -235,6 +267,8 @@ function TaskInstanceFormInner({
       userId,
       fieldIndices,
       pageScrollHandler,
+      horizontalPadding,
+      fieldGap,
     ]
   );
 
@@ -257,7 +291,7 @@ function TaskInstanceFormInner({
           removeClippedSubviews={false}
           keyboardShouldPersistTaps="handled"
         />
-        <View style={styles.bottomContainer}>
+        <View style={[styles.bottomContainer, { paddingHorizontal: horizontalPadding }]}>
           <PaginationDots totalPages={pages.length} currentPage={currentPageIndex} />
           <TouchableOpacity
             style={[styles.completeButton, isFormIncomplete && styles.completeButtonDisabled]}
@@ -280,6 +314,9 @@ function TaskInstanceFormInner({
         mode="confirm"
         taskName={template.taskTemplateName}
         answers={pendingAnswers}
+        fields={template.fields}
+        users={localUsers}
+        lookupEntities={lookupEntities}
         onClose={() => setConfirmModalVisible(false)}
         onConfirm={confirmComplete}
         onEdit={() => {}}
@@ -305,11 +342,9 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     paddingTop: 16,
-    paddingHorizontal: 16,
     paddingBottom: 20,
   },
   bottomContainer: {
-    paddingHorizontal: 16,
     paddingBottom: 32,
     backgroundColor: "#fff",
   },
