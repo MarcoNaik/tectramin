@@ -664,6 +664,10 @@ export const updateWorkOrderDayStatus = mutation({
     }
 
     const workOrderDayId = args.workOrderDayServerId as Id<"workOrderDays">;
+    const existing = await ctx.db.get(workOrderDayId);
+    if (!existing) {
+      return null;
+    }
     await ctx.db.patch(workOrderDayId, {
       status: args.status,
       updatedAt: Date.now(),
