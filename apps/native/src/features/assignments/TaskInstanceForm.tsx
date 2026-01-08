@@ -7,6 +7,7 @@ import {
   FlatList,
   ScrollView,
   Dimensions,
+  Pressable,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
@@ -21,6 +22,7 @@ import { Text } from "../../components/Text";
 import { FieldInput } from "../../components/fields";
 import { PaginationDots } from "../../components/PaginationDots";
 import { CompletedTaskModal } from "../../components/common/CompletedTaskModal";
+import { ExpandedFieldProvider, useCollapseAll } from "../../components/fields/ExpandedFieldContext";
 import { useFieldResponses } from "../../hooks/useFieldResponses";
 import { useTaskInstances } from "../../hooks/useTaskInstances";
 import { useFieldConditions } from "../../hooks/useFieldConditions";
@@ -71,6 +73,7 @@ function TaskInstanceFormInner({
   const flatListRef = useRef<FlatList<FieldPage>>(null);
   const horizontalPadding = useResponsivePadding();
   const fieldGap = useResponsiveFieldGap();
+  const collapseAll = useCollapseAll();
 
   const { responses, upsertResponse, getResponseForField } = useFieldResponses(
     taskInstanceClientId,
@@ -274,7 +277,7 @@ function TaskInstanceFormInner({
 
   return (
     <>
-      <View style={styles.formContainer}>
+      <Pressable style={styles.formContainer} onPress={collapseAll}>
         <FlatList
           ref={flatListRef}
           data={pages}
@@ -308,7 +311,7 @@ function TaskInstanceFormInner({
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Pressable>
       <CompletedTaskModal
         visible={confirmModalVisible}
         mode="confirm"
@@ -328,7 +331,9 @@ function TaskInstanceFormInner({
 export function TaskInstanceForm(props: TaskInstanceFormProps) {
   return (
     <PendingFieldValuesProvider>
-      <TaskInstanceFormInner {...props} />
+      <ExpandedFieldProvider>
+        <TaskInstanceFormInner {...props} />
+      </ExpandedFieldProvider>
     </PendingFieldValuesProvider>
   );
 }
