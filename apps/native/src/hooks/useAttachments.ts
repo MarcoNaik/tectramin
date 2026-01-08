@@ -67,21 +67,21 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
     async (input: AttachmentInput): Promise<string> => {
       const now = new Date();
       const clientId = uuidv4();
-      const fileType = getFileTypeFromMimeType(input.mimeType);
 
-      const localUri = await saveToLocalStorage(input.uri, input.fileName);
+      const savedFile = await saveToLocalStorage(input.uri, input.fileName, input.mimeType);
+      const fileType = getFileTypeFromMimeType(savedFile.mimeType);
 
       const newAttachment: Attachment = {
         clientId,
         serverId: null,
         fieldResponseClientId: input.fieldResponseClientId,
-        localUri,
+        localUri: savedFile.localUri,
         storageId: null,
         storageUrl: null,
-        fileName: input.fileName,
+        fileName: savedFile.fileName,
         fileType,
-        mimeType: input.mimeType,
-        fileSize: input.fileSize,
+        mimeType: savedFile.mimeType,
+        fileSize: savedFile.fileSize,
         userId,
         uploadStatus: "pending",
         createdAt: now,
@@ -96,50 +96,76 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
       setPendingAttachmentId(clientId);
 
       if (networkMonitor.getIsOnline()) {
-        try {
-          await db
-            .update(attachments)
-            .set({ uploadStatus: "uploading" })
-            .where(eq(attachments.clientId, clientId));
-
-          if (localAttachmentRef.current?.clientId === clientId) {
-            setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "uploading" });
-            localAttachmentRef.current = { ...localAttachmentRef.current, uploadStatus: "uploading" };
-          }
-
-          const result = await uploadAndSaveAttachment(
-            convex,
-            localUri,
-            input.mimeType,
-            clientId,
-            input.fieldResponseClientId,
-            input.fileName,
-            fileType,
-            input.fileSize,
-            userId
-          );
-
-          if (result.success && result.storageId) {
-            await db
-              .update(attachments)
-              .set({
-                serverId: result.serverId,
-                storageId: result.storageId,
-                uploadStatus: "uploaded",
-                syncStatus: "synced",
-              })
-              .where(eq(attachments.clientId, clientId));
-
+        db.update(attachments)
+          .set({ uploadStatus: "uploading" })
+          .where(eq(attachments.clientId, clientId))
+          .then(() => {
             if (localAttachmentRef.current?.clientId === clientId) {
-              setLocalAttachment({
-                ...localAttachmentRef.current,
-                serverId: result.serverId ?? null,
-                storageId: result.storageId,
-                uploadStatus: "uploaded",
-                syncStatus: "synced",
-              });
+              setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "uploading" });
+              localAttachmentRef.current = { ...localAttachmentRef.current, uploadStatus: "uploading" };
             }
-          } else {
+
+            return uploadAndSaveAttachment(
+              convex,
+              savedFile.localUri,
+              savedFile.mimeType,
+              clientId,
+              input.fieldResponseClientId,
+              savedFile.fileName,
+              fileType,
+              savedFile.fileSize,
+              userId
+            );
+          })
+          .then(async (result) => {
+            if (result.success && result.storageId) {
+              await db
+                .update(attachments)
+                .set({
+                  serverId: result.serverId,
+                  storageId: result.storageId,
+                  uploadStatus: "uploaded",
+                  syncStatus: "synced",
+                })
+                .where(eq(attachments.clientId, clientId));
+
+              if (localAttachmentRef.current?.clientId === clientId) {
+                setLocalAttachment({
+                  ...localAttachmentRef.current,
+                  serverId: result.serverId ?? null,
+                  storageId: result.storageId,
+                  uploadStatus: "uploaded",
+                  syncStatus: "synced",
+                });
+              }
+            } else {
+              await db
+                .update(attachments)
+                .set({ uploadStatus: "failed" })
+                .where(eq(attachments.clientId, clientId));
+
+              if (localAttachmentRef.current?.clientId === clientId) {
+                setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "failed" });
+              }
+
+              const payload = {
+                clientId,
+                fieldResponseClientId: input.fieldResponseClientId,
+                localUri: savedFile.localUri,
+                fileName: savedFile.fileName,
+                fileType,
+                mimeType: savedFile.mimeType,
+                fileSize: savedFile.fileSize,
+                userId,
+                uploadStatus: "pending",
+                createdAt: now.getTime(),
+                updatedAt: now.getTime(),
+              };
+              await addToQueue("attachments", "upload", clientId, payload);
+              await syncService.updatePendingCount();
+            }
+          })
+          .catch(async () => {
             await db
               .update(attachments)
               .set({ uploadStatus: "failed" })
@@ -152,11 +178,11 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
             const payload = {
               clientId,
               fieldResponseClientId: input.fieldResponseClientId,
-              localUri,
-              fileName: input.fileName,
+              localUri: savedFile.localUri,
+              fileName: savedFile.fileName,
               fileType,
-              mimeType: input.mimeType,
-              fileSize: input.fileSize,
+              mimeType: savedFile.mimeType,
+              fileSize: savedFile.fileSize,
               userId,
               uploadStatus: "pending",
               createdAt: now.getTime(),
@@ -164,42 +190,16 @@ export function useAttachments(fieldResponseClientId: string, userId: string) {
             };
             await addToQueue("attachments", "upload", clientId, payload);
             await syncService.updatePendingCount();
-          }
-        } catch {
-          await db
-            .update(attachments)
-            .set({ uploadStatus: "failed" })
-            .where(eq(attachments.clientId, clientId));
-
-          if (localAttachmentRef.current?.clientId === clientId) {
-            setLocalAttachment({ ...localAttachmentRef.current, uploadStatus: "failed" });
-          }
-
-          const payload = {
-            clientId,
-            fieldResponseClientId: input.fieldResponseClientId,
-            localUri,
-            fileName: input.fileName,
-            fileType,
-            mimeType: input.mimeType,
-            fileSize: input.fileSize,
-            userId,
-            uploadStatus: "pending",
-            createdAt: now.getTime(),
-            updatedAt: now.getTime(),
-          };
-          await addToQueue("attachments", "upload", clientId, payload);
-          await syncService.updatePendingCount();
-        }
+          });
       } else {
         const payload = {
           clientId,
           fieldResponseClientId: input.fieldResponseClientId,
-          localUri,
-          fileName: input.fileName,
+          localUri: savedFile.localUri,
+          fileName: savedFile.fileName,
           fileType,
-          mimeType: input.mimeType,
-          fileSize: input.fileSize,
+          mimeType: savedFile.mimeType,
+          fileSize: savedFile.fileSize,
           userId,
           uploadStatus: "pending",
           createdAt: now.getTime(),

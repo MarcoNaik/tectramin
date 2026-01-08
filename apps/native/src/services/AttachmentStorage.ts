@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { compressImage, isImageMimeType } from "./ImageCompressor";
 
 const ATTACHMENTS_DIR = `${FileSystem.documentDirectory}attachments/`;
 
@@ -9,22 +10,50 @@ export async function ensureAttachmentsDir(): Promise<void> {
   }
 }
 
+export interface SavedFileInfo {
+  localUri: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+}
+
 export async function saveToLocalStorage(
   sourceUri: string,
-  fileName: string
-): Promise<string> {
+  fileName: string,
+  mimeType: string
+): Promise<SavedFileInfo> {
   await ensureAttachmentsDir();
 
   const timestamp = Date.now();
-  const uniqueFileName = `${timestamp}_${fileName}`;
+  let finalUri = sourceUri;
+  let finalFileName = fileName;
+  let finalMimeType = mimeType;
+
+  if (isImageMimeType(mimeType)) {
+    const compressed = await compressImage(sourceUri);
+    finalUri = compressed.uri;
+    const baseName = fileName.replace(/\.[^/.]+$/, "");
+    finalFileName = `${baseName}.jpg`;
+    finalMimeType = "image/jpeg";
+  }
+
+  const uniqueFileName = `${timestamp}_${finalFileName}`;
   const destPath = `${ATTACHMENTS_DIR}${uniqueFileName}`;
 
   await FileSystem.copyAsync({
-    from: sourceUri,
+    from: finalUri,
     to: destPath,
   });
 
-  return destPath;
+  const fileInfo = await FileSystem.getInfoAsync(destPath);
+  const fileSize = fileInfo.exists && "size" in fileInfo ? fileInfo.size : 0;
+
+  return {
+    localUri: destPath,
+    fileName: finalFileName,
+    mimeType: finalMimeType,
+    fileSize,
+  };
 }
 
 export async function deleteLocalFile(localUri: string): Promise<void> {
