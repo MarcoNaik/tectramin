@@ -1,7 +1,6 @@
 
 .env.local
 
-convex/_generated/*.js
 convex/admin/*.js
 convex/admin/*.js.map
 convex/mobile/*.js
