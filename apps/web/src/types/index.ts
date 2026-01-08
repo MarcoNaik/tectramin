@@ -41,6 +41,7 @@ export interface ServiceTaskTemplate {
   taskTemplateId: Id<"taskTemplates">;
   taskTemplateName: string;
   taskTemplateDescription?: string;
+  taskTemplateReadme?: string;
   order: number;
   isRequired: boolean;
   isRepeatable: boolean;
@@ -55,6 +56,7 @@ export interface TaskTemplateData {
   _creationTime: number;
   name: string;
   description?: string;
+  readme?: string;
   category?: string;
   isRepeatable: boolean;
   isActive: boolean;
