@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { Attachment, AttachmentUploadStatus } from "../db/types";
 import { ImageViewerModal } from "./common";
+import { AttachmentStatusIndicator, DisplayStatus } from "./AttachmentStatusIndicator";
 
 type AttachmentSource = "camera" | "gallery" | "document";
 
@@ -35,15 +36,29 @@ function parseAttachmentConfig(displayStyle: string | null | undefined): Attachm
   }
 }
 
+function computeDisplayStatus(
+  isLocalPreview: boolean,
+  uploadStatus: AttachmentUploadStatus,
+  isOnline: boolean
+): DisplayStatus {
+  if (uploadStatus === "failed") return "failed";
+  if (uploadStatus === "uploaded" && !isLocalPreview) return "uploaded";
+  if (uploadStatus === "uploading" || isLocalPreview) return "uploading";
+  if (uploadStatus === "pending" && !isOnline) return "queued";
+  return "uploading";
+}
+
 interface AttachmentFieldProps {
   label: string;
   isRequired: boolean;
   displayStyle?: string | null;
   attachment: Attachment | null;
   isLocalPreview?: boolean;
+  isOnline: boolean;
   onPickImage: (uri: string, fileName: string, mimeType: string, fileSize: number, source: "camera" | "gallery") => Promise<void>;
   onPickDocument: (uri: string, fileName: string, mimeType: string, fileSize: number) => Promise<void>;
   onRemove: () => Promise<void>;
+  onRetry?: () => Promise<void>;
 }
 
 export function AttachmentField({
@@ -52,9 +67,11 @@ export function AttachmentField({
   displayStyle,
   attachment,
   isLocalPreview = false,
+  isOnline,
   onPickImage,
   onPickDocument,
   onRemove,
+  onRetry,
 }: AttachmentFieldProps) {
   const [loading, setLoading] = useState(false);
   const [viewerVisible, setViewerVisible] = useState(false);
@@ -83,7 +100,7 @@ export function AttachmentField({
         const fileSize = asset.fileSize || 0;
         await onPickImage(asset.uri, fileName, mimeType, fileSize, "camera");
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Error al tomar la foto");
     } finally {
       setLoading(false);
@@ -112,7 +129,7 @@ export function AttachmentField({
         const fileSize = asset.fileSize || 0;
         await onPickImage(asset.uri, fileName, mimeType, fileSize, "gallery");
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Error al seleccionar imagen");
     } finally {
       setLoading(false);
@@ -131,7 +148,7 @@ export function AttachmentField({
         const asset = result.assets[0];
         await onPickDocument(asset.uri, asset.name, asset.mimeType || "application/octet-stream", asset.size || 0);
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Error al seleccionar documento");
     } finally {
       setLoading(false);
@@ -149,37 +166,10 @@ export function AttachmentField({
     );
   };
 
-  const getStatusColor = (status: AttachmentUploadStatus): string => {
-    switch (status) {
-      case "pending":
-        return "#f59e0b";
-      case "uploading":
-        return "#3b82f6";
-      case "uploaded":
-        return "#10b981";
-      case "failed":
-        return "#ef4444";
-      default:
-        return "#6b7280";
-    }
-  };
-
-  const getStatusText = (status: AttachmentUploadStatus): string => {
-    switch (status) {
-      case "pending":
-        return "Esperando subir";
-      case "uploading":
-        return "Subiendo...";
-      case "uploaded":
-        return "Subido";
-      case "failed":
-        return "Error al subir";
-      default:
-        return status;
-    }
-  };
-
   const isImage = attachment?.fileType === "image";
+  const displayStatus = attachment
+    ? computeDisplayStatus(isLocalPreview, attachment.uploadStatus as AttachmentUploadStatus, isOnline)
+    : null;
 
   return (
     <View style={styles.container}>
@@ -195,7 +185,7 @@ export function AttachmentField({
         </View>
       )}
 
-      {!loading && attachment && (
+      {!loading && attachment && displayStatus && (
         <View style={styles.previewContainer}>
           {isImage && attachment.localUri ? (
             <TouchableOpacity
@@ -212,20 +202,11 @@ export function AttachmentField({
               </Text>
             </View>
           )}
-          {isLocalPreview && (
-            <View style={styles.localPreviewBanner}>
-              <ActivityIndicator size="small" color="#6b7280" />
-              <Text style={styles.localPreviewText}>Sincronizando con base de datos...</Text>
-            </View>
-          )}
-          <View style={styles.statusContainer}>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(attachment.uploadStatus as AttachmentUploadStatus) }]}>
-              <Text style={styles.statusText}>{getStatusText(attachment.uploadStatus as AttachmentUploadStatus)}</Text>
-            </View>
-            <Text style={styles.fileSize}>
-              {(attachment.fileSize / 1024).toFixed(1)} KB
-            </Text>
-          </View>
+          <AttachmentStatusIndicator
+            status={displayStatus}
+            fileSize={attachment.fileSize}
+            onRetry={onRetry}
+          />
           <TouchableOpacity style={styles.removeButton} onPress={handleRemove}>
             <Text style={styles.removeButtonText}>Eliminar</Text>
           </TouchableOpacity>
@@ -307,12 +288,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: "#e5e7eb",
+    gap: 8,
   },
   imagePreview: {
     width: "100%",
     height: 150,
     borderRadius: 8,
-    marginBottom: 8,
   },
   documentPreview: {
     flexDirection: "row",
@@ -320,7 +301,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 12,
     borderRadius: 8,
-    marginBottom: 8,
   },
   documentIcon: {
     fontSize: 24,
@@ -330,26 +310,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: "#374151",
-  },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  fileSize: {
-    fontSize: 12,
-    color: "#6b7280",
   },
   removeButton: {
     backgroundColor: "#fee2e2",
@@ -361,21 +321,5 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "500",
     fontSize: 14,
-  },
-  localPreviewBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fef3c7",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginBottom: 8,
-    gap: 8,
-  },
-  localPreviewText: {
-    fontSize: 12,
-    color: "#92400e",
-    fontWeight: "500",
   },
 });
