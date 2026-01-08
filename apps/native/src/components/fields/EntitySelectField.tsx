@@ -1,16 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import {
-  View,
-  TouchableOpacity,
-  TextInput,
-  StyleSheet,
-  Pressable,
-} from "react-native";
-import { Text } from "../Text";
-import { InlineOptionPicker } from "../common/InlineOptionPicker";
-import { useExpandedField } from "./ExpandedFieldContext";
-import { useLookupEntities } from "../../hooks/useLookupEntities";
-import { filterAndSortByFuzzy } from "../../utils/fuzzySearch";
+import { useMemo } from "react";
+import { BaseSelectorField } from "./selector/BaseSelectorField";
 import type { FieldTemplate } from "../../db/types";
 
 interface EntitySelectConfig {
@@ -46,9 +35,6 @@ export function EntitySelectField({
   getResponseForField,
   marginBottom = 16,
 }: EntitySelectFieldProps) {
-  const { isExpanded, toggle, collapse } = useExpandedField(field.serverId);
-  const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<TextInput>(null);
   const config = parseEntitySelectConfig(field.displayStyle ?? undefined);
 
   const parentEntityValue = useMemo(() => {
@@ -56,192 +42,22 @@ export function EntitySelectField({
     return getResponseForField(config.filterByFieldId);
   }, [config.filterByFieldId, getResponseForField]);
 
-  const { entities, entityType } = useLookupEntities(
-    config.entityTypeId,
-    parentEntityValue
-  );
-
-  const options = useMemo(() => {
-    return entities.map((e) => ({
-      value: e.serverId,
-      label: e.label,
-    }));
-  }, [entities]);
-
-  const selectedOption = options.find((opt) => opt.value === value);
-
-  const filteredOptions = useMemo(() => {
-    return filterAndSortByFuzzy(options, searchQuery, (opt) => opt.label);
-  }, [options, searchQuery]);
-
-  const needsParentSelection = !!(config.filterByFieldId && !parentEntityValue);
-
-  const placeholder = needsParentSelection
-    ? "Selecciona el campo padre primero..."
-    : entityType
-    ? `Seleccionar ${entityType.name}...`
-    : "Seleccionar...";
-
-  useEffect(() => {
-    if (isExpanded) {
-      setSearchQuery("");
-      setTimeout(() => searchInputRef.current?.focus(), 100);
-    }
-  }, [isExpanded]);
-
-  const handleSubmit = () => {
-    if (filteredOptions.length > 0) {
-      onChange(filteredOptions[0].value);
-      collapse();
-    }
-  };
-
-  const handlePress = () => {
-    if (!needsParentSelection) {
-      toggle();
-    }
-  };
-
   return (
-    <View style={[styles.fieldContainer, { marginBottom }]}>
-      <Text style={styles.fieldLabel}>
-        {field.label}
-        {field.isRequired ? " *" : ""}
-      </Text>
-      {field.subheader && (
-        <Text style={styles.fieldSubheader}>{field.subheader}</Text>
-      )}
-
-      {isExpanded ? (
-        <Pressable
-          style={styles.searchContainer}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchInput}
-            placeholder="Buscar..."
-            placeholderTextColor="#9ca3af"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSubmit}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={() => setSearchQuery("")}
-            >
-              <Text style={styles.clearButtonText}>×</Text>
-            </TouchableOpacity>
-          )}
-        </Pressable>
-      ) : (
-        <TouchableOpacity
-          style={[
-            styles.selectButton,
-            needsParentSelection && styles.selectButtonDisabled,
-          ]}
-          onPress={handlePress}
-          disabled={needsParentSelection}
-        >
-          <Text
-            style={
-              selectedOption
-                ? styles.selectButtonText
-                : needsParentSelection
-                ? styles.selectButtonDisabledText
-                : styles.selectButtonPlaceholder
-            }
-          >
-            {selectedOption ? selectedOption.label : placeholder}
-          </Text>
-          <Text style={styles.selectButtonChevron}>▼</Text>
-        </TouchableOpacity>
-      )}
-
-      <InlineOptionPicker
-        isExpanded={isExpanded}
-        options={options}
-        selectedValue={value}
-        searchQuery={searchQuery}
-        onSelect={onChange}
-        onCollapse={collapse}
-      />
-    </View>
+    <BaseSelectorField
+      field={field}
+      value={value}
+      onChange={onChange}
+      isMultiple={false}
+      optionsConfig={{
+        type: "entity",
+        entityTypeId: config.entityTypeId,
+        parentValue: parentEntityValue,
+      }}
+      placeholder="Seleccionar..."
+      disabledPlaceholder="Selecciona el campo padre primero..."
+      marginBottom={marginBottom}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  fieldContainer: {},
-  fieldLabel: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: "#111827",
-  },
-  fieldSubheader: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  selectButton: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-  },
-  selectButtonDisabled: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#e5e7eb",
-  },
-  selectButtonText: {
-    fontSize: 16,
-    color: "#111827",
-  },
-  selectButtonPlaceholder: {
-    fontSize: 16,
-    color: "#9ca3af",
-  },
-  selectButtonDisabledText: {
-    fontSize: 16,
-    color: "#9ca3af",
-    fontStyle: "italic",
-  },
-  selectButtonChevron: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#2563eb",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#fff",
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 4,
-    color: "#111827",
-  },
-  clearButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  clearButtonText: {
-    fontSize: 20,
-    color: "#6b7280",
-  },
-});
+export { parseEntitySelectConfig };
