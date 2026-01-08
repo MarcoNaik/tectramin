@@ -19,6 +19,7 @@ export const dayTaskTemplates = sqliteTable("day_task_templates", {
   taskTemplateServerId: text("task_template_server_id").notNull(),
   taskTemplateName: text("task_template_name").notNull(),
   description: text("description"),
+  readme: text("readme"),
   order: integer("order").notNull(),
   isRequired: integer("is_required", { mode: "boolean" }).notNull(),
   isRepeatable: integer("is_repeatable", { mode: "boolean" }).notNull().default(false),
