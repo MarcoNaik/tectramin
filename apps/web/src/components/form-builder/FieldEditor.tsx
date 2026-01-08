@@ -272,6 +272,7 @@ interface FieldEditorProps {
   conditions: FieldConditionData[];
   taskName?: string;
   taskDescription?: string;
+  taskReadme?: string;
   onClose: () => void;
   onUpdate: (fieldId: Id<"fieldTemplates">, updates: {
     label?: string;
@@ -285,6 +286,7 @@ interface FieldEditorProps {
   onDelete: (fieldId: Id<"fieldTemplates">) => void;
   onUpdateTaskName?: (name: string) => void;
   onUpdateTaskDescription?: (description: string) => void;
+  onUpdateTaskReadme?: (readme: string) => void;
 }
 
 export function FieldEditor({
@@ -294,11 +296,13 @@ export function FieldEditor({
   conditions,
   taskName,
   taskDescription,
+  taskReadme,
   onClose,
   onUpdate,
   onDelete,
   onUpdateTaskName,
   onUpdateTaskDescription,
+  onUpdateTaskReadme,
 }: FieldEditorProps) {
   if (!selectedTemplateId) {
     return null;
@@ -328,6 +332,16 @@ export function FieldEditor({
                 placeholder="Descripción opcional de la tarea..."
                 className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={4}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Readme de la Tarea</label>
+              <DebouncedTextarea
+                value={taskReadme ?? ""}
+                onChange={(value) => onUpdateTaskReadme?.(value)}
+                placeholder="Instrucciones detalladas para completar la tarea..."
+                className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows={6}
               />
             </div>
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
