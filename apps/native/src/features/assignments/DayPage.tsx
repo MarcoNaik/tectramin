@@ -9,6 +9,7 @@ import { Text } from "../../components/Text";
 import { AssignmentTaskGroup } from "./AssignmentTaskGroup";
 import { EmptyDayState } from "./EmptyDayState";
 import { formatFullDate, type DayData } from "../../utils/dateUtils";
+import { useResponsivePadding } from "../../utils/responsive";
 import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
 import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 
@@ -20,6 +21,7 @@ interface DayPageProps {
   allDependencies: TaskDependency[];
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
+  onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
   refreshing: boolean;
   onRefresh: () => void;
 }
@@ -30,14 +32,17 @@ export function DayPage({
   allDependencies,
   onSelectTask,
   onCreateAndSelectTask,
+  onCreateInstance,
   refreshing,
   onRefresh,
 }: DayPageProps) {
+  const horizontalPadding = useResponsivePadding();
+
   return (
     <View style={styles.dayPage}>
       <ScrollView
         style={styles.dayScrollView}
-        contentContainerStyle={styles.dayScrollContent}
+        contentContainerStyle={[styles.dayScrollContent, { paddingHorizontal: horizontalPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />
@@ -72,6 +77,7 @@ export function DayPage({
                   allDependencies={assignmentDependencies}
                   onSelectTask={onSelectTask}
                   onCreateAndSelectTask={onCreateAndSelectTask}
+                  onCreateInstance={onCreateInstance}
                 />
               );
             })}
@@ -91,7 +97,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayScrollContent: {
-    paddingHorizontal: 16,
     paddingBottom: 24,
     flexGrow: 1,
   },
