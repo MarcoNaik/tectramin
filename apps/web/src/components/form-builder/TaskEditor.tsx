@@ -9,6 +9,7 @@ interface TaskEditorProps {
   serviceTaskTemplateId: Id<"serviceTaskTemplates">;
   taskName: string;
   taskDescription?: string;
+  taskReadme?: string;
   orderNumber: number;
   isRepeatable: boolean;
   allTasksInRoutine: ServiceTaskTemplate[];
@@ -16,6 +17,7 @@ interface TaskEditorProps {
   onClose: () => void;
   onUpdateName: (name: string) => void;
   onUpdateDescription: (description: string) => void;
+  onUpdateReadme: (readme: string) => void;
   onUpdateRepeatable: (isRepeatable: boolean) => void;
   onRemoveFromRoutine: () => void;
   onEditFields: () => void;
@@ -26,6 +28,7 @@ export function TaskEditor({
   serviceTaskTemplateId,
   taskName,
   taskDescription,
+  taskReadme,
   orderNumber,
   isRepeatable,
   allTasksInRoutine,
@@ -33,6 +36,7 @@ export function TaskEditor({
   onClose,
   onUpdateName,
   onUpdateDescription,
+  onUpdateReadme,
   onUpdateRepeatable,
   onRemoveFromRoutine,
   onEditFields,
@@ -82,6 +86,17 @@ export function TaskEditor({
               placeholder="Descripción opcional de la tarea..."
               className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               rows={3}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Readme de la Tarea</label>
+            <DebouncedTextarea
+              value={taskReadme ?? ""}
+              onChange={onUpdateReadme}
+              placeholder="Instrucciones detalladas para completar la tarea..."
+              className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={6}
             />
           </div>
 
