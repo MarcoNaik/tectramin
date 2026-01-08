@@ -48,6 +48,7 @@ export default defineSchema({
   taskTemplates: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
+    readme: v.optional(v.string()),
     category: v.optional(v.string()),
     isRepeatable: v.boolean(),
     isActive: v.boolean(),
