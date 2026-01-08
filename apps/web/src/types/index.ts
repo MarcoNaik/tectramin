@@ -82,6 +82,21 @@ export const FIELD_TYPES = [
   { value: "entitySelect", label: "Seleccion de Entidad", icon: "🔗" },
 ] as const;
 
+export const FIELD_TYPE_LABELS: Record<string, string> = {
+  text: "Texto",
+  number: "Numero",
+  boolean: "Si/No",
+  date: "Fecha",
+  attachment: "Adjunto",
+  displayText: "Texto de Visualizacion",
+  select: "Seleccion",
+  multiSelect: "Seleccion Multiple",
+  userSelect: "Seleccion de Usuario",
+  multiUserSelect: "Seleccion Multiple de Usuarios",
+  entitySelect: "Seleccion de Entidad",
+  multiEntitySelect: "Seleccion Multiple de Entidades",
+};
+
 export type FieldType = typeof FIELD_TYPES[number]["value"];
 
 export const OPERATORS_BY_FIELD_TYPE: Record<string, { value: string; label: string }[]> = {
@@ -131,5 +146,23 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, { value: string; label: str
     { value: "equals", label: "Igual a" },
     { value: "notEquals", label: "No igual a" },
     { value: "includes", label: "Es cualquiera de" },
+  ],
+  multiSelect: [
+    { value: "includesAny", label: "Incluye cualquiera de" },
+    { value: "includesAll", label: "Incluye todos" },
+    { value: "isEmpty", label: "Esta vacio" },
+    { value: "isNotEmpty", label: "No esta vacio" },
+  ],
+  multiUserSelect: [
+    { value: "includesAny", label: "Incluye cualquiera de" },
+    { value: "includesAll", label: "Incluye todos" },
+    { value: "isEmpty", label: "Esta vacio" },
+    { value: "isNotEmpty", label: "No esta vacio" },
+  ],
+  multiEntitySelect: [
+    { value: "includesAny", label: "Incluye cualquiera de" },
+    { value: "includesAll", label: "Incluye todos" },
+    { value: "isEmpty", label: "Esta vacio" },
+    { value: "isNotEmpty", label: "No esta vacio" },
   ],
 };
