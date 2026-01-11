@@ -22,11 +22,13 @@ import type * as admin_serviceTaskDependencies from "../admin/serviceTaskDepende
 import type * as admin_services from "../admin/services.js";
 import type * as admin_taskInstances from "../admin/taskInstances.js";
 import type * as admin_taskTemplates from "../admin/taskTemplates.js";
+import type * as admin_workOrderDayServices from "../admin/workOrderDayServices.js";
 import type * as admin_workOrderDays from "../admin/workOrderDays.js";
 import type * as admin_workOrders from "../admin/workOrders.js";
 import type * as mobile_sync from "../mobile/sync.js";
 import type * as shared_attachments from "../shared/attachments.js";
 import type * as shared_dateUtils from "../shared/dateUtils.js";
+import type * as shared_orphanDetection from "../shared/orphanDetection.js";
 import type * as shared_users from "../shared/users.js";
 import type * as talana from "../talana.js";
 
@@ -51,11 +53,13 @@ declare const fullApi: ApiFromModules<{
   "admin/services": typeof admin_services;
   "admin/taskInstances": typeof admin_taskInstances;
   "admin/taskTemplates": typeof admin_taskTemplates;
+  "admin/workOrderDayServices": typeof admin_workOrderDayServices;
   "admin/workOrderDays": typeof admin_workOrderDays;
   "admin/workOrders": typeof admin_workOrders;
   "mobile/sync": typeof mobile_sync;
   "shared/attachments": typeof shared_attachments;
   "shared/dateUtils": typeof shared_dateUtils;
+  "shared/orphanDetection": typeof shared_orphanDetection;
   "shared/users": typeof shared_users;
   talana: typeof talana;
 }>;
