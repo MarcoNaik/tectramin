@@ -8,7 +8,7 @@ import { TaskCardRow } from "./TaskCardRow";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import { useWorkOrderDayStatus } from "../../hooks/useWorkOrderDayStatus";
 import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
-import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
+import type { AssignmentWithTemplates, RoutineWithTasks } from "../../hooks/useAssignments";
 import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
 
 interface AssignmentTaskGroupProps {
@@ -18,6 +18,79 @@ interface AssignmentTaskGroupProps {
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
   onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
+}
+
+function RoutineSection({
+  routine,
+  taskInstances,
+  assignment,
+  allDependencies,
+  onSelectTask,
+  onCreateAndSelectTask,
+  onCreateInstance,
+  globalIndex,
+}: {
+  routine: RoutineWithTasks;
+  taskInstances: TaskInstanceWithResponses[];
+  assignment: AssignmentWithTemplates;
+  allDependencies: TaskDependency[];
+  onSelectTask: AssignmentTaskGroupProps["onSelectTask"];
+  onCreateAndSelectTask: AssignmentTaskGroupProps["onCreateAndSelectTask"];
+  onCreateInstance: AssignmentTaskGroupProps["onCreateInstance"];
+  globalIndex: number;
+}) {
+  let taskIndex = globalIndex;
+
+  const routineInstances = taskInstances.filter(
+    (ti) =>
+      ti.workOrderDayServerId === assignment.serverId &&
+      ti.workOrderDayServiceServerId === routine.serverId
+  );
+
+  return (
+    <View style={styles.routineSection}>
+      <View style={styles.routineHeader}>
+        <Text style={styles.routineTitle}>{routine.serviceName}</Text>
+        <Text style={styles.routineTaskCount}>{routine.tasks.length} tareas</Text>
+      </View>
+      {routine.tasks.map((template) => {
+        const instances = routineInstances.filter(
+          (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
+        );
+        const currentIndex = taskIndex++;
+
+        if (template.isRepeatable) {
+          return (
+            <RepeatableTaskCard
+              key={template.serverId}
+              template={template}
+              instances={instances}
+              assignment={assignment}
+              onSelectTask={onSelectTask}
+              onCreateInstance={onCreateInstance}
+              index={currentIndex}
+            />
+          );
+        }
+
+        const instance = instances[0];
+
+        return (
+          <TaskCardRow
+            key={template.serverId}
+            template={template}
+            instance={instance}
+            assignment={assignment}
+            allTaskInstances={taskInstances}
+            allDependencies={allDependencies}
+            onSelectTask={onSelectTask}
+            onCreateAndSelectTask={onCreateAndSelectTask}
+            index={currentIndex}
+          />
+        );
+      })}
+    </View>
+  );
 }
 
 export function AssignmentTaskGroup({
@@ -30,25 +103,54 @@ export function AssignmentTaskGroup({
 }: AssignmentTaskGroupProps) {
   const { updateStatus } = useWorkOrderDayStatus();
 
-  const allTasksCompleted = assignment.taskTemplates.every((template) => {
-    const instances = taskInstances.filter(
-      (ti) =>
-        ti.dayTaskTemplateServerId === template.serverId &&
-        ti.workOrderDayServerId === assignment.serverId
-    );
+  const routineInstances = taskInstances.filter(
+    (ti) =>
+      ti.workOrderDayServerId === assignment.serverId &&
+      ti.workOrderDayServiceServerId !== null
+  );
 
-    if (template.isRepeatable) {
-      return instances.every((i) => i.status === "completed");
-    }
+  const standaloneInstances = taskInstances.filter(
+    (ti) =>
+      ti.workOrderDayServerId === assignment.serverId &&
+      ti.workOrderDayServiceServerId === null
+  );
 
-    return instances[0]?.status === "completed";
-  });
+  const allRoutineTasksCompleted = assignment.routines.every((routine) =>
+    routine.tasks.every((template) => {
+      const instances = routineInstances.filter(
+        (ti) =>
+          ti.taskTemplateServerId === template.taskTemplateServerId &&
+          ti.workOrderDayServiceServerId === routine.serverId
+      );
 
+      if (template.isRepeatable) {
+        return instances.length > 0 && instances.every((i) => i.status === "completed");
+      }
+
+      return instances[0]?.status === "completed";
+    })
+  );
+
+  const allStandaloneCompleted =
+    assignment.standaloneTasks.length === 0 ||
+    assignment.standaloneTasks.every((template) => {
+      const instances = standaloneInstances.filter(
+        (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
+      );
+      if (template.isRepeatable) {
+        return instances.length > 0 && instances.every((i) => i.status === "completed");
+      }
+      return instances[0]?.status === "completed";
+    });
+
+  const allTasksCompleted = allRoutineTasksCompleted && allStandaloneCompleted;
   const canMarkComplete = allTasksCompleted && assignment.status !== "completed";
 
   const handleMarkComplete = async () => {
     await updateStatus(assignment.serverId, "completed");
   };
+
+  let globalTaskIndex = 1;
 
   return (
     <View style={styles.assignmentGroup}>
@@ -67,50 +169,75 @@ export function AssignmentTaskGroup({
         </Text>
       </View>
 
-      {assignment.taskTemplates.map((template, index) => {
-        const instances = taskInstances.filter(
-          (ti) =>
-            ti.dayTaskTemplateServerId === template.serverId &&
-            ti.workOrderDayServerId === assignment.serverId
-        );
-
-        if (template.isRepeatable) {
-          return (
-            <RepeatableTaskCard
-              key={template.serverId}
-              template={template}
-              instances={instances}
-              assignment={assignment}
-              onSelectTask={onSelectTask}
-              onCreateInstance={onCreateInstance}
-              index={index + 1}
-            />
-          );
-        }
-
-        const instance = instances[0];
-
+      {assignment.routines.map((routine) => {
+        const startIndex = globalTaskIndex;
+        globalTaskIndex += routine.tasks.length;
         return (
-          <TaskCardRow
-            key={template.serverId}
-            template={template}
-            instance={instance}
+          <RoutineSection
+            key={routine.serverId}
+            routine={routine}
+            taskInstances={taskInstances}
             assignment={assignment}
-            allTaskInstances={taskInstances}
             allDependencies={allDependencies}
             onSelectTask={onSelectTask}
             onCreateAndSelectTask={onCreateAndSelectTask}
-            index={index + 1}
+            onCreateInstance={onCreateInstance}
+            globalIndex={startIndex}
           />
         );
       })}
+
+      {assignment.standaloneTasks.length > 0 && (
+        <View style={styles.standaloneSection}>
+          <View style={styles.standaloneHeader}>
+            <Text style={styles.standaloneTitle}>Tareas Independientes</Text>
+            <Text style={styles.routineTaskCount}>{assignment.standaloneTasks.length} tareas</Text>
+          </View>
+          {assignment.standaloneTasks.map((template) => {
+            const instances = standaloneInstances.filter(
+              (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
+            );
+            const currentIndex = globalTaskIndex++;
+
+            if (template.isRepeatable) {
+              return (
+                <RepeatableTaskCard
+                  key={template.serverId}
+                  template={template}
+                  instances={instances}
+                  assignment={assignment}
+                  onSelectTask={onSelectTask}
+                  onCreateInstance={onCreateInstance}
+                  index={currentIndex}
+                />
+              );
+            }
+
+            const instance = instances[0];
+
+            return (
+              <TaskCardRow
+                key={template.serverId}
+                template={template}
+                instance={instance}
+                assignment={assignment}
+                allTaskInstances={taskInstances}
+                allDependencies={allDependencies}
+                onSelectTask={onSelectTask}
+                onCreateAndSelectTask={onCreateAndSelectTask}
+                index={currentIndex}
+              />
+            );
+          })}
+        </View>
+      )}
 
       {canMarkComplete && (
         <TouchableOpacity
           style={styles.completeButton}
           onPress={handleMarkComplete}
         >
-          <Text style={styles.completeButtonText}>Marcar Rutina Completada</Text>
+          <Text style={styles.completeButtonText}>Marcar Completado</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -161,6 +288,52 @@ const styles = StyleSheet.create({
   },
   statusIconCompleted: {
     color: "#22c55e",
+  },
+  routineSection: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  routineHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  routineTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  routineTaskCount: {
+    fontSize: 11,
+    color: "#9ca3af",
+  },
+  standaloneSection: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  standaloneHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+  },
+  standaloneTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   completeButton: {
     backgroundColor: "#059669",
