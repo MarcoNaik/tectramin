@@ -108,6 +108,8 @@ export const getWithDetails = query({
           status: v.string(),
           requiredPeople: v.optional(v.number()),
           assignmentCount: v.number(),
+          routineCount: v.number(),
+          standaloneTaskCount: v.number(),
           taskCount: v.number(),
           completedTaskCount: v.number(),
           assignments: v.array(
@@ -164,7 +166,24 @@ export const getWithDetails = query({
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
           .collect();
 
-        const taskTemplates = await ctx.db
+        const dayServices = await ctx.db
+          .query("workOrderDayServices")
+          .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+          .collect();
+
+        let routineTaskCount = 0;
+        for (const ds of dayServices) {
+          const serviceTaskTemplates = await ctx.db
+            .query("serviceTaskTemplates")
+            .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+            .collect();
+          const applicableTasks = serviceTaskTemplates.filter(
+            (t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber
+          );
+          routineTaskCount += applicableTasks.length;
+        }
+
+        const standaloneTasks = await ctx.db
           .query("workOrderDayTaskTemplates")
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
           .collect();
@@ -188,7 +207,9 @@ export const getWithDetails = query({
           status: day.status,
           requiredPeople: day.requiredPeople,
           assignmentCount: assignments.length,
-          taskCount: taskTemplates.length,
+          routineCount: dayServices.length,
+          standaloneTaskCount: standaloneTasks.length,
+          taskCount: routineTaskCount + standaloneTasks.length,
           completedTaskCount: taskInstances.filter((t) => t.status === "completed").length,
           assignments: assignmentDetails,
         };
@@ -276,30 +297,18 @@ export const create = mutation({
     }
 
     if (args.serviceId) {
-      const serviceTaskTemplates = await ctx.db
-        .query("serviceTaskTemplates")
-        .withIndex("by_service", (q) => q.eq("serviceId", args.serviceId!))
-        .collect();
-
       const days = await ctx.db
         .query("workOrderDays")
         .withIndex("by_work_order", (q) => q.eq("workOrderId", workOrderId))
         .collect();
 
-      for (const stt of serviceTaskTemplates) {
-        const targetDays =
-          stt.dayNumber !== undefined
-            ? days.filter((d) => d.dayNumber === stt.dayNumber)
-            : days;
-
-        for (const day of targetDays) {
-          await ctx.db.insert("workOrderDayTaskTemplates", {
-            workOrderDayId: day._id,
-            taskTemplateId: stt.taskTemplateId,
-            order: stt.order,
-            isRequired: stt.isRequired,
-          });
-        }
+      for (const day of days) {
+        await ctx.db.insert("workOrderDayServices", {
+          workOrderDayId: day._id,
+          serviceId: args.serviceId,
+          order: 0,
+          createdAt: now,
+        });
       }
     }
 
@@ -356,9 +365,10 @@ export const createFromService = mutation({
       updatedAt: now,
     });
 
+    const days: Array<{ _id: Id<"workOrderDays">; dayNumber: number }> = [];
     for (let i = 0; i < dayCount; i++) {
       const dayDate = addDaysUTC(startDate, i);
-      await ctx.db.insert("workOrderDays", {
+      const dayId = await ctx.db.insert("workOrderDays", {
         workOrderId,
         dayDate,
         dayNumber: i + 1,
@@ -367,65 +377,16 @@ export const createFromService = mutation({
         createdAt: now,
         updatedAt: now,
       });
+      days.push({ _id: dayId, dayNumber: i + 1 });
     }
 
-    const serviceTaskTemplates = await ctx.db
-      .query("serviceTaskTemplates")
-      .withIndex("by_service", (q) => q.eq("serviceId", args.serviceId))
-      .collect();
-
-    const days = await ctx.db
-      .query("workOrderDays")
-      .withIndex("by_work_order", (q) => q.eq("workOrderId", workOrderId))
-      .collect();
-
-    const taskMapping = new Map<
-      Id<"serviceTaskTemplates">,
-      Array<{ wodtId: Id<"workOrderDayTaskTemplates">; dayId: Id<"workOrderDays"> }>
-    >();
-
-    for (const stt of serviceTaskTemplates) {
-      const targetDays =
-        stt.dayNumber !== undefined
-          ? days.filter((d) => d.dayNumber === stt.dayNumber)
-          : days;
-
-      const mappings: Array<{ wodtId: Id<"workOrderDayTaskTemplates">; dayId: Id<"workOrderDays"> }> = [];
-
-      for (const day of targetDays) {
-        const wodtId = await ctx.db.insert("workOrderDayTaskTemplates", {
-          workOrderDayId: day._id,
-          taskTemplateId: stt.taskTemplateId,
-          order: stt.order,
-          isRequired: stt.isRequired,
-        });
-        mappings.push({ wodtId, dayId: day._id });
-      }
-
-      taskMapping.set(stt._id, mappings);
-    }
-
-    const serviceDependencies = await ctx.db
-      .query("serviceTaskDependencies")
-      .withIndex("by_service", (q) => q.eq("serviceId", args.serviceId))
-      .collect();
-
-    for (const dep of serviceDependencies) {
-      const dependentMappings = taskMapping.get(dep.serviceTaskTemplateId) ?? [];
-      const prereqMappings = taskMapping.get(dep.dependsOnServiceTaskTemplateId) ?? [];
-
-      for (const depMapping of dependentMappings) {
-        for (const prereqMapping of prereqMappings) {
-          if (depMapping.dayId === prereqMapping.dayId) {
-            await ctx.db.insert("workOrderDayTaskDependencies", {
-              workOrderDayTaskTemplateId: depMapping.wodtId,
-              dependsOnWorkOrderDayTaskTemplateId: prereqMapping.wodtId,
-              workOrderDayId: depMapping.dayId,
-              createdAt: now,
-            });
-          }
-        }
-      }
+    for (const day of days) {
+      await ctx.db.insert("workOrderDayServices", {
+        workOrderDayId: day._id,
+        serviceId: args.serviceId,
+        order: 0,
+        createdAt: now,
+      });
     }
 
     return workOrderId;
@@ -503,6 +464,15 @@ export const remove = mutation({
 
       for (const assignment of assignments) {
         await ctx.db.delete(assignment._id);
+      }
+
+      const dayServices = await ctx.db
+        .query("workOrderDayServices")
+        .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+        .collect();
+
+      for (const ds of dayServices) {
+        await ctx.db.delete(ds._id);
       }
 
       const taskTemplates = await ctx.db
