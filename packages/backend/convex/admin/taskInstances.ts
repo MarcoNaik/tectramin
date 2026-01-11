@@ -1,12 +1,15 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { isTaskInstanceOrphaned } from "../shared/orphanDetection";
 
 const taskInstanceValidator = v.object({
   _id: v.id("taskInstances"),
   _creationTime: v.number(),
   clientId: v.string(),
   workOrderDayId: v.id("workOrderDays"),
-  workOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+  workOrderDayTaskTemplateId: v.optional(v.id("workOrderDayTaskTemplates")),
+  workOrderDayServiceId: v.optional(v.id("workOrderDayServices")),
+  serviceTaskTemplateId: v.optional(v.id("serviceTaskTemplates")),
   taskTemplateId: v.id("taskTemplates"),
   userId: v.string(),
   instanceLabel: v.optional(v.string()),
@@ -24,11 +27,13 @@ export const listByWorkOrderDay = query({
       _id: v.id("taskInstances"),
       clientId: v.string(),
       workOrderDayId: v.id("workOrderDays"),
+      workOrderDayServiceId: v.optional(v.id("workOrderDayServices")),
       taskTemplateId: v.id("taskTemplates"),
       taskTemplateName: v.string(),
       userId: v.string(),
       instanceLabel: v.optional(v.string()),
       status: v.string(),
+      isOrphaned: v.boolean(),
       startedAt: v.optional(v.number()),
       completedAt: v.optional(v.number()),
       createdAt: v.number(),
@@ -57,15 +62,23 @@ export const listByWorkOrderDay = query({
           .withIndex("by_task_instance", (q) => q.eq("taskInstanceId", instance._id))
           .collect();
 
+        const orphaned = await isTaskInstanceOrphaned(ctx.db, {
+          workOrderDayId: instance.workOrderDayId,
+          workOrderDayServiceId: instance.workOrderDayServiceId ?? undefined,
+          taskTemplateId: instance.taskTemplateId,
+        });
+
         return {
           _id: instance._id,
           clientId: instance.clientId,
           workOrderDayId: instance.workOrderDayId,
+          workOrderDayServiceId: instance.workOrderDayServiceId,
           taskTemplateId: instance.taskTemplateId,
           taskTemplateName: template?.name ?? "Unknown",
           userId: instance.userId,
           instanceLabel: instance.instanceLabel,
           status: instance.status,
+          isOrphaned: orphaned,
           startedAt: instance.startedAt,
           completedAt: instance.completedAt,
           createdAt: instance.createdAt,
@@ -268,7 +281,9 @@ export const create = mutation({
   args: {
     clientId: v.string(),
     workOrderDayId: v.id("workOrderDays"),
-    workOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+    workOrderDayTaskTemplateId: v.optional(v.id("workOrderDayTaskTemplates")),
+    workOrderDayServiceId: v.optional(v.id("workOrderDayServices")),
+    serviceTaskTemplateId: v.optional(v.id("serviceTaskTemplates")),
     taskTemplateId: v.id("taskTemplates"),
     userId: v.string(),
     instanceLabel: v.optional(v.string()),
@@ -280,9 +295,18 @@ export const create = mutation({
       throw new Error("Work order day not found");
     }
 
-    const dayTaskTemplate = await ctx.db.get(args.workOrderDayTaskTemplateId);
-    if (!dayTaskTemplate) {
-      throw new Error("Work order day task template not found");
+    if (args.workOrderDayTaskTemplateId) {
+      const dayTaskTemplate = await ctx.db.get(args.workOrderDayTaskTemplateId);
+      if (!dayTaskTemplate) {
+        throw new Error("Work order day task template not found");
+      }
+    }
+
+    if (args.serviceTaskTemplateId) {
+      const serviceTaskTemplate = await ctx.db.get(args.serviceTaskTemplateId);
+      if (!serviceTaskTemplate) {
+        throw new Error("Service task template not found");
+      }
     }
 
     const taskTemplate = await ctx.db.get(args.taskTemplateId);
@@ -305,6 +329,8 @@ export const create = mutation({
       clientId: args.clientId,
       workOrderDayId: args.workOrderDayId,
       workOrderDayTaskTemplateId: args.workOrderDayTaskTemplateId,
+      workOrderDayServiceId: args.workOrderDayServiceId,
+      serviceTaskTemplateId: args.serviceTaskTemplateId,
       taskTemplateId: args.taskTemplateId,
       userId: args.userId,
       instanceLabel: args.instanceLabel,
