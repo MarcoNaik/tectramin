@@ -1,6 +1,7 @@
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import type {
   workOrderDays,
+  workOrderDayServices,
   dayTaskTemplates,
   fieldTemplates,
   fieldConditions,
@@ -17,6 +18,9 @@ import type {
 
 export type WorkOrderDay = InferSelectModel<typeof workOrderDays>;
 export type NewWorkOrderDay = InferInsertModel<typeof workOrderDays>;
+
+export type WorkOrderDayService = InferSelectModel<typeof workOrderDayServices>;
+export type NewWorkOrderDayService = InferInsertModel<typeof workOrderDayServices>;
 
 export type DayTaskTemplate = InferSelectModel<typeof dayTaskTemplates>;
 export type NewDayTaskTemplate = InferInsertModel<typeof dayTaskTemplates>;
@@ -63,7 +67,9 @@ export type AttachmentUploadStatus = "pending" | "uploading" | "uploaded" | "fai
 
 export interface TaskInstanceInput {
   workOrderDayServerId: string;
-  dayTaskTemplateServerId: string;
+  dayTaskTemplateServerId?: string;
+  workOrderDayServiceServerId?: string;
+  serviceTaskTemplateServerId?: string;
   taskTemplateServerId: string;
   instanceLabel?: string;
 }

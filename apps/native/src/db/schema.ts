@@ -13,9 +13,19 @@ export const workOrderDays = sqliteTable("work_order_days", {
   syncStatus: text("sync_status", { enum: ["pending", "synced"] }).default("synced"),
 });
 
+export const workOrderDayServices = sqliteTable("work_order_day_services", {
+  serverId: text("server_id").primaryKey(),
+  workOrderDayServerId: text("work_order_day_server_id").notNull(),
+  serviceServerId: text("service_server_id").notNull(),
+  serviceName: text("service_name").notNull(),
+  order: integer("order").notNull(),
+});
+
 export const dayTaskTemplates = sqliteTable("day_task_templates", {
   serverId: text("server_id").primaryKey(),
   workOrderDayServerId: text("work_order_day_server_id").notNull(),
+  workOrderDayServiceServerId: text("work_order_day_service_server_id"),
+  serviceTaskTemplateServerId: text("service_task_template_server_id"),
   taskTemplateServerId: text("task_template_server_id").notNull(),
   taskTemplateName: text("task_template_name").notNull(),
   description: text("description"),
@@ -52,7 +62,9 @@ export const taskInstances = sqliteTable("task_instances", {
   clientId: text("client_id").primaryKey(),
   serverId: text("server_id"),
   workOrderDayServerId: text("work_order_day_server_id").notNull(),
-  dayTaskTemplateServerId: text("day_task_template_server_id").notNull(),
+  dayTaskTemplateServerId: text("day_task_template_server_id"),
+  workOrderDayServiceServerId: text("work_order_day_service_server_id"),
+  serviceTaskTemplateServerId: text("service_task_template_server_id"),
   taskTemplateServerId: text("task_template_server_id").notNull(),
   userId: text("user_id").notNull(),
   instanceLabel: text("instance_label"),
