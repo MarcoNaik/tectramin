@@ -144,6 +144,16 @@ export default defineSchema({
     .index("by_work_order_day", ["workOrderDayId"])
     .index("by_user", ["userId"]),
 
+  workOrderDayServices: defineTable({
+    workOrderDayId: v.id("workOrderDays"),
+    serviceId: v.id("services"),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_work_order_day", ["workOrderDayId"])
+    .index("by_service", ["serviceId"])
+    .index("by_work_order_day_and_service", ["workOrderDayId", "serviceId"]),
+
   workOrderDayTaskTemplates: defineTable({
     workOrderDayId: v.id("workOrderDays"),
     taskTemplateId: v.id("taskTemplates"),
@@ -166,7 +176,9 @@ export default defineSchema({
   taskInstances: defineTable({
     clientId: v.string(),
     workOrderDayId: v.id("workOrderDays"),
-    workOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+    workOrderDayTaskTemplateId: v.optional(v.id("workOrderDayTaskTemplates")),
+    workOrderDayServiceId: v.optional(v.id("workOrderDayServices")),
+    serviceTaskTemplateId: v.optional(v.id("serviceTaskTemplates")),
     taskTemplateId: v.id("taskTemplates"),
     userId: v.string(),
     instanceLabel: v.optional(v.string()),
@@ -181,7 +193,9 @@ export default defineSchema({
     .index("by_user_and_updated", ["userId", "updatedAt"])
     .index("by_work_order_day", ["workOrderDayId"])
     .index("by_work_order_day_and_user", ["workOrderDayId", "userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_service_task_template", ["serviceTaskTemplateId"])
+    .index("by_work_order_day_service", ["workOrderDayServiceId"]),
 
   fieldResponses: defineTable({
     clientId: v.string(),
