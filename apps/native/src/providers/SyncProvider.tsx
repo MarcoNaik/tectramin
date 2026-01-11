@@ -7,6 +7,7 @@ import { syncService } from "../sync/SyncService";
 import { db } from "../db/client";
 import {
   workOrderDays,
+  workOrderDayServices,
   dayTaskTemplates,
   fieldTemplates,
   fieldConditions,
@@ -128,6 +129,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
           await db.delete(taskInstances).where(eq(taskInstances.workOrderDayServerId, existing.serverId));
           await db.delete(dayTaskTemplates).where(eq(dayTaskTemplates.workOrderDayServerId, existing.serverId));
+          await db.delete(workOrderDayServices).where(eq(workOrderDayServices.workOrderDayServerId, existing.serverId));
           await db.delete(workOrderDays).where(eq(workOrderDays.serverId, existing.serverId));
         }
       }
@@ -156,12 +158,107 @@ export function SyncProvider({ children }: SyncProviderProps) {
             },
           });
 
-        for (const tt of assignment.taskTemplates) {
+        const serverServiceIds = new Set(assignment.routines.map(r => r.workOrderDayServiceServerId));
+        const existingServices = await db
+          .select()
+          .from(workOrderDayServices)
+          .where(eq(workOrderDayServices.workOrderDayServerId, assignment.workOrderDayServerId));
+
+        for (const existing of existingServices) {
+          if (!serverServiceIds.has(existing.serverId)) {
+            await db.delete(workOrderDayServices).where(eq(workOrderDayServices.serverId, existing.serverId));
+          }
+        }
+
+        for (const routine of assignment.routines) {
+          await db
+            .insert(workOrderDayServices)
+            .values({
+              serverId: routine.workOrderDayServiceServerId,
+              workOrderDayServerId: assignment.workOrderDayServerId,
+              serviceServerId: routine.serviceServerId,
+              serviceName: routine.serviceName,
+              order: routine.order,
+            })
+            .onConflictDoUpdate({
+              target: workOrderDayServices.serverId,
+              set: {
+                serviceName: routine.serviceName,
+                order: routine.order,
+              },
+            });
+
+          for (const tt of routine.tasks) {
+            const taskServerId = tt.serviceTaskTemplateServerId ?? `routine-${routine.workOrderDayServiceServerId}-${tt.taskTemplateServerId}`;
+            await db
+              .insert(dayTaskTemplates)
+              .values({
+                serverId: taskServerId,
+                workOrderDayServerId: assignment.workOrderDayServerId,
+                workOrderDayServiceServerId: routine.workOrderDayServiceServerId,
+                serviceTaskTemplateServerId: tt.serviceTaskTemplateServerId,
+                taskTemplateServerId: tt.taskTemplateServerId,
+                taskTemplateName: tt.taskTemplateName,
+                description: tt.description,
+                readme: tt.readme,
+                order: tt.order,
+                isRequired: tt.isRequired,
+                isRepeatable: tt.isRepeatable,
+              })
+              .onConflictDoUpdate({
+                target: dayTaskTemplates.serverId,
+                set: {
+                  taskTemplateName: tt.taskTemplateName,
+                  description: tt.description,
+                  readme: tt.readme,
+                  order: tt.order,
+                  isRequired: tt.isRequired,
+                  isRepeatable: tt.isRepeatable,
+                },
+              });
+
+            for (const field of tt.fields) {
+              await db
+                .insert(fieldTemplates)
+                .values({
+                  serverId: field.fieldTemplateServerId,
+                  taskTemplateServerId: tt.taskTemplateServerId,
+                  label: field.label,
+                  fieldType: field.fieldType,
+                  order: field.order,
+                  isRequired: field.isRequired,
+                  defaultValue: field.defaultValue,
+                  placeholder: field.placeholder,
+                  subheader: field.subheader,
+                  displayStyle: field.displayStyle,
+                  conditionLogic: field.conditionLogic,
+                })
+                .onConflictDoUpdate({
+                  target: fieldTemplates.serverId,
+                  set: {
+                    label: field.label,
+                    fieldType: field.fieldType,
+                    order: field.order,
+                    isRequired: field.isRequired,
+                    defaultValue: field.defaultValue,
+                    placeholder: field.placeholder,
+                    subheader: field.subheader,
+                    displayStyle: field.displayStyle,
+                    conditionLogic: field.conditionLogic,
+                  },
+                });
+            }
+          }
+        }
+
+        for (const tt of assignment.standaloneTasks) {
           await db
             .insert(dayTaskTemplates)
             .values({
-              serverId: tt.dayTaskTemplateServerId,
+              serverId: tt.dayTaskTemplateServerId ?? `standalone-${assignment.workOrderDayServerId}-${tt.taskTemplateServerId}`,
               workOrderDayServerId: assignment.workOrderDayServerId,
+              workOrderDayServiceServerId: null,
+              serviceTaskTemplateServerId: null,
               taskTemplateServerId: tt.taskTemplateServerId,
               taskTemplateName: tt.taskTemplateName,
               description: tt.description,
@@ -214,6 +311,29 @@ export function SyncProvider({ children }: SyncProviderProps) {
               });
           }
         }
+
+        const serverTemplateIds = new Set<string>();
+        for (const routine of assignment.routines) {
+          for (const tt of routine.tasks) {
+            const taskServerId = tt.serviceTaskTemplateServerId ?? `routine-${routine.workOrderDayServiceServerId}-${tt.taskTemplateServerId}`;
+            serverTemplateIds.add(taskServerId);
+          }
+        }
+        for (const tt of assignment.standaloneTasks) {
+          const taskServerId = tt.dayTaskTemplateServerId ?? `standalone-${assignment.workOrderDayServerId}-${tt.taskTemplateServerId}`;
+          serverTemplateIds.add(taskServerId);
+        }
+
+        const existingTemplates = await db
+          .select()
+          .from(dayTaskTemplates)
+          .where(eq(dayTaskTemplates.workOrderDayServerId, assignment.workOrderDayServerId));
+
+        for (const existing of existingTemplates) {
+          if (!serverTemplateIds.has(existing.serverId)) {
+            await db.delete(dayTaskTemplates).where(eq(dayTaskTemplates.serverId, existing.serverId));
+          }
+        }
       }
     };
 
@@ -246,6 +366,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
               serverId: instance.serverId,
               status: instance.status,
               instanceLabel: instance.instanceLabel,
+              workOrderDayServiceServerId: instance.workOrderDayServiceServerId,
+              serviceTaskTemplateServerId: instance.serviceTaskTemplateServerId,
               startedAt: instance.startedAt ? new Date(instance.startedAt) : null,
               completedAt: instance.completedAt ? new Date(instance.completedAt) : null,
               updatedAt: new Date(instance.updatedAt),
@@ -258,6 +380,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
             serverId: instance.serverId,
             workOrderDayServerId: instance.workOrderDayServerId,
             dayTaskTemplateServerId: instance.dayTaskTemplateServerId,
+            workOrderDayServiceServerId: instance.workOrderDayServiceServerId,
+            serviceTaskTemplateServerId: instance.serviceTaskTemplateServerId,
             taskTemplateServerId: instance.taskTemplateServerId,
             userId: instance.userId,
             instanceLabel: instance.instanceLabel,
