@@ -37,39 +37,52 @@ export function PermissionsGate({ children }: PermissionsGateProps) {
   }, []);
 
   const checkPermissions = async () => {
-    const [cameraPermission, locationPermission] = await Promise.all([
-      ImagePicker.getCameraPermissionsAsync(),
-      Location.getForegroundPermissionsAsync(),
-    ]);
+    try {
+      const [cameraPermission, locationPermission] = await Promise.all([
+        ImagePicker.getCameraPermissionsAsync(),
+        Location.getForegroundPermissionsAsync(),
+      ]);
 
-    setCameraStatus(
-      cameraPermission.granted
-        ? "granted"
-        : cameraPermission.canAskAgain
-          ? "undetermined"
-          : "denied"
-    );
-    setLocationStatus(
-      locationPermission.granted
-        ? "granted"
-        : locationPermission.canAskAgain
-          ? "undetermined"
-          : "denied"
-    );
+      setCameraStatus(
+        cameraPermission.granted
+          ? "granted"
+          : cameraPermission.canAskAgain
+            ? "undetermined"
+            : "denied"
+      );
+      setLocationStatus(
+        locationPermission.granted
+          ? "granted"
+          : locationPermission.canAskAgain
+            ? "undetermined"
+            : "denied"
+      );
+    } catch {
+      setCameraStatus("undetermined");
+      setLocationStatus("undetermined");
+    }
   };
 
   const requestCameraPermission = async () => {
-    const result = await ImagePicker.requestCameraPermissionsAsync();
-    setCameraStatus(
-      result.granted ? "granted" : result.canAskAgain ? "undetermined" : "denied"
-    );
+    try {
+      const result = await ImagePicker.requestCameraPermissionsAsync();
+      setCameraStatus(
+        result.granted ? "granted" : result.canAskAgain ? "undetermined" : "denied"
+      );
+    } catch {
+      setCameraStatus("denied");
+    }
   };
 
   const requestLocationPermission = async () => {
-    const result = await Location.requestForegroundPermissionsAsync();
-    setLocationStatus(
-      result.granted ? "granted" : result.canAskAgain ? "undetermined" : "denied"
-    );
+    try {
+      const result = await Location.requestForegroundPermissionsAsync();
+      setLocationStatus(
+        result.granted ? "granted" : result.canAskAgain ? "undetermined" : "denied"
+      );
+    } catch {
+      setLocationStatus("denied");
+    }
   };
 
   const openSettings = () => {
