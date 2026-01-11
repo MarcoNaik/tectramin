@@ -1,12 +1,15 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { isTaskInstanceOrphaned, filterNonOrphanedInstances, getOrphanedInstances } from "../shared/orphanDetection";
 
 export const upsertTaskInstance = mutation({
   args: {
     clientId: v.string(),
     workOrderDayServerId: v.string(),
-    dayTaskTemplateServerId: v.string(),
+    dayTaskTemplateServerId: v.optional(v.string()),
+    workOrderDayServiceServerId: v.optional(v.string()),
+    serviceTaskTemplateServerId: v.optional(v.string()),
     taskTemplateServerId: v.string(),
     userId: v.string(),
     instanceLabel: v.optional(v.string()),
@@ -28,9 +31,15 @@ export const upsertTaskInstance = mutation({
     const workOrderDayId = args.workOrderDayServerId as unknown as ReturnType<
       typeof v.id<"workOrderDays">
     >["type"];
-    const workOrderDayTaskTemplateId = args.dayTaskTemplateServerId as unknown as ReturnType<
-      typeof v.id<"workOrderDayTaskTemplates">
-    >["type"];
+    const workOrderDayTaskTemplateId = args.dayTaskTemplateServerId
+      ? (args.dayTaskTemplateServerId as unknown as ReturnType<typeof v.id<"workOrderDayTaskTemplates">>["type"])
+      : undefined;
+    const workOrderDayServiceId = args.workOrderDayServiceServerId
+      ? (args.workOrderDayServiceServerId as unknown as ReturnType<typeof v.id<"workOrderDayServices">>["type"])
+      : undefined;
+    const serviceTaskTemplateId = args.serviceTaskTemplateServerId
+      ? (args.serviceTaskTemplateServerId as unknown as ReturnType<typeof v.id<"serviceTaskTemplates">>["type"])
+      : undefined;
     const taskTemplateId = args.taskTemplateServerId as unknown as ReturnType<
       typeof v.id<"taskTemplates">
     >["type"];
@@ -50,6 +59,8 @@ export const upsertTaskInstance = mutation({
       clientId: args.clientId,
       workOrderDayId,
       workOrderDayTaskTemplateId,
+      workOrderDayServiceId,
+      serviceTaskTemplateId,
       taskTemplateId,
       userId: args.userId,
       instanceLabel: args.instanceLabel,
@@ -126,6 +137,32 @@ export const upsertFieldResponse = mutation({
   },
 });
 
+const fieldTemplateValidator = v.object({
+  fieldTemplateServerId: v.string(),
+  label: v.string(),
+  fieldType: v.string(),
+  order: v.number(),
+  isRequired: v.boolean(),
+  defaultValue: v.optional(v.string()),
+  placeholder: v.optional(v.string()),
+  subheader: v.optional(v.string()),
+  displayStyle: v.optional(v.string()),
+  conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
+});
+
+const taskTemplateInfoValidator = v.object({
+  serviceTaskTemplateServerId: v.optional(v.string()),
+  dayTaskTemplateServerId: v.optional(v.string()),
+  taskTemplateServerId: v.string(),
+  taskTemplateName: v.string(),
+  description: v.optional(v.string()),
+  readme: v.optional(v.string()),
+  order: v.number(),
+  isRequired: v.boolean(),
+  isRepeatable: v.boolean(),
+  fields: v.array(fieldTemplateValidator),
+});
+
 export const getAssignmentsForUser = query({
   args: { clerkUserId: v.string() },
   returns: v.array(
@@ -138,30 +175,24 @@ export const getAssignmentsForUser = query({
       dayDate: v.number(),
       dayNumber: v.number(),
       status: v.string(),
-      taskTemplates: v.array(
+      routines: v.array(
         v.object({
-          dayTaskTemplateServerId: v.string(),
+          workOrderDayServiceServerId: v.string(),
+          serviceServerId: v.string(),
+          serviceName: v.string(),
+          order: v.number(),
+          tasks: v.array(taskTemplateInfoValidator),
+        })
+      ),
+      standaloneTasks: v.array(taskTemplateInfoValidator),
+      orphanedTasks: v.array(
+        v.object({
+          taskInstanceServerId: v.string(),
+          taskInstanceClientId: v.string(),
           taskTemplateServerId: v.string(),
           taskTemplateName: v.string(),
-          description: v.optional(v.string()),
-          readme: v.optional(v.string()),
-          order: v.number(),
-          isRequired: v.boolean(),
-          isRepeatable: v.boolean(),
-          fields: v.array(
-            v.object({
-              fieldTemplateServerId: v.string(),
-              label: v.string(),
-              fieldType: v.string(),
-              order: v.number(),
-              isRequired: v.boolean(),
-              defaultValue: v.optional(v.string()),
-              placeholder: v.optional(v.string()),
-              subheader: v.optional(v.string()),
-              displayStyle: v.optional(v.string()),
-              conditionLogic: v.optional(v.union(v.literal("AND"), v.literal("OR"), v.null())),
-            })
-          ),
+          orphanedAt: v.number(),
+          status: v.string(),
         })
       ),
     })
@@ -192,13 +223,78 @@ export const getAssignmentsForUser = query({
         const customer = await ctx.db.get(workOrder.customerId);
         const faena = await ctx.db.get(workOrder.faenaId);
 
-        const dayTaskTemplates = await ctx.db
+        const dayServices = await ctx.db
+          .query("workOrderDayServices")
+          .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+          .collect();
+
+        const routines = await Promise.all(
+          dayServices.map(async (ds) => {
+            const service = await ctx.db.get(ds.serviceId);
+
+            const serviceTaskTemplates = await ctx.db
+              .query("serviceTaskTemplates")
+              .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+              .collect();
+
+            const applicableTasks = serviceTaskTemplates.filter(
+              (t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber
+            );
+
+            const tasks = await Promise.all(
+              applicableTasks.map(async (stt) => {
+                const template = await ctx.db.get(stt.taskTemplateId);
+
+                const fieldTemplates = await ctx.db
+                  .query("fieldTemplates")
+                  .withIndex("by_task_template", (q) => q.eq("taskTemplateId", stt.taskTemplateId))
+                  .collect();
+
+                return {
+                  serviceTaskTemplateServerId: stt._id as string,
+                  dayTaskTemplateServerId: undefined,
+                  taskTemplateServerId: stt.taskTemplateId as string,
+                  taskTemplateName: template?.name ?? "Unknown",
+                  description: template?.description,
+                  readme: template?.readme,
+                  order: stt.order,
+                  isRequired: stt.isRequired,
+                  isRepeatable: template?.isRepeatable ?? false,
+                  fields: fieldTemplates
+                    .sort((a, b) => a.order - b.order)
+                    .map((f) => ({
+                      fieldTemplateServerId: f._id as string,
+                      label: f.label,
+                      fieldType: f.fieldType,
+                      order: f.order,
+                      isRequired: f.isRequired,
+                      defaultValue: f.defaultValue,
+                      placeholder: f.placeholder,
+                      subheader: f.subheader,
+                      displayStyle: f.displayStyle,
+                      conditionLogic: f.conditionLogic,
+                    })),
+                };
+              })
+            );
+
+            return {
+              workOrderDayServiceServerId: ds._id as string,
+              serviceServerId: ds.serviceId as string,
+              serviceName: service?.name ?? "Unknown",
+              order: ds.order,
+              tasks: tasks.sort((a, b) => a.order - b.order),
+            };
+          })
+        );
+
+        const standaloneDayTaskTemplates = await ctx.db
           .query("workOrderDayTaskTemplates")
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
           .collect();
 
-        const taskTemplates = await Promise.all(
-          dayTaskTemplates.map(async (dtt) => {
+        const standaloneTasks = await Promise.all(
+          standaloneDayTaskTemplates.map(async (dtt) => {
             const template = await ctx.db.get(dtt.taskTemplateId);
 
             const fieldTemplates = await ctx.db
@@ -207,8 +303,9 @@ export const getAssignmentsForUser = query({
               .collect();
 
             return {
-              dayTaskTemplateServerId: dtt._id,
-              taskTemplateServerId: dtt.taskTemplateId,
+              serviceTaskTemplateServerId: undefined,
+              dayTaskTemplateServerId: dtt._id as string,
+              taskTemplateServerId: dtt.taskTemplateId as string,
               taskTemplateName: template?.name ?? "Unknown",
               description: template?.description,
               readme: template?.readme,
@@ -218,7 +315,7 @@ export const getAssignmentsForUser = query({
               fields: fieldTemplates
                 .sort((a, b) => a.order - b.order)
                 .map((f) => ({
-                  fieldTemplateServerId: f._id,
+                  fieldTemplateServerId: f._id as string,
                   label: f.label,
                   fieldType: f.fieldType,
                   order: f.order,
@@ -233,16 +330,41 @@ export const getAssignmentsForUser = query({
           })
         );
 
+        const allInstances = await ctx.db
+          .query("taskInstances")
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", day._id).eq("userId", args.clerkUserId)
+          )
+          .collect();
+
+        const orphanedInstances = await getOrphanedInstances(ctx.db, allInstances);
+
+        const orphanedTasks = await Promise.all(
+          orphanedInstances.map(async (instance) => {
+            const template = await ctx.db.get(instance.taskTemplateId);
+            return {
+              taskInstanceServerId: instance._id as string,
+              taskInstanceClientId: instance.clientId,
+              taskTemplateServerId: instance.taskTemplateId as string,
+              taskTemplateName: template?.name ?? "Unknown",
+              orphanedAt: instance.updatedAt,
+              status: instance.status,
+            };
+          })
+        );
+
         return {
-          workOrderDayServerId: day._id,
-          workOrderServerId: workOrder._id,
+          workOrderDayServerId: day._id as string,
+          workOrderServerId: workOrder._id as string,
           workOrderName: workOrder.name,
           customerName: customer?.name ?? "Unknown",
           faenaName: faena?.name ?? "Unknown",
           dayDate: day.dayDate,
           dayNumber: day.dayNumber,
           status: day.status,
-          taskTemplates: taskTemplates.sort((a, b) => a.order - b.order),
+          routines: routines.sort((a, b) => a.order - b.order),
+          standaloneTasks: standaloneTasks.sort((a, b) => a.order - b.order),
+          orphanedTasks,
         };
       })
     );
@@ -321,7 +443,9 @@ export const getTaskInstancesForUser = query({
       serverId: v.string(),
       clientId: v.string(),
       workOrderDayServerId: v.string(),
-      dayTaskTemplateServerId: v.string(),
+      dayTaskTemplateServerId: v.optional(v.string()),
+      workOrderDayServiceServerId: v.optional(v.string()),
+      serviceTaskTemplateServerId: v.optional(v.string()),
       taskTemplateServerId: v.string(),
       userId: v.string(),
       instanceLabel: v.optional(v.string()),
@@ -338,11 +462,15 @@ export const getTaskInstancesForUser = query({
       .withIndex("by_user", (q) => q.eq("userId", args.clerkUserId))
       .collect();
 
-    return instances.map((i) => ({
+    const nonOrphanedInstances = await filterNonOrphanedInstances(ctx.db, instances);
+
+    return nonOrphanedInstances.map((i) => ({
       serverId: i._id as string,
       clientId: i.clientId,
       workOrderDayServerId: i.workOrderDayId as string,
-      dayTaskTemplateServerId: i.workOrderDayTaskTemplateId as string,
+      dayTaskTemplateServerId: i.workOrderDayTaskTemplateId as string | undefined,
+      workOrderDayServiceServerId: i.workOrderDayServiceId as string | undefined,
+      serviceTaskTemplateServerId: i.serviceTaskTemplateId as string | undefined,
       taskTemplateServerId: i.taskTemplateId as string,
       userId: i.userId,
       instanceLabel: i.instanceLabel,
@@ -481,26 +609,54 @@ export const getFieldConditionsForUser = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
 
-    const fieldIds = new Set<string>();
+    const taskTemplateIds = new Set<string>();
 
     for (const assignment of assignments) {
       const day = await ctx.db.get(assignment.workOrderDayId);
       if (!day) continue;
 
-      const dayTaskTemplates = await ctx.db
+      const dayServices = await ctx.db
+        .query("workOrderDayServices")
+        .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+        .collect();
+
+      for (const ds of dayServices) {
+        const serviceTaskTemplates = await ctx.db
+          .query("serviceTaskTemplates")
+          .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+          .collect();
+
+        const applicable = serviceTaskTemplates.filter(
+          (t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber
+        );
+
+        for (const stt of applicable) {
+          taskTemplateIds.add(stt.taskTemplateId as string);
+        }
+      }
+
+      const standaloneTasks = await ctx.db
         .query("workOrderDayTaskTemplates")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
         .collect();
 
-      for (const dtt of dayTaskTemplates) {
-        const fieldTemplates = await ctx.db
-          .query("fieldTemplates")
-          .withIndex("by_task_template", (q) => q.eq("taskTemplateId", dtt.taskTemplateId))
-          .collect();
+      for (const dtt of standaloneTasks) {
+        taskTemplateIds.add(dtt.taskTemplateId as string);
+      }
+    }
 
-        for (const field of fieldTemplates) {
-          fieldIds.add(field._id);
-        }
+    const fieldIds = new Set<string>();
+
+    for (const taskTemplateId of taskTemplateIds) {
+      const fieldTemplates = await ctx.db
+        .query("fieldTemplates")
+        .withIndex("by_task_template", (q) =>
+          q.eq("taskTemplateId", taskTemplateId as ReturnType<typeof v.id<"taskTemplates">>["type"])
+        )
+        .collect();
+
+      for (const field of fieldTemplates) {
+        fieldIds.add(field._id as string);
       }
     }
 
