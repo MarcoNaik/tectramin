@@ -61,9 +61,11 @@ class SyncServiceClass {
     try {
       const pushResult = await pushChanges(this.convex);
       if (!pushResult.success) {
+        const errorMsg = pushResult.errors.join(", ");
+        console.error("[SyncService] Push failed:", errorMsg);
         this.updateStatus({
           state: "error",
-          error: pushResult.errors.join(", "),
+          error: errorMsg,
         });
         return;
       }
@@ -76,9 +78,11 @@ class SyncServiceClass {
         error: null,
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      console.error("[SyncService] Sync error:", errorMsg, error);
       this.updateStatus({
         state: "error",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMsg,
       });
     }
   }

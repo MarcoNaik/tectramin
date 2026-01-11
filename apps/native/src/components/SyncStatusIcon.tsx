@@ -26,6 +26,7 @@ export function SyncStatusIcon() {
   }
 
   if (syncStatus.state === "error") {
+    console.error("[SyncStatus] Error:", syncStatus.error);
     return (
       <View style={styles.container}>
         <View style={[styles.dot, styles.error]} />
