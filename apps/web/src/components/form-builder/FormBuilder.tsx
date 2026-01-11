@@ -99,11 +99,14 @@ export function FormBuilder() {
       : "skip"
   );
 
+  const prevServerFieldIdsRef = useRef<string>("");
+  const serverFieldIds = templateWithFields?.fields?.map(f => f._id).join(",") ?? "";
   useEffect(() => {
-    if (templateWithFields?.fields) {
+    if (templateWithFields?.fields && serverFieldIds !== prevServerFieldIdsRef.current) {
+      prevServerFieldIdsRef.current = serverFieldIds;
       setLocalFields(templateWithFields.fields);
     }
-  }, [templateWithFields?.fields]);
+  }, [serverFieldIds, templateWithFields?.fields]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -127,6 +130,8 @@ export function FormBuilder() {
   };
 
   const activeDropZoneRef = useRef<string | null>(null);
+  const activeDropZoneIndexRef = useRef<number | null>(null);
+  const lastDropZoneUpdateRef = useRef<number>(0);
 
   const lastPointerPositionRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -165,7 +170,10 @@ export function FormBuilder() {
     }
 
     if (dropZones.length === 0) {
-      if (isNewField) setActiveDropZone(null);
+      if (isNewField && activeDropZoneIndexRef.current !== null) {
+        activeDropZoneIndexRef.current = null;
+        setActiveDropZone(null);
+      }
       return;
     }
 
@@ -181,7 +189,10 @@ export function FormBuilder() {
 
     if (!isOverPhone) {
       activeDropZoneRef.current = null;
-      if (isNewField) setActiveDropZone(null);
+      if (isNewField && activeDropZoneIndexRef.current !== null) {
+        activeDropZoneIndexRef.current = null;
+        setActiveDropZone(null);
+      }
       return;
     }
 
@@ -199,8 +210,13 @@ export function FormBuilder() {
 
     activeDropZoneRef.current = closestZone.id;
 
-    if (isNewField) {
-      setActiveDropZone(closestZone.index);
+    if (isNewField && activeDropZoneIndexRef.current !== closestZone.index) {
+      const now = Date.now();
+      if (now - lastDropZoneUpdateRef.current > 50) {
+        lastDropZoneUpdateRef.current = now;
+        activeDropZoneIndexRef.current = closestZone.index;
+        setActiveDropZone(closestZone.index);
+      }
     }
   }, [localFields.length]);
 
@@ -232,6 +248,8 @@ export function FormBuilder() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     activeDropZoneRef.current = null;
+    activeDropZoneIndexRef.current = null;
+    lastDropZoneUpdateRef.current = 0;
     setActiveId(null);
     setActiveFieldType(null);
     setActiveDropZone(null);
