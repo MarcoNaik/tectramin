@@ -192,24 +192,69 @@ export const assign = mutation({
       assignedBy: args.assignedBy,
     });
 
-    const dayTaskTemplates = await ctx.db
+    const now = Date.now();
+
+    const dayServices = await ctx.db
+      .query("workOrderDayServices")
+      .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .collect();
+
+    for (const dayService of dayServices) {
+      const serviceTaskTemplates = await ctx.db
+        .query("serviceTaskTemplates")
+        .withIndex("by_service", (q) => q.eq("serviceId", dayService.serviceId))
+        .collect();
+
+      const applicableTasks = serviceTaskTemplates.filter(
+        (t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber
+      );
+
+      for (const stt of applicableTasks) {
+        const taskTemplate = await ctx.db.get(stt.taskTemplateId);
+
+        const existingInstance = await ctx.db
+          .query("taskInstances")
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
+          )
+          .filter((q) =>
+            q.eq(q.field("serviceTaskTemplateId"), stt._id)
+          )
+          .unique();
+
+        if (!existingInstance) {
+          const clientId = crypto.randomUUID();
+          await ctx.db.insert("taskInstances", {
+            clientId,
+            workOrderDayId: args.workOrderDayId,
+            workOrderDayServiceId: dayService._id,
+            serviceTaskTemplateId: stt._id,
+            taskTemplateId: stt.taskTemplateId,
+            userId: user.clerkId,
+            instanceLabel: taskTemplate?.name,
+            status: "draft",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+
+    const standaloneTasks = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
       .collect();
 
-    const now = Date.now();
-
-    for (const dayTaskTemplate of dayTaskTemplates) {
-      const taskTemplate = await ctx.db.get(dayTaskTemplate.taskTemplateId);
+    for (const standaloneTask of standaloneTasks) {
+      const taskTemplate = await ctx.db.get(standaloneTask.taskTemplateId);
 
       const existingInstance = await ctx.db
         .query("taskInstances")
-        .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+        .withIndex("by_work_order_day_and_user", (q) =>
+          q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
+        )
         .filter((q) =>
-          q.and(
-            q.eq(q.field("workOrderDayTaskTemplateId"), dayTaskTemplate._id),
-            q.eq(q.field("userId"), user.clerkId)
-          )
+          q.eq(q.field("workOrderDayTaskTemplateId"), standaloneTask._id)
         )
         .unique();
 
@@ -218,8 +263,8 @@ export const assign = mutation({
         await ctx.db.insert("taskInstances", {
           clientId,
           workOrderDayId: args.workOrderDayId,
-          workOrderDayTaskTemplateId: dayTaskTemplate._id,
-          taskTemplateId: dayTaskTemplate.taskTemplateId,
+          workOrderDayTaskTemplateId: standaloneTask._id,
+          taskTemplateId: standaloneTask.taskTemplateId,
           userId: user.clerkId,
           instanceLabel: taskTemplate?.name,
           status: "draft",
@@ -276,15 +321,53 @@ export const bulkAssign = mutation({
     const now = Date.now();
     const newAssignmentIds: Array<ReturnType<typeof v.id<"workOrderDayAssignments">>["type"]> = [];
 
-    const dayTaskTemplates = await ctx.db
+    const dayServices = await ctx.db
+      .query("workOrderDayServices")
+      .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .collect();
+
+    const routineTasks: Array<{
+      dayServiceId: ReturnType<typeof v.id<"workOrderDayServices">>["type"];
+      serviceTaskTemplateId: ReturnType<typeof v.id<"serviceTaskTemplates">>["type"];
+      taskTemplateId: ReturnType<typeof v.id<"taskTemplates">>["type"];
+      name: string | undefined;
+    }> = [];
+
+    for (const ds of dayServices) {
+      const stts = await ctx.db
+        .query("serviceTaskTemplates")
+        .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+        .collect();
+      const applicable = stts.filter((t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber);
+      for (const stt of applicable) {
+        const tt = await ctx.db.get(stt.taskTemplateId);
+        routineTasks.push({
+          dayServiceId: ds._id,
+          serviceTaskTemplateId: stt._id,
+          taskTemplateId: stt.taskTemplateId,
+          name: tt?.name,
+        });
+      }
+    }
+
+    const standaloneTasks = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
       .collect();
 
-    const taskTemplateNames: Record<string, string | undefined> = {};
-    for (const dtt of dayTaskTemplates) {
-      const tt = await ctx.db.get(dtt.taskTemplateId);
-      taskTemplateNames[dtt._id] = tt?.name;
+    const standaloneTaskData: Array<{
+      workOrderDayTaskTemplateId: ReturnType<typeof v.id<"workOrderDayTaskTemplates">>["type"];
+      taskTemplateId: ReturnType<typeof v.id<"taskTemplates">>["type"];
+      name: string | undefined;
+    }> = [];
+
+    for (const st of standaloneTasks) {
+      const tt = await ctx.db.get(st.taskTemplateId);
+      standaloneTaskData.push({
+        workOrderDayTaskTemplateId: st._id,
+        taskTemplateId: st.taskTemplateId,
+        name: tt?.name,
+      });
     }
 
     for (const userId of args.userIds) {
@@ -305,16 +388,13 @@ export const bulkAssign = mutation({
       });
       newAssignmentIds.push(id);
 
-      for (const dayTaskTemplate of dayTaskTemplates) {
+      for (const rt of routineTasks) {
         const existingInstance = await ctx.db
           .query("taskInstances")
-          .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
-          .filter((q) =>
-            q.and(
-              q.eq(q.field("workOrderDayTaskTemplateId"), dayTaskTemplate._id),
-              q.eq(q.field("userId"), user.clerkId)
-            )
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
           )
+          .filter((q) => q.eq(q.field("serviceTaskTemplateId"), rt.serviceTaskTemplateId))
           .unique();
 
         if (!existingInstance) {
@@ -322,10 +402,36 @@ export const bulkAssign = mutation({
           await ctx.db.insert("taskInstances", {
             clientId,
             workOrderDayId: args.workOrderDayId,
-            workOrderDayTaskTemplateId: dayTaskTemplate._id,
-            taskTemplateId: dayTaskTemplate.taskTemplateId,
+            workOrderDayServiceId: rt.dayServiceId,
+            serviceTaskTemplateId: rt.serviceTaskTemplateId,
+            taskTemplateId: rt.taskTemplateId,
             userId: user.clerkId,
-            instanceLabel: taskTemplateNames[dayTaskTemplate._id],
+            instanceLabel: rt.name,
+            status: "draft",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+
+      for (const st of standaloneTaskData) {
+        const existingInstance = await ctx.db
+          .query("taskInstances")
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
+          )
+          .filter((q) => q.eq(q.field("workOrderDayTaskTemplateId"), st.workOrderDayTaskTemplateId))
+          .unique();
+
+        if (!existingInstance) {
+          const clientId = crypto.randomUUID();
+          await ctx.db.insert("taskInstances", {
+            clientId,
+            workOrderDayId: args.workOrderDayId,
+            workOrderDayTaskTemplateId: st.workOrderDayTaskTemplateId,
+            taskTemplateId: st.taskTemplateId,
+            userId: user.clerkId,
+            instanceLabel: st.name,
             status: "draft",
             createdAt: now,
             updatedAt: now,
@@ -386,15 +492,53 @@ export const replaceAssignments = mutation({
 
     const now = Date.now();
 
-    const dayTaskTemplates = await ctx.db
+    const dayServices = await ctx.db
+      .query("workOrderDayServices")
+      .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .collect();
+
+    const routineTasks: Array<{
+      dayServiceId: ReturnType<typeof v.id<"workOrderDayServices">>["type"];
+      serviceTaskTemplateId: ReturnType<typeof v.id<"serviceTaskTemplates">>["type"];
+      taskTemplateId: ReturnType<typeof v.id<"taskTemplates">>["type"];
+      name: string | undefined;
+    }> = [];
+
+    for (const ds of dayServices) {
+      const stts = await ctx.db
+        .query("serviceTaskTemplates")
+        .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+        .collect();
+      const applicable = stts.filter((t) => t.dayNumber === undefined || t.dayNumber === day.dayNumber);
+      for (const stt of applicable) {
+        const tt = await ctx.db.get(stt.taskTemplateId);
+        routineTasks.push({
+          dayServiceId: ds._id,
+          serviceTaskTemplateId: stt._id,
+          taskTemplateId: stt.taskTemplateId,
+          name: tt?.name,
+        });
+      }
+    }
+
+    const standaloneTasks = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
       .collect();
 
-    const taskTemplateNames: Record<string, string | undefined> = {};
-    for (const dtt of dayTaskTemplates) {
-      const tt = await ctx.db.get(dtt.taskTemplateId);
-      taskTemplateNames[dtt._id] = tt?.name;
+    const standaloneTaskData: Array<{
+      workOrderDayTaskTemplateId: ReturnType<typeof v.id<"workOrderDayTaskTemplates">>["type"];
+      taskTemplateId: ReturnType<typeof v.id<"taskTemplates">>["type"];
+      name: string | undefined;
+    }> = [];
+
+    for (const st of standaloneTasks) {
+      const tt = await ctx.db.get(st.taskTemplateId);
+      standaloneTaskData.push({
+        workOrderDayTaskTemplateId: st._id,
+        taskTemplateId: st.taskTemplateId,
+        name: tt?.name,
+      });
     }
 
     for (const userId of args.userIds) {
@@ -410,16 +554,13 @@ export const replaceAssignments = mutation({
         assignedBy: args.assignedBy,
       });
 
-      for (const dayTaskTemplate of dayTaskTemplates) {
+      for (const rt of routineTasks) {
         const existingInstance = await ctx.db
           .query("taskInstances")
-          .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
-          .filter((q) =>
-            q.and(
-              q.eq(q.field("workOrderDayTaskTemplateId"), dayTaskTemplate._id),
-              q.eq(q.field("userId"), user.clerkId)
-            )
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
           )
+          .filter((q) => q.eq(q.field("serviceTaskTemplateId"), rt.serviceTaskTemplateId))
           .unique();
 
         if (!existingInstance) {
@@ -427,10 +568,36 @@ export const replaceAssignments = mutation({
           await ctx.db.insert("taskInstances", {
             clientId,
             workOrderDayId: args.workOrderDayId,
-            workOrderDayTaskTemplateId: dayTaskTemplate._id,
-            taskTemplateId: dayTaskTemplate.taskTemplateId,
+            workOrderDayServiceId: rt.dayServiceId,
+            serviceTaskTemplateId: rt.serviceTaskTemplateId,
+            taskTemplateId: rt.taskTemplateId,
             userId: user.clerkId,
-            instanceLabel: taskTemplateNames[dayTaskTemplate._id],
+            instanceLabel: rt.name,
+            status: "draft",
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+
+      for (const st of standaloneTaskData) {
+        const existingInstance = await ctx.db
+          .query("taskInstances")
+          .withIndex("by_work_order_day_and_user", (q) =>
+            q.eq("workOrderDayId", args.workOrderDayId).eq("userId", user.clerkId)
+          )
+          .filter((q) => q.eq(q.field("workOrderDayTaskTemplateId"), st.workOrderDayTaskTemplateId))
+          .unique();
+
+        if (!existingInstance) {
+          const clientId = crypto.randomUUID();
+          await ctx.db.insert("taskInstances", {
+            clientId,
+            workOrderDayId: args.workOrderDayId,
+            workOrderDayTaskTemplateId: st.workOrderDayTaskTemplateId,
+            taskTemplateId: st.taskTemplateId,
+            userId: user.clerkId,
+            instanceLabel: st.name,
             status: "draft",
             createdAt: now,
             updatedAt: now,
