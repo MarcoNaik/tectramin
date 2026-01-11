@@ -8,7 +8,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSignIn, useSSO } from "@clerk/clerk-expo";
 import { Text } from "../components/Text";
-import { PermissionsGate } from "../components/PermissionsGate";
 
 export function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -49,53 +48,51 @@ export function SignInScreen() {
   };
 
   return (
-    <PermissionsGate>
-      <View style={styles.centered}>
-        <Text style={styles.title}>Tectramin</Text>
+    <View style={styles.centered}>
+      <Text style={styles.title}>Tectramin</Text>
 
-        <TouchableOpacity
-          style={styles.oauthButton}
-          onPress={() => handleOAuthSignIn("oauth_google")}
-        >
-          <Ionicons name="logo-google" size={22} color="#4285F4" />
-          <Text style={styles.oauthButtonText}>Google</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.oauthButton}
+        onPress={() => handleOAuthSignIn("oauth_google")}
+      >
+        <Ionicons name="logo-google" size={22} color="#4285F4" />
+        <Text style={styles.oauthButtonText}>Google</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.oauthButton}
-          onPress={() => handleOAuthSignIn("oauth_microsoft")}
-        >
-          <Ionicons name="logo-microsoft" size={22} color="#00A4EF" />
-          <Text style={styles.oauthButtonText}>Microsoft</Text>
-        </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.oauthButton}
+        onPress={() => handleOAuthSignIn("oauth_microsoft")}
+      >
+        <Ionicons name="logo-microsoft" size={22} color="#00A4EF" />
+        <Text style={styles.oauthButtonText}>Microsoft</Text>
+      </TouchableOpacity>
 
-        <View style={styles.separator}>
-          <View style={styles.separatorLine} />
-          <Text style={styles.separatorText}>o</Text>
-          <View style={styles.separatorLine} />
-        </View>
-
-        <TextInput
-          style={styles.signInInput}
-          placeholder="Correo"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.signInInput}
-          placeholder="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-          <Text style={styles.signInButtonText}>Iniciar Sesión</Text>
-        </TouchableOpacity>
+      <View style={styles.separator}>
+        <View style={styles.separatorLine} />
+        <Text style={styles.separatorText}>o</Text>
+        <View style={styles.separatorLine} />
       </View>
-    </PermissionsGate>
+
+      <TextInput
+        style={styles.signInInput}
+        placeholder="Correo"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+      <TextInput
+        style={styles.signInInput}
+        placeholder="Contraseña"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+        <Text style={styles.signInButtonText}>Iniciar Sesión</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
