@@ -403,7 +403,7 @@ function DayRow({
                         </div>
                         <div className="flex items-center gap-2 text-xs text-orange-500">
                           <span>{ti.status}</span>
-                          {ti.orphanedAt && <span className="text-orange-400">| huérfana desde {new Date(ti.orphanedAt).toLocaleDateString()}</span>}
+                          {ti.isOrphaned && <span className="text-orange-400">| huérfana</span>}
                           <span className="font-bold">{expandedInstance === ti._id ? "▼" : "▶"}</span>
                         </div>
                       </div>
