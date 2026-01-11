@@ -324,6 +324,53 @@ export const removeTaskTemplate = mutation({
   },
 });
 
+export const listStandaloneTasks = query({
+  args: { workOrderDayId: v.id("workOrderDays") },
+  returns: v.array(
+    v.object({
+      _id: v.id("workOrderDayTaskTemplates"),
+      taskTemplateId: v.id("taskTemplates"),
+      taskTemplateName: v.string(),
+      order: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("workOrderDayTaskTemplates")
+      .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .collect();
+
+    const standaloneTasks = await Promise.all(
+      links.map(async (link) => {
+        const template = await ctx.db.get(link.taskTemplateId);
+        return {
+          _id: link._id,
+          taskTemplateId: link.taskTemplateId,
+          taskTemplateName: template?.name ?? "Unknown",
+          order: link.order,
+        };
+      })
+    );
+
+    return standaloneTasks.sort((a, b) => a.order - b.order);
+  },
+});
+
+export const removeStandaloneTask = mutation({
+  args: {
+    workOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.workOrderDayTaskTemplateId);
+    if (!link) {
+      throw new Error("Task template link not found");
+    }
+    await ctx.db.delete(args.workOrderDayTaskTemplateId);
+    return null;
+  },
+});
+
 export const reorderTaskTemplates = mutation({
   args: {
     workOrderDayId: v.id("workOrderDays"),
