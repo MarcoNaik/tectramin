@@ -3,7 +3,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq, and } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../db/client";
-import { taskInstances, fieldResponses } from "../db/schema";
+import { taskInstances, fieldResponses, workOrderDayServices, dayTaskTemplates } from "../db/schema";
 import { addToQueue } from "../sync/SyncQueue";
 import { syncService } from "../sync/SyncService";
 import { networkMonitor } from "../sync/NetworkMonitor";
@@ -29,14 +29,34 @@ export function useTaskInstances(userId: string) {
     db.select().from(fieldResponses)
   );
 
-  const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? []).map(
-    (instance) => ({
+  const { data: services } = useLiveQuery(
+    db.select().from(workOrderDayServices)
+  );
+
+  const { data: templates } = useLiveQuery(
+    db.select().from(dayTaskTemplates)
+  );
+
+  const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? [])
+    .filter((instance) => {
+      if (instance.workOrderDayServiceServerId) {
+        return (services ?? []).some(
+          (s) => s.serverId === instance.workOrderDayServiceServerId
+        );
+      }
+      return (templates ?? []).some(
+        (tt) =>
+          tt.workOrderDayServerId === instance.workOrderDayServerId &&
+          tt.taskTemplateServerId === instance.taskTemplateServerId &&
+          tt.workOrderDayServiceServerId === null
+      );
+    })
+    .map((instance) => ({
       ...instance,
       responses: (allResponses ?? []).filter(
         (r) => r.taskInstanceClientId === instance.clientId
       ),
-    })
-  );
+    }));
 
   const createTaskInstance = useCallback(
     async (input: TaskInstanceInput) => {
@@ -47,6 +67,8 @@ export function useTaskInstances(userId: string) {
         clientId,
         workOrderDayServerId: input.workOrderDayServerId,
         dayTaskTemplateServerId: input.dayTaskTemplateServerId,
+        workOrderDayServiceServerId: input.workOrderDayServiceServerId,
+        serviceTaskTemplateServerId: input.serviceTaskTemplateServerId,
         taskTemplateServerId: input.taskTemplateServerId,
         userId,
         instanceLabel: input.instanceLabel,
@@ -63,6 +85,8 @@ export function useTaskInstances(userId: string) {
         clientId,
         workOrderDayServerId: input.workOrderDayServerId,
         dayTaskTemplateServerId: input.dayTaskTemplateServerId,
+        workOrderDayServiceServerId: input.workOrderDayServiceServerId,
+        serviceTaskTemplateServerId: input.serviceTaskTemplateServerId,
         taskTemplateServerId: input.taskTemplateServerId,
         userId,
         instanceLabel: input.instanceLabel,
@@ -115,7 +139,9 @@ export function useTaskInstances(userId: string) {
       const payload = {
         clientId,
         workOrderDayServerId: instance.workOrderDayServerId,
-        dayTaskTemplateServerId: instance.dayTaskTemplateServerId,
+        dayTaskTemplateServerId: instance.dayTaskTemplateServerId ?? undefined,
+        workOrderDayServiceServerId: instance.workOrderDayServiceServerId ?? undefined,
+        serviceTaskTemplateServerId: instance.serviceTaskTemplateServerId ?? undefined,
         taskTemplateServerId: instance.taskTemplateServerId,
         userId,
         instanceLabel: instance.instanceLabel ?? undefined,
@@ -164,14 +190,34 @@ export function useTaskInstancesByWorkOrderDay(workOrderDayServerId: string) {
     db.select().from(fieldResponses)
   );
 
-  const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? []).map(
-    (instance) => ({
+  const { data: services } = useLiveQuery(
+    db.select().from(workOrderDayServices)
+  );
+
+  const { data: templates } = useLiveQuery(
+    db.select().from(dayTaskTemplates)
+  );
+
+  const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? [])
+    .filter((instance) => {
+      if (instance.workOrderDayServiceServerId) {
+        return (services ?? []).some(
+          (s) => s.serverId === instance.workOrderDayServiceServerId
+        );
+      }
+      return (templates ?? []).some(
+        (tt) =>
+          tt.workOrderDayServerId === instance.workOrderDayServerId &&
+          tt.taskTemplateServerId === instance.taskTemplateServerId &&
+          tt.workOrderDayServiceServerId === null
+      );
+    })
+    .map((instance) => ({
       ...instance,
       responses: (allResponses ?? []).filter(
         (r) => r.taskInstanceClientId === instance.clientId
       ),
-    })
-  );
+    }));
 
   return {
     taskInstances: enrichedInstances,
