@@ -291,7 +291,9 @@ export const removeTaskTemplate = mutation({
     serviceId: v.id("services"),
     taskTemplateId: v.id("taskTemplates"),
   },
-  returns: v.null(),
+  returns: v.object({
+    orphanedCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const link = await ctx.db
       .query("serviceTaskTemplates")
@@ -299,7 +301,27 @@ export const removeTaskTemplate = mutation({
       .filter((q) => q.eq(q.field("taskTemplateId"), args.taskTemplateId))
       .unique();
 
+    let orphanedCount = 0;
+
     if (link) {
+      const affectedInstances = await ctx.db
+        .query("taskInstances")
+        .withIndex("by_service_task_template", (q) => q.eq("serviceTaskTemplateId", link._id))
+        .collect();
+
+      for (const instance of affectedInstances) {
+        const responses = await ctx.db
+          .query("fieldResponses")
+          .withIndex("by_task_instance", (q) => q.eq("taskInstanceId", instance._id))
+          .collect();
+
+        if (responses.length > 0 || instance.status === "completed") {
+          orphanedCount++;
+        } else {
+          await ctx.db.delete(instance._id);
+        }
+      }
+
       const depsAsDependant = await ctx.db
         .query("serviceTaskDependencies")
         .withIndex("by_dependent", (q) => q.eq("serviceTaskTemplateId", link._id))
@@ -321,7 +343,7 @@ export const removeTaskTemplate = mutation({
       await ctx.db.delete(link._id);
     }
 
-    return null;
+    return { orphanedCount };
   },
 });
 
