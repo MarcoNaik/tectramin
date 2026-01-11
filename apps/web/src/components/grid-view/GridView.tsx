@@ -464,110 +464,443 @@ function TasksTabContent({
 }: {
   days: Array<{ _id: Id<"workOrderDays">; dayDate: number; dayNumber: number }>;
 }) {
+  const allServices = useQuery(api.admin.services.listActive);
   const allTaskTemplates = useQuery(api.admin.taskTemplates.list);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter}>
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-56 border-r-2 border-black flex flex-col">
-          <div className="p-3 border-b border-gray-200 bg-gray-50">
-            <div className="text-sm font-bold">Tareas Disponibles</div>
-            <div className="text-xs text-gray-500">Gestionar tareas por dia</div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {allTaskTemplates?.filter(t => t.isActive).map((template) => (
-              <div key={template._id} className="border-2 border-black p-2 bg-white">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 border-2 border-black font-bold flex items-center justify-center text-sm bg-gray-50">
-                    {template.name[0]?.toUpperCase()}
-                  </span>
-                  <span className="font-medium text-sm truncate max-w-[120px]">{template.name}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+    <div className="flex-1 flex overflow-hidden">
+      <div className="w-56 border-r-2 border-black flex flex-col">
+        <div className="p-3 border-b border-gray-200 bg-gray-50">
+          <div className="text-sm font-bold">Disponibles</div>
+          <div className="text-xs text-gray-500">Rutinas y tareas</div>
         </div>
-        <div className="flex-1 overflow-x-auto p-4">
-          <div className="flex gap-4">
-            {days.map((day) => (
-              <WorkOrderDayTasks key={day._id} day={day} />
-            ))}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div>
+            <div className="text-xs font-bold text-gray-500 mb-2">RUTINAS</div>
+            <div className="space-y-1">
+              {allServices?.map((service) => (
+                <div key={service._id} className="border-2 border-black p-2 bg-white text-xs">
+                  <span className="font-medium">{service.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-bold text-gray-500 mb-2">TAREAS</div>
+            <div className="space-y-1">
+              {allTaskTemplates?.filter(t => t.isActive).map((template) => (
+                <div key={template._id} className="border-2 border-gray-300 p-2 bg-white text-xs">
+                  <span className="font-medium text-gray-700">{template.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </DndContext>
+      <div className="flex-1 overflow-x-auto p-4">
+        <div className="flex gap-4">
+          {days.map((day) => (
+            <WorkOrderDayRoutines key={day._id} day={day} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function WorkOrderDayTasks({
+function TaskInstanceRow({
+  instance,
+  users,
+}: {
+  instance: {
+    _id: Id<"taskInstances">;
+    userId: string;
+    status: string;
+    responseCount: number;
+    fieldCount: number;
+  };
+  users: Array<{ clerkId: string; fullName?: string; email: string }> | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const instanceDetails = useQuery(api.admin.taskInstances.getWithResponses, { id: instance._id });
+  const user = users?.find((u) => u.clerkId === instance.userId);
+  const userName = user?.fullName || user?.email || instance.userId.slice(0, 8);
+
+  return (
+    <div className="border border-gray-200 bg-gray-50">
+      <div
+        className="flex items-center justify-between px-2 py-1 cursor-pointer hover:bg-gray-100"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1 text-[10px] flex-1 min-w-0">
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${instance.status === "completed" ? "bg-green-500" : "bg-yellow-500"}`} />
+          <span className="truncate">{userName}</span>
+          <span className="text-gray-400">({instance.responseCount}/{instance.fieldCount})</span>
+        </div>
+        <span className="text-[10px] text-gray-400">{expanded ? "▼" : "▶"}</span>
+      </div>
+      {expanded && instanceDetails && (
+        <div className="px-2 py-1 border-t border-gray-200 bg-white">
+          {instanceDetails.fields.length === 0 ? (
+            <div className="text-[10px] text-gray-400 italic">Sin campos</div>
+          ) : (
+            <div className="space-y-0.5">
+              {instanceDetails.fields.map((field) => (
+                <div key={field._id} className="text-[10px]">
+                  <span className="text-gray-500">{field.label}:</span>{" "}
+                  <span className={field.response?.value ? "text-gray-900" : "text-gray-300 italic"}>
+                    {field.response?.value || "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({
+  task,
+  instances,
+  users,
+}: {
+  task: {
+    taskTemplateId: Id<"taskTemplates">;
+    taskTemplateName: string;
+    isRepeatable: boolean;
+  };
+  instances: Array<{
+    _id: Id<"taskInstances">;
+    userId: string;
+    status: string;
+    responseCount: number;
+    fieldCount: number;
+  }>;
+  users: Array<{ clerkId: string; fullName?: string; email: string }> | undefined;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const completedCount = instances.filter((i) => i.status === "completed").length;
+
+  return (
+    <div className="border border-gray-300 bg-white">
+      <div
+        className="flex items-center justify-between px-2 py-1 cursor-pointer hover:bg-gray-50"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1 text-xs flex-1 min-w-0">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${completedCount === instances.length && instances.length > 0 ? "bg-green-500" : instances.length > 0 ? "bg-yellow-500" : "bg-gray-300"}`} />
+          <span className="font-medium truncate">{task.taskTemplateName}</span>
+          {task.isRepeatable && <span className="text-[9px] text-gray-400 bg-gray-100 px-1">↻</span>}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-400">{instances.length > 0 ? `${completedCount}/${instances.length}` : "0"}</span>
+          <span className="text-[10px] text-gray-400">{expanded ? "▼" : "▶"}</span>
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-1 py-1 border-t border-gray-200 space-y-0.5">
+          {instances.length === 0 ? (
+            <div className="text-[10px] text-gray-400 italic px-1">Sin instancias</div>
+          ) : (
+            instances.map((instance) => (
+              <TaskInstanceRow key={instance._id} instance={instance} users={users} />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StandaloneTaskRow({
+  task,
+  instances,
+  users,
+  onRemove,
+}: {
+  task: {
+    taskTemplateId: Id<"taskTemplates">;
+    taskTemplateName: string;
+    isRepeatable: boolean;
+  };
+  instances: Array<{
+    _id: Id<"taskInstances">;
+    userId: string;
+    status: string;
+    responseCount: number;
+    fieldCount: number;
+  }>;
+  users: Array<{ clerkId: string; fullName?: string; email: string }> | undefined;
+  onRemove: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const completedCount = instances.filter((i) => i.status === "completed").length;
+
+  return (
+    <div className="border border-gray-300 bg-white">
+      <div
+        className="flex items-center justify-between px-2 py-1 cursor-pointer hover:bg-gray-50"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-1 text-xs flex-1 min-w-0">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${completedCount === instances.length && instances.length > 0 ? "bg-green-500" : instances.length > 0 ? "bg-yellow-500" : "bg-gray-300"}`} />
+          <span className="font-medium truncate">{task.taskTemplateName}</span>
+          {task.isRepeatable && <span className="text-[9px] text-gray-400 bg-gray-100 px-1">↻</span>}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-400">{instances.length > 0 ? `${completedCount}/${instances.length}` : "0"}</span>
+          <span className="text-[10px] text-gray-400">{expanded ? "▼" : "▶"}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="text-gray-400 hover:text-red-500 font-bold text-xs ml-1"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-1 py-1 border-t border-gray-200 space-y-0.5">
+          {instances.length === 0 ? (
+            <div className="text-[10px] text-gray-400 italic px-1">Sin instancias</div>
+          ) : (
+            instances.map((instance) => (
+              <TaskInstanceRow key={instance._id} instance={instance} users={users} />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoutineDropdown({
+  routine,
+  taskInstances,
+  users,
+  onRemove,
+}: {
+  routine: {
+    workOrderDayServiceId: Id<"workOrderDayServices">;
+    serviceName: string;
+    tasks: Array<{
+      serviceTaskTemplateId: Id<"serviceTaskTemplates">;
+      taskTemplateId: Id<"taskTemplates">;
+      taskTemplateName: string;
+      isRepeatable: boolean;
+    }>;
+  };
+  taskInstances: Array<{
+    _id: Id<"taskInstances">;
+    taskTemplateId: Id<"taskTemplates">;
+    userId: string;
+    status: string;
+    responseCount: number;
+    fieldCount: number;
+    isOrphaned?: boolean;
+  }>;
+  users: Array<{ clerkId: string; fullName?: string; email: string }> | undefined;
+  onRemove: (id: Id<"workOrderDayServices">) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const routineTaskIds = new Set(routine.tasks.map((t) => t.taskTemplateId as string));
+  const routineInstances = taskInstances.filter((ti) => routineTaskIds.has(ti.taskTemplateId as string) && !ti.isOrphaned);
+  const completedTasks = routine.tasks.filter((task) => {
+    const taskInsts = routineInstances.filter((ti) => ti.taskTemplateId === task.taskTemplateId);
+    return taskInsts.length > 0 && taskInsts.every((ti) => ti.status === "completed");
+  }).length;
+
+  return (
+    <div className="border-2 border-black bg-white">
+      <div className="flex items-center justify-between px-2 py-1.5 bg-gray-100">
+        <div
+          className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <span className="text-xs text-gray-400">{expanded ? "▼" : "▶"}</span>
+          <span className="text-xs font-bold truncate">{routine.serviceName}</span>
+          <span className="text-[10px] text-gray-400">({completedTasks}/{routine.tasks.length})</span>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(routine.workOrderDayServiceId); }}
+          className="text-gray-400 hover:text-red-500 font-bold text-xs ml-1"
+        >
+          ×
+        </button>
+      </div>
+      {expanded && (
+        <div className="p-1 space-y-0.5">
+          {routine.tasks.map((task) => {
+            const taskInsts = routineInstances.filter((ti) => ti.taskTemplateId === task.taskTemplateId);
+            return (
+              <TaskRow
+                key={task.serviceTaskTemplateId}
+                task={task}
+                instances={taskInsts}
+                users={users}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkOrderDayRoutines({
   day,
 }: {
   day: { _id: Id<"workOrderDays">; dayDate: number; dayNumber: number };
 }) {
+  const allServices = useQuery(api.admin.services.listActive);
   const allTaskTemplates = useQuery(api.admin.taskTemplates.list);
-  const dayData = useQuery(api.admin.workOrderDays.getWithTaskTemplates, { id: day._id });
-  const addTask = useMutation(api.admin.workOrderDays.addTaskTemplate);
-  const removeTask = useMutation(api.admin.workOrderDays.removeTaskTemplate);
+  const routinesWithTasks = useQuery(api.admin.workOrderDayServices.getServicesWithTasks, { workOrderDayId: day._id });
+  const standaloneTasks = useQuery(api.admin.workOrderDays.listStandaloneTasks, { workOrderDayId: day._id });
+  const taskInstances = useQuery(api.admin.taskInstances.listByWorkOrderDay, { workOrderDayId: day._id });
+  const users = useQuery(api.shared.users.list);
+  const addRoutine = useMutation(api.admin.workOrderDayServices.addService);
+  const removeRoutine = useMutation(api.admin.workOrderDayServices.removeService);
+  const addStandaloneTask = useMutation(api.admin.workOrderDays.addTaskTemplate);
+  const removeStandaloneTask = useMutation(api.admin.workOrderDays.removeStandaloneTask);
 
+  const [selectedService, setSelectedService] = useState<Id<"services"> | "">("");
   const [selectedTask, setSelectedTask] = useState<Id<"taskTemplates"> | "">("");
+  const [error, setError] = useState("");
 
-  const dayTasks = dayData?.taskTemplates ?? [];
-  const assignedTaskIds = new Set(dayTasks.map((t) => t.taskTemplateId));
-  const availableTasks = allTaskTemplates?.filter((t) => !assignedTaskIds.has(t._id) && t.isActive) ?? [];
+  const linkedServiceIds = new Set(routinesWithTasks?.map((r) => r.serviceId) ?? []);
+  const availableServices = allServices?.filter((s) => !linkedServiceIds.has(s._id)) ?? [];
 
-  const handleAddTask = async () => {
-    if (!selectedTask) return;
+  const orphanedInstances = taskInstances?.filter((ti) => ti.isOrphaned) ?? [];
+  const standaloneTaskIds = new Set(standaloneTasks?.map((t) => t.taskTemplateId) ?? []);
+  const availableTaskTemplates = allTaskTemplates?.filter((t) => t.isActive && !standaloneTaskIds.has(t._id)) ?? [];
+
+  const handleAddRoutine = async () => {
+    if (!selectedService) return;
+    const serviceToAdd = selectedService;
+    setSelectedService("");
+    setError("");
     try {
-      await addTask({ workOrderDayId: day._id, taskTemplateId: selectedTask });
-      setSelectedTask("");
-    } catch {}
+      await addRoutine({ workOrderDayId: day._id, serviceId: serviceToAdd });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to add routine");
+      setSelectedService(serviceToAdd);
+    }
   };
 
-  const handleRemoveTask = async (taskTemplateId: Id<"taskTemplates">) => {
+  const handleRemoveRoutine = async (workOrderDayServiceId: Id<"workOrderDayServices">) => {
+    setError("");
     try {
-      await removeTask({ workOrderDayId: day._id, taskTemplateId });
-    } catch {}
+      const result = await removeRoutine({ workOrderDayServiceId });
+      if (result.orphanedCount > 0) {
+        setError(`${result.orphanedCount} huérfana(s)`);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to remove routine");
+    }
+  };
+
+  const handleAddStandaloneTask = async () => {
+    if (!selectedTask) return;
+    const taskToAdd = selectedTask;
+    setSelectedTask("");
+    setError("");
+    try {
+      await addStandaloneTask({ workOrderDayId: day._id, taskTemplateId: taskToAdd });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to add task");
+      setSelectedTask(taskToAdd);
+    }
   };
 
   return (
-    <div className="p-3 bg-gray-50 border-2 border-black w-[200px] flex-shrink-0">
+    <div className="p-2 bg-gray-50 border-2 border-black w-[280px] flex-shrink-0">
       <div className="text-xs font-bold mb-2">
         Dia {day.dayNumber} - {formatUTCDate(day.dayDate, "EEE, d MMM")}
       </div>
-      {dayTasks.length > 0 && (
-        <div className="space-y-1 mb-2">
-          {dayTasks.map((task) => (
-            <div key={task._id} className="flex items-center justify-between text-xs bg-white border-2 border-black px-2 py-1">
-              <span className="font-medium truncate flex-1">{task.taskTemplateName}</span>
-              <button onClick={() => handleRemoveTask(task.taskTemplateId)} className="text-gray-400 hover:text-red-500 font-bold ml-1 flex-shrink-0">×</button>
-            </div>
-          ))}
-        </div>
-      )}
-      {availableTasks.length > 0 && (
+
+      {error && <div className="text-[10px] mb-2 text-red-500 font-medium">{error}</div>}
+
+      <div className="mb-2">
+        <div className="text-[10px] font-bold text-gray-500 mb-1">RUTINAS</div>
         <div className="space-y-1">
-          <select
-            value={selectedTask}
-            onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
-            className="w-full border-2 border-black px-2 py-1 text-xs"
-          >
-            <option value="">Agregar tarea...</option>
-            {availableTasks.map((t) => (
-              <option key={t._id} value={t._id}>{t.name}</option>
-            ))}
-          </select>
-          {selectedTask && (
-            <button
-              onClick={handleAddTask}
-              className="w-full border-2 border-black bg-white px-2 py-1 text-xs font-bold hover:bg-gray-100"
-            >
-              Agregar
-            </button>
+          {routinesWithTasks?.map((routine) => (
+            <RoutineDropdown
+              key={routine.workOrderDayServiceId}
+              routine={routine}
+              taskInstances={taskInstances ?? []}
+              users={users}
+              onRemove={handleRemoveRoutine}
+            />
+          ))}
+          {availableServices.length > 0 && (
+            <div className="flex gap-1">
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value as Id<"services"> | "")}
+                className="flex-1 border border-gray-300 px-1 py-0.5 text-[10px]"
+              >
+                <option value="">+ Rutina...</option>
+                {availableServices.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+              {selectedService && (
+                <button onClick={handleAddRoutine} className="border border-black px-2 text-[10px] font-bold hover:bg-gray-100">+</button>
+              )}
+            </div>
           )}
+        </div>
+      </div>
+
+      <div className="mb-2">
+        <div className="text-[10px] font-bold text-gray-500 mb-1">TAREAS INDEPENDIENTES ({standaloneTasks?.length ?? 0})</div>
+        <div className="space-y-1">
+          {standaloneTasks?.map((task) => {
+            const instances = taskInstances?.filter(
+              (ti) => ti.taskTemplateId === task.taskTemplateId && !ti.isOrphaned && !ti.workOrderDayServiceId
+            ) ?? [];
+            const taskTemplate = allTaskTemplates?.find((t) => t._id === task.taskTemplateId);
+            return (
+              <StandaloneTaskRow
+                key={task._id}
+                task={{
+                  taskTemplateId: task.taskTemplateId,
+                  taskTemplateName: task.taskTemplateName,
+                  isRepeatable: taskTemplate?.isRepeatable ?? false,
+                }}
+                instances={instances}
+                users={users}
+                onRemove={() => removeStandaloneTask({ workOrderDayTaskTemplateId: task._id })}
+              />
+            );
+          })}
+          {availableTaskTemplates.length > 0 && (
+            <div className="flex gap-1">
+              <select
+                value={selectedTask}
+                onChange={(e) => setSelectedTask(e.target.value as Id<"taskTemplates"> | "")}
+                className="flex-1 border border-gray-300 px-1 py-0.5 text-[10px]"
+              >
+                <option value="">+ Tarea...</option>
+                {availableTaskTemplates.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
+              </select>
+              {selectedTask && (
+                <button onClick={handleAddStandaloneTask} className="border border-black px-2 text-[10px] font-bold hover:bg-gray-100">+</button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {orphanedInstances.length > 0 && (
+        <div>
+          <div className="text-[10px] font-bold text-orange-600 mb-1">⚠️ HUÉRFANAS ({orphanedInstances.length})</div>
+          <div className="space-y-0.5">
+            {orphanedInstances.map((ti) => (
+              <div key={ti._id} className="text-[10px] bg-orange-50 border border-orange-300 px-2 py-0.5">
+                {ti.taskTemplateName} <span className="text-orange-400">({ti.responseCount}/{ti.fieldCount})</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -750,7 +1083,7 @@ function WorkOrderAssignmentModal({
                     : "bg-white text-black hover:bg-gray-100"
                 }`}
               >
-                Tareas
+                Rutinas
               </button>
             </div>
           </div>
