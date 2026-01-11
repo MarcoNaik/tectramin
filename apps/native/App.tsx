@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { OfflineProvider } from "./src/providers/OfflineProvider";
+import { PermissionsGate } from "./src/components/PermissionsGate";
 import HomeScreen from "./src/screens/HomeScreen";
 
 const Stack = createNativeStackNavigator();
@@ -16,15 +17,17 @@ export default function App() {
       <SafeAreaProvider>
         <ConvexClientProvider>
           <OfflineProvider>
-            <NavigationContainer>
-              <Stack.Navigator>
-                <Stack.Screen
-                  name="Home"
-                  component={HomeScreen}
-                  options={{ headerShown: false }}
-                />
-              </Stack.Navigator>
-            </NavigationContainer>
+            <PermissionsGate>
+              <NavigationContainer>
+                <Stack.Navigator>
+                  <Stack.Screen
+                    name="Home"
+                    component={HomeScreen}
+                    options={{ headerShown: false }}
+                  />
+                </Stack.Navigator>
+              </NavigationContainer>
+            </PermissionsGate>
           </OfflineProvider>
         </ConvexClientProvider>
       </SafeAreaProvider>
