@@ -26,6 +26,7 @@ export const dayTaskTemplates = sqliteTable("day_task_templates", {
   workOrderDayServerId: text("work_order_day_server_id").notNull(),
   workOrderDayServiceServerId: text("work_order_day_service_server_id"),
   serviceTaskTemplateServerId: text("service_task_template_server_id"),
+  dayTaskTemplateServerId: text("day_task_template_server_id"),
   taskTemplateServerId: text("task_template_server_id").notNull(),
   taskTemplateName: text("task_template_name").notNull(),
   description: text("description"),
