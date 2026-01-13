@@ -387,31 +387,39 @@ function DayRow({
                 <div className="text-xs font-bold text-orange-600 mb-1 flex items-center gap-1">
                   <span>⚠️</span> TAREAS HUÉRFANAS ({orphanedInstances.length}):
                 </div>
-                <div className="text-xs text-orange-500 mb-2 italic">Estas tareas pertenecían a una rutina que fue removida. Solo lectura.</div>
+                <div className="text-xs text-orange-500 mb-2 italic">Estas tareas perdieron su contexto y son de solo lectura.</div>
                 <div className="space-y-1">
-                  {orphanedInstances.map((ti) => (
-                    <div key={ti._id} className="bg-orange-50 border-2 border-orange-300">
-                      <div
-                        className="flex items-center justify-between p-2 cursor-pointer hover:bg-orange-100"
-                        onClick={() => setExpandedInstance(expandedInstance === ti._id ? null : ti._id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-orange-500">⚠️</span>
-                          <span className="font-bold text-orange-700">{ti.taskTemplateName}</span>
-                          <span className="text-orange-400">({ti.responseCount}/{ti.fieldCount} campos)</span>
-                          <span className="bg-orange-200 text-orange-700 text-xs px-1 py-0.5 border border-orange-400">solo lectura</span>
+                  {orphanedInstances.map((ti) => {
+                    const reasonLabels: Record<string, { icon: string; text: string }> = {
+                      template_removed: { icon: "⚠️", text: "Rutina/plantilla eliminada" },
+                      user_unassigned: { icon: "👤", text: "Usuario desasignado" },
+                      user_deleted: { icon: "❌", text: "Usuario eliminado" },
+                    };
+                    const reason = ti.orphanReason ? reasonLabels[ti.orphanReason] : null;
+                    return (
+                      <div key={ti._id} className="bg-orange-50 border-2 border-orange-300">
+                        <div
+                          className="flex items-center justify-between p-2 cursor-pointer hover:bg-orange-100"
+                          onClick={() => setExpandedInstance(expandedInstance === ti._id ? null : ti._id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-orange-500">{reason?.icon ?? "⚠️"}</span>
+                            <span className="font-bold text-orange-700">{ti.taskTemplateName}</span>
+                            <span className="text-orange-400">({ti.responseCount}/{ti.fieldCount} campos)</span>
+                            <span className="bg-orange-200 text-orange-700 text-xs px-1 py-0.5 border border-orange-400">solo lectura</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-orange-500">
+                            <span>{ti.status}</span>
+                            {reason && <span className="text-orange-400">| {reason.text}</span>}
+                            <span className="font-bold">{expandedInstance === ti._id ? "▼" : "▶"}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-orange-500">
-                          <span>{ti.status}</span>
-                          {ti.isOrphaned && <span className="text-orange-400">| huérfana</span>}
-                          <span className="font-bold">{expandedInstance === ti._id ? "▼" : "▶"}</span>
-                        </div>
+                        {expandedInstance === ti._id && (
+                          <TaskInstanceDetails instanceId={ti._id} />
+                        )}
                       </div>
-                      {expandedInstance === ti._id && (
-                        <TaskInstanceDetails instanceId={ti._id} />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
