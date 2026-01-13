@@ -1,0 +1,1 @@
+ALTER TABLE `day_task_templates` ADD `day_task_template_server_id` text;
