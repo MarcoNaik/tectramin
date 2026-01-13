@@ -105,17 +105,29 @@ export function useAssignments(userId: string) {
 
     const orphanedInstances = (allTaskInstances ?? []).filter((ti) => {
       if (ti.workOrderDayServerId !== assignment.serverId) return false;
+
       if (ti.workOrderDayServiceServerId) {
-        return !dayServices.some(
+        const routineExists = dayServices.some(
           (s) => s.serverId === ti.workOrderDayServiceServerId
         );
+        if (!routineExists) return true;
+
+        if (ti.serviceTaskTemplateServerId) {
+          const taskInRoutineExists = (allTaskTemplates ?? []).some(
+            (tt) => tt.serviceTaskTemplateServerId === ti.serviceTaskTemplateServerId
+          );
+          return !taskInRoutineExists;
+        }
+        return false;
       }
-      return !(allTaskTemplates ?? []).some(
-        (tt) =>
-          tt.workOrderDayServerId === ti.workOrderDayServerId &&
-          tt.taskTemplateServerId === ti.taskTemplateServerId &&
-          tt.workOrderDayServiceServerId === null
-      );
+
+      if (ti.dayTaskTemplateServerId) {
+        return !(allTaskTemplates ?? []).some(
+          (tt) => tt.dayTaskTemplateServerId === ti.dayTaskTemplateServerId
+        );
+      }
+
+      return true;
     });
 
     const orphanedTasks: OrphanedTaskInfo[] = orphanedInstances.map((ti) => {
@@ -239,16 +251,27 @@ export function useAssignment(workOrderDayServerId: string, userId: string) {
 
   const orphanedInstances = (allInstances ?? []).filter((ti) => {
     if (ti.workOrderDayServiceServerId) {
-      return !(dayServices ?? []).some(
+      const routineExists = (dayServices ?? []).some(
         (s) => s.serverId === ti.workOrderDayServiceServerId
       );
+      if (!routineExists) return true;
+
+      if (ti.serviceTaskTemplateServerId) {
+        const taskInRoutineExists = (taskTemplatesList ?? []).some(
+          (tt) => tt.serviceTaskTemplateServerId === ti.serviceTaskTemplateServerId
+        );
+        return !taskInRoutineExists;
+      }
+      return false;
     }
-    return !(taskTemplatesList ?? []).some(
-      (tt) =>
-        tt.workOrderDayServerId === ti.workOrderDayServerId &&
-        tt.taskTemplateServerId === ti.taskTemplateServerId &&
-        tt.workOrderDayServiceServerId === null
-    );
+
+    if (ti.dayTaskTemplateServerId) {
+      return !(taskTemplatesList ?? []).some(
+        (tt) => tt.dayTaskTemplateServerId === ti.dayTaskTemplateServerId
+      );
+    }
+
+    return true;
   });
 
   const orphanedTasks: OrphanedTaskInfo[] = orphanedInstances.map((ti) => {
