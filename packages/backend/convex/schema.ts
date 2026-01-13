@@ -89,6 +89,7 @@ export default defineSchema({
     order: v.number(),
     isRequired: v.boolean(),
     dayNumber: v.optional(v.number()),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_service", ["serviceId"])
     .index("by_task_template", ["taskTemplateId"])
@@ -99,6 +100,7 @@ export default defineSchema({
     dependsOnServiceTaskTemplateId: v.id("serviceTaskTemplates"),
     serviceId: v.id("services"),
     createdAt: v.number(),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_dependent", ["serviceTaskTemplateId"])
     .index("by_prerequisite", ["dependsOnServiceTaskTemplateId"])
@@ -142,13 +144,15 @@ export default defineSchema({
     assignedBy: v.optional(v.id("users")),
   })
     .index("by_work_order_day", ["workOrderDayId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_work_order_day_and_user", ["workOrderDayId", "userId"]),
 
   workOrderDayServices: defineTable({
     workOrderDayId: v.id("workOrderDays"),
     serviceId: v.id("services"),
     order: v.number(),
     createdAt: v.number(),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_work_order_day", ["workOrderDayId"])
     .index("by_service", ["serviceId"])
@@ -159,6 +163,7 @@ export default defineSchema({
     taskTemplateId: v.id("taskTemplates"),
     order: v.number(),
     isRequired: v.boolean(),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_work_order_day", ["workOrderDayId"])
     .index("by_task_template", ["taskTemplateId"]),
@@ -168,6 +173,7 @@ export default defineSchema({
     dependsOnWorkOrderDayTaskTemplateId: v.id("workOrderDayTaskTemplates"),
     workOrderDayId: v.id("workOrderDays"),
     createdAt: v.number(),
+    isActive: v.optional(v.boolean()),
   })
     .index("by_dependent", ["workOrderDayTaskTemplateId"])
     .index("by_prerequisite", ["dependsOnWorkOrderDayTaskTemplateId"])
