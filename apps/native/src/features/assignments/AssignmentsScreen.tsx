@@ -20,10 +20,13 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { db } from "../../db/client";
 import { attachments } from "../../db/schema";
 import { SyncStatusIcon } from "../../components/SyncStatusIcon";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import { UserAvatarButton } from "../../components/UserAvatarButton";
 import { UserProfileModal } from "../../components/UserProfileModal";
 import { LogoutConfirmationModal } from "../../components/LogoutConfirmationModal";
+import { ClearDataConfirmationModal } from "../../components/ClearDataConfirmationModal";
 import { DateWarningModal, CompletedTaskModal } from "../../components/common";
+import { clearAllData } from "../../db/client";
 import { syncService } from "../../sync/SyncService";
 import { generateMonthDays, formatFullDate, type DayData } from "../../utils/dateUtils";
 import { DayPage } from "./DayPage";
@@ -66,6 +69,7 @@ export function AssignmentsScreen() {
   const { dependencies: allDependencies } = useAllTaskDependencies();
   const { users: localUsers } = useUsers();
   const { entities: lookupEntities } = useLookupEntities();
+  const isOnline = useNetworkStatus();
   const { data: allAttachments } = useLiveQuery(
     db.select().from(attachments)
   );
@@ -75,6 +79,7 @@ export function AssignmentsScreen() {
   const [currentMonth] = useState(() => new Date());
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
+  const [isClearDataModalVisible, setIsClearDataModalVisible] = useState(false);
   const [dateWarningModalVisible, setDateWarningModalVisible] = useState(false);
   const [completedTaskModalVisible, setCompletedTaskModalVisible] = useState(false);
   const [pendingTaskAction, setPendingTaskAction] = useState<PendingTaskAction | null>(null);
@@ -115,9 +120,12 @@ export function AssignmentsScreen() {
         return;
       }
       try {
+        const isRoutineTask = template.workOrderDayServiceServerId !== null;
         const clientId = await createTaskInstance({
           workOrderDayServerId,
-          dayTaskTemplateServerId: template.serverId,
+          dayTaskTemplateServerId: isRoutineTask ? undefined : template.serverId,
+          workOrderDayServiceServerId: isRoutineTask ? template.workOrderDayServiceServerId : undefined,
+          serviceTaskTemplateServerId: isRoutineTask ? template.serviceTaskTemplateServerId ?? undefined : undefined,
           taskTemplateServerId: template.taskTemplateServerId,
           instanceLabel,
         });
@@ -142,9 +150,12 @@ export function AssignmentsScreen() {
         return;
       }
       try {
+        const isRoutineTask = template.workOrderDayServiceServerId !== null;
         await createTaskInstance({
           workOrderDayServerId,
-          dayTaskTemplateServerId: template.serverId,
+          dayTaskTemplateServerId: isRoutineTask ? undefined : template.serverId,
+          workOrderDayServiceServerId: isRoutineTask ? template.workOrderDayServiceServerId : undefined,
+          serviceTaskTemplateServerId: isRoutineTask ? template.serviceTaskTemplateServerId ?? undefined : undefined,
           taskTemplateServerId: template.taskTemplateServerId,
           instanceLabel,
         });
@@ -349,6 +360,21 @@ export function AssignmentsScreen() {
     setPendingTaskAction(null);
   }, [pendingTaskAction]);
 
+  const handleClearData = useCallback(async () => {
+    setIsClearDataModalVisible(false);
+    setIsProfileModalVisible(false);
+    const success = await clearAllData();
+    if (success) {
+      await signOut();
+    } else {
+      Alert.alert(
+        "Error",
+        "No se pudieron eliminar los datos locales. Por favor, intenta de nuevo.",
+        [{ text: "Entendido" }]
+      );
+    }
+  }, [signOut]);
+
   const renderDay = useCallback(
     ({ item }: { item: DayData }) => (
       <DayPage
@@ -468,10 +494,15 @@ export function AssignmentsScreen() {
           setIsProfileModalVisible(false);
           setIsLogoutModalVisible(true);
         }}
+        onClearData={() => {
+          setIsProfileModalVisible(false);
+          setIsClearDataModalVisible(true);
+        }}
         imageUrl={user?.imageUrl}
         fullName={user?.fullName}
         email={user?.primaryEmailAddress?.emailAddress}
         role={currentUserRole}
+        isOnline={isOnline}
       />
 
       <LogoutConfirmationModal
@@ -481,6 +512,12 @@ export function AssignmentsScreen() {
           setIsLogoutModalVisible(false);
           signOut();
         }}
+      />
+
+      <ClearDataConfirmationModal
+        visible={isClearDataModalVisible}
+        onClose={() => setIsClearDataModalVisible(false)}
+        onConfirm={handleClearData}
       />
 
       <DateWarningModal
