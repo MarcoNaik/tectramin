@@ -29,6 +29,7 @@ import type * as mobile_sync from "../mobile/sync.js";
 import type * as shared_attachments from "../shared/attachments.js";
 import type * as shared_dateUtils from "../shared/dateUtils.js";
 import type * as shared_orphanDetection from "../shared/orphanDetection.js";
+import type * as shared_taskInstanceCreation from "../shared/taskInstanceCreation.js";
 import type * as shared_users from "../shared/users.js";
 import type * as talana from "../talana.js";
 
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "shared/attachments": typeof shared_attachments;
   "shared/dateUtils": typeof shared_dateUtils;
   "shared/orphanDetection": typeof shared_orphanDetection;
+  "shared/taskInstanceCreation": typeof shared_taskInstanceCreation;
   "shared/users": typeof shared_users;
   talana: typeof talana;
 }>;
