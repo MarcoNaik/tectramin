@@ -11,16 +11,19 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Text } from "./Text";
 
 interface UserProfileModalProps {
   visible: boolean;
   onClose: () => void;
   onLogout: () => void;
+  onClearData: () => void;
   imageUrl?: string | null;
   fullName?: string | null;
   email?: string | null;
   role?: string | null;
+  isOnline?: boolean;
 }
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -29,10 +32,12 @@ export function UserProfileModal({
   visible,
   onClose,
   onLogout,
+  onClearData,
   imageUrl,
   fullName,
   email,
   role,
+  isOnline = true,
 }: UserProfileModalProps) {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
@@ -95,6 +100,13 @@ export function UserProfileModal({
           >
             <Pressable onPress={(e) => e.stopPropagation()}>
               <View style={styles.modalHeader}>
+                <TouchableOpacity
+                  onPress={onClearData}
+                  style={[styles.clearDataButton, !isOnline && styles.clearDataButtonDisabled]}
+                  disabled={!isOnline}
+                >
+                  <Feather name="trash-2" size={18} color={isOnline ? "#9ca3af" : "#d1d5db"} />
+                </TouchableOpacity>
                 <Text style={styles.modalTitle}>Mi Perfil</Text>
                 <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                   <Text style={styles.modalClose}>✕</Text>
@@ -162,6 +174,12 @@ const styles = StyleSheet.create({
   modalClose: {
     fontSize: 20,
     color: "#6b7280",
+  },
+  clearDataButton: {
+    padding: 8,
+  },
+  clearDataButtonDisabled: {
+    opacity: 0.5,
   },
   profileSection: {
     alignItems: "center",
