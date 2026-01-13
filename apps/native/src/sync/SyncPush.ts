@@ -40,10 +40,13 @@ export async function pushChanges(convex: ConvexReactClient): Promise<{
 
     try {
       const payload = JSON.parse(op.payload) as LocalTaskInstancePayload;
+      const isRoutineTask = payload.workOrderDayServiceServerId !== undefined;
       const result = await convex.mutation(api.mobile.sync.upsertTaskInstance, {
         clientId: payload.clientId,
         workOrderDayServerId: payload.workOrderDayServerId,
-        dayTaskTemplateServerId: payload.dayTaskTemplateServerId,
+        dayTaskTemplateServerId: isRoutineTask ? undefined : payload.dayTaskTemplateServerId,
+        workOrderDayServiceServerId: isRoutineTask ? payload.workOrderDayServiceServerId : undefined,
+        serviceTaskTemplateServerId: isRoutineTask ? payload.serviceTaskTemplateServerId : undefined,
         taskTemplateServerId: payload.taskTemplateServerId,
         userId: payload.userId,
         instanceLabel: payload.instanceLabel,
