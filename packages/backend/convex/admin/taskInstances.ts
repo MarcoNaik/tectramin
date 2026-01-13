@@ -1,6 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { isTaskInstanceOrphaned } from "../shared/orphanDetection";
+import { checkTaskInstanceOrphanStatus } from "../shared/orphanDetection";
 
 const taskInstanceValidator = v.object({
   _id: v.id("taskInstances"),
@@ -34,6 +34,12 @@ export const listByWorkOrderDay = query({
       instanceLabel: v.optional(v.string()),
       status: v.string(),
       isOrphaned: v.boolean(),
+      orphanReason: v.union(
+        v.literal("template_removed"),
+        v.literal("user_unassigned"),
+        v.literal("user_deleted"),
+        v.null()
+      ),
       startedAt: v.optional(v.number()),
       completedAt: v.optional(v.number()),
       createdAt: v.number(),
@@ -62,10 +68,12 @@ export const listByWorkOrderDay = query({
           .withIndex("by_task_instance", (q) => q.eq("taskInstanceId", instance._id))
           .collect();
 
-        const orphaned = await isTaskInstanceOrphaned(ctx.db, {
+        const orphanResult = await checkTaskInstanceOrphanStatus(ctx.db, {
           workOrderDayId: instance.workOrderDayId,
+          userId: instance.userId,
           workOrderDayServiceId: instance.workOrderDayServiceId ?? undefined,
-          taskTemplateId: instance.taskTemplateId,
+          workOrderDayTaskTemplateId: instance.workOrderDayTaskTemplateId ?? undefined,
+          serviceTaskTemplateId: instance.serviceTaskTemplateId ?? undefined,
         });
 
         return {
@@ -78,7 +86,8 @@ export const listByWorkOrderDay = query({
           userId: instance.userId,
           instanceLabel: instance.instanceLabel,
           status: instance.status,
-          isOrphaned: orphaned,
+          isOrphaned: orphanResult.isOrphaned,
+          orphanReason: orphanResult.reason,
           startedAt: instance.startedAt,
           completedAt: instance.completedAt,
           createdAt: instance.createdAt,
