@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { View, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { Text } from "../components/Text";
 import { useMigrations } from "drizzle-orm/expo-sqlite/migrator";
-import { db, resetDatabase } from "../db/client";
+import { db, clearAllData } from "../db/client";
 import migrations from "../db/migrations/migrations";
 
 interface DatabaseContextValue {
@@ -27,8 +27,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     }
   }, [success, error]);
 
-  const handleReset = () => {
-    const didReset = resetDatabase();
+  const handleReset = async () => {
+    const didReset = await clearAllData();
     if (didReset) {
       Alert.alert(
         "Database Reset",
