@@ -895,11 +895,22 @@ function WorkOrderDayRoutines({
         <div>
           <div className="text-[10px] font-bold text-orange-600 mb-1">⚠️ HUÉRFANAS ({orphanedInstances.length})</div>
           <div className="space-y-0.5">
-            {orphanedInstances.map((ti) => (
-              <div key={ti._id} className="text-[10px] bg-orange-50 border border-orange-300 px-2 py-0.5">
-                {ti.taskTemplateName} <span className="text-orange-400">({ti.responseCount}/{ti.fieldCount})</span>
-              </div>
-            ))}
+            {orphanedInstances.map((ti) => {
+              const reasonLabels: Record<string, { icon: string; text: string }> = {
+                template_removed: { icon: "⚠️", text: "Plantilla eliminada" },
+                user_unassigned: { icon: "👤", text: "Desasignado" },
+                user_deleted: { icon: "❌", text: "Usuario eliminado" },
+              };
+              const reason = ti.orphanReason ? reasonLabels[ti.orphanReason] : null;
+              return (
+                <div key={ti._id} className="text-[10px] bg-orange-50 border border-orange-300 px-2 py-0.5 flex items-center gap-1">
+                  <span>{reason?.icon ?? "⚠️"}</span>
+                  <span>{ti.taskTemplateName}</span>
+                  <span className="text-orange-400">({ti.responseCount}/{ti.fieldCount})</span>
+                  {reason && <span className="text-orange-400 text-[9px]">• {reason.text}</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
