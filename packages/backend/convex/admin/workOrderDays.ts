@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { createInstancesForStandaloneTaskOnDay } from "../shared/taskInstanceCreation";
 
 const workOrderDayValidator = v.object({
   _id: v.id("workOrderDays"),
@@ -80,6 +81,7 @@ export const getWithTaskTemplates = query({
     const links = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.id))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const taskTemplates = await Promise.all(
@@ -174,6 +176,7 @@ export const getWithDetails = query({
     const taskTemplateLinks = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.id))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const taskTemplates = await Promise.all(
@@ -282,7 +285,35 @@ export const addTaskTemplate = mutation({
       .unique();
 
     if (existing) {
-      throw new Error("Task template already assigned to this day");
+      if (existing.isActive !== false) {
+        throw new Error("Task template already assigned to this day");
+      }
+
+      const depsAsDependant = await ctx.db
+        .query("workOrderDayTaskDependencies")
+        .withIndex("by_dependent", (q) => q.eq("workOrderDayTaskTemplateId", existing._id))
+        .collect();
+      for (const dep of depsAsDependant) {
+        const prereq = await ctx.db.get(dep.dependsOnWorkOrderDayTaskTemplateId);
+        if (prereq && prereq.isActive !== false) {
+          await ctx.db.patch(dep._id, { isActive: true });
+        }
+      }
+
+      await ctx.db.patch(existing._id, {
+        isActive: true,
+        order: args.order ?? existing.order,
+        isRequired: args.isRequired ?? existing.isRequired,
+      });
+
+      await createInstancesForStandaloneTaskOnDay(
+        ctx,
+        args.workOrderDayId,
+        existing._id,
+        args.taskTemplateId
+      );
+
+      return existing._id;
     }
 
     let order = args.order;
@@ -290,16 +321,27 @@ export const addTaskTemplate = mutation({
       const existingLinks = await ctx.db
         .query("workOrderDayTaskTemplates")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+        .filter((q) => q.neq(q.field("isActive"), false))
         .collect();
       order = existingLinks.length;
     }
 
-    return await ctx.db.insert("workOrderDayTaskTemplates", {
+    const newId = await ctx.db.insert("workOrderDayTaskTemplates", {
       workOrderDayId: args.workOrderDayId,
       taskTemplateId: args.taskTemplateId,
       order,
       isRequired: args.isRequired ?? false,
+      isActive: true,
     });
+
+    await createInstancesForStandaloneTaskOnDay(
+      ctx,
+      args.workOrderDayId,
+      newId,
+      args.taskTemplateId
+    );
+
+    return newId;
   },
 });
 
@@ -317,7 +359,23 @@ export const removeTaskTemplate = mutation({
       .unique();
 
     if (link) {
-      await ctx.db.delete(link._id);
+      const depsAsDependant = await ctx.db
+        .query("workOrderDayTaskDependencies")
+        .withIndex("by_dependent", (q) => q.eq("workOrderDayTaskTemplateId", link._id))
+        .collect();
+      for (const dep of depsAsDependant) {
+        await ctx.db.patch(dep._id, { isActive: false });
+      }
+
+      const depsAsPrereq = await ctx.db
+        .query("workOrderDayTaskDependencies")
+        .withIndex("by_prerequisite", (q) => q.eq("dependsOnWorkOrderDayTaskTemplateId", link._id))
+        .collect();
+      for (const dep of depsAsPrereq) {
+        await ctx.db.patch(dep._id, { isActive: false });
+      }
+
+      await ctx.db.patch(link._id, { isActive: false });
     }
 
     return null;
@@ -338,6 +396,7 @@ export const listStandaloneTasks = query({
     const links = await ctx.db
       .query("workOrderDayTaskTemplates")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const standaloneTasks = await Promise.all(
@@ -366,7 +425,24 @@ export const removeStandaloneTask = mutation({
     if (!link) {
       throw new Error("Task template link not found");
     }
-    await ctx.db.delete(args.workOrderDayTaskTemplateId);
+
+    const depsAsDependant = await ctx.db
+      .query("workOrderDayTaskDependencies")
+      .withIndex("by_dependent", (q) => q.eq("workOrderDayTaskTemplateId", args.workOrderDayTaskTemplateId))
+      .collect();
+    for (const dep of depsAsDependant) {
+      await ctx.db.patch(dep._id, { isActive: false });
+    }
+
+    const depsAsPrereq = await ctx.db
+      .query("workOrderDayTaskDependencies")
+      .withIndex("by_prerequisite", (q) => q.eq("dependsOnWorkOrderDayTaskTemplateId", args.workOrderDayTaskTemplateId))
+      .collect();
+    for (const dep of depsAsPrereq) {
+      await ctx.db.patch(dep._id, { isActive: false });
+    }
+
+    await ctx.db.patch(args.workOrderDayTaskTemplateId, { isActive: false });
     return null;
   },
 });
