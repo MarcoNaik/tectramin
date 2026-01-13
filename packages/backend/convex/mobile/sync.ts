@@ -1,7 +1,7 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { isTaskInstanceOrphaned, filterNonOrphanedInstances, getOrphanedInstances } from "../shared/orphanDetection";
+import { checkTaskInstanceOrphanStatus, filterNonOrphanedInstances, getOrphanedInstances } from "../shared/orphanDetection";
 
 export const upsertTaskInstance = mutation({
   args: {
@@ -191,7 +191,11 @@ export const getAssignmentsForUser = query({
           taskInstanceClientId: v.string(),
           taskTemplateServerId: v.string(),
           taskTemplateName: v.string(),
-          orphanedAt: v.number(),
+          orphanReason: v.union(
+            v.literal("template_removed"),
+            v.literal("user_unassigned"),
+            v.literal("user_deleted")
+          ),
           status: v.string(),
         })
       ),
@@ -226,6 +230,7 @@ export const getAssignmentsForUser = query({
         const dayServices = await ctx.db
           .query("workOrderDayServices")
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
 
         const routines = await Promise.all(
@@ -235,6 +240,7 @@ export const getAssignmentsForUser = query({
             const serviceTaskTemplates = await ctx.db
               .query("serviceTaskTemplates")
               .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+              .filter((q) => q.neq(q.field("isActive"), false))
               .collect();
 
             const applicableTasks = serviceTaskTemplates.filter(
@@ -291,6 +297,7 @@ export const getAssignmentsForUser = query({
         const standaloneDayTaskTemplates = await ctx.db
           .query("workOrderDayTaskTemplates")
           .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
 
         const standaloneTasks = await Promise.all(
@@ -342,12 +349,19 @@ export const getAssignmentsForUser = query({
         const orphanedTasks = await Promise.all(
           orphanedInstances.map(async (instance) => {
             const template = await ctx.db.get(instance.taskTemplateId);
+            const orphanResult = await checkTaskInstanceOrphanStatus(ctx.db, {
+              workOrderDayId: day._id,
+              userId: args.clerkUserId,
+              workOrderDayServiceId: instance.workOrderDayServiceId ?? undefined,
+              workOrderDayTaskTemplateId: instance.workOrderDayTaskTemplateId ?? undefined,
+              serviceTaskTemplateId: instance.serviceTaskTemplateId ?? undefined,
+            });
             return {
               taskInstanceServerId: instance._id as string,
               taskInstanceClientId: instance.clientId,
               taskTemplateServerId: instance.taskTemplateId as string,
               taskTemplateName: template?.name ?? "Unknown",
-              orphanedAt: instance.updatedAt,
+              orphanReason: orphanResult.reason ?? "template_removed",
               status: instance.status,
             };
           })
@@ -618,12 +632,14 @@ export const getFieldConditionsForUser = query({
       const dayServices = await ctx.db
         .query("workOrderDayServices")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+        .filter((q) => q.neq(q.field("isActive"), false))
         .collect();
 
       for (const ds of dayServices) {
         const serviceTaskTemplates = await ctx.db
           .query("serviceTaskTemplates")
           .withIndex("by_service", (q) => q.eq("serviceId", ds.serviceId))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
 
         const applicable = serviceTaskTemplates.filter(
@@ -638,6 +654,7 @@ export const getFieldConditionsForUser = query({
       const standaloneTasks = await ctx.db
         .query("workOrderDayTaskTemplates")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", day._id))
+        .filter((q) => q.neq(q.field("isActive"), false))
         .collect();
 
       for (const dtt of standaloneTasks) {
@@ -729,6 +746,7 @@ export const getTaskDependenciesForUser = query({
       const dayDeps = await ctx.db
         .query("workOrderDayTaskDependencies")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", assignment.workOrderDayId))
+        .filter((q) => q.neq(q.field("isActive"), false))
         .collect();
 
       for (const dep of dayDeps) {
