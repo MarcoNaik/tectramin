@@ -124,8 +124,8 @@ export function AssignmentsScreen() {
         const clientId = await createTaskInstance({
           workOrderDayServerId,
           dayTaskTemplateServerId: isRoutineTask ? undefined : template.serverId,
-          workOrderDayServiceServerId: isRoutineTask ? template.workOrderDayServiceServerId : undefined,
-          serviceTaskTemplateServerId: isRoutineTask ? template.serviceTaskTemplateServerId ?? undefined : undefined,
+          workOrderDayServiceServerId: isRoutineTask ? (template.workOrderDayServiceServerId ?? undefined) : undefined,
+          serviceTaskTemplateServerId: isRoutineTask ? (template.serviceTaskTemplateServerId ?? undefined) : undefined,
           taskTemplateServerId: template.taskTemplateServerId,
           instanceLabel,
         });
@@ -154,8 +154,8 @@ export function AssignmentsScreen() {
         await createTaskInstance({
           workOrderDayServerId,
           dayTaskTemplateServerId: isRoutineTask ? undefined : template.serverId,
-          workOrderDayServiceServerId: isRoutineTask ? template.workOrderDayServiceServerId : undefined,
-          serviceTaskTemplateServerId: isRoutineTask ? template.serviceTaskTemplateServerId ?? undefined : undefined,
+          workOrderDayServiceServerId: isRoutineTask ? (template.workOrderDayServiceServerId ?? undefined) : undefined,
+          serviceTaskTemplateServerId: isRoutineTask ? (template.serviceTaskTemplateServerId ?? undefined) : undefined,
           taskTemplateServerId: template.taskTemplateServerId,
           instanceLabel,
         });
