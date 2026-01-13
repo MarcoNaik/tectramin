@@ -46,7 +46,9 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <string>Tectramin necesita acceso a la cámara para tomar fotos de las tareas realizadas.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Tectramin necesita acceso a tu ubicación para registrar dónde se realizan las tareas.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSMicrophoneUsageDescription</key>
