@@ -48,6 +48,18 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const prevEntityTypesRef = useRef<string | null>(null);
   const prevEntitiesRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    prevAssignmentsRef.current = null;
+    prevInstancesRef.current = null;
+    prevResponsesRef.current = null;
+    prevAttachmentsRef.current = null;
+    prevUsersRef.current = null;
+    prevConditionsRef.current = null;
+    prevDependenciesRef.current = null;
+    prevEntityTypesRef.current = null;
+    prevEntitiesRef.current = null;
+  }, [user?.id]);
+
   const serverAssignments = useQuery(
     api.mobile.sync.getAssignmentsForUser,
     user?.id && isInitialized ? { clerkUserId: user.id } : "skip"
@@ -189,7 +201,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
             });
 
           for (const tt of routine.tasks) {
-            const taskServerId = tt.serviceTaskTemplateServerId ?? `routine-${routine.workOrderDayServiceServerId}-${tt.taskTemplateServerId}`;
+            const taskServerId = `routine-${assignment.workOrderDayServerId}-${routine.workOrderDayServiceServerId}-${tt.serviceTaskTemplateServerId ?? tt.taskTemplateServerId}`;
             await db
               .insert(dayTaskTemplates)
               .values({
@@ -255,10 +267,11 @@ export function SyncProvider({ children }: SyncProviderProps) {
           await db
             .insert(dayTaskTemplates)
             .values({
-              serverId: tt.dayTaskTemplateServerId ?? `standalone-${assignment.workOrderDayServerId}-${tt.taskTemplateServerId}`,
+              serverId: `standalone-${assignment.workOrderDayServerId}-${tt.dayTaskTemplateServerId ?? tt.taskTemplateServerId}`,
               workOrderDayServerId: assignment.workOrderDayServerId,
               workOrderDayServiceServerId: null,
               serviceTaskTemplateServerId: null,
+              dayTaskTemplateServerId: tt.dayTaskTemplateServerId,
               taskTemplateServerId: tt.taskTemplateServerId,
               taskTemplateName: tt.taskTemplateName,
               description: tt.description,
@@ -270,6 +283,7 @@ export function SyncProvider({ children }: SyncProviderProps) {
             .onConflictDoUpdate({
               target: dayTaskTemplates.serverId,
               set: {
+                dayTaskTemplateServerId: tt.dayTaskTemplateServerId,
                 taskTemplateName: tt.taskTemplateName,
                 description: tt.description,
                 readme: tt.readme,
@@ -315,12 +329,12 @@ export function SyncProvider({ children }: SyncProviderProps) {
         const serverTemplateIds = new Set<string>();
         for (const routine of assignment.routines) {
           for (const tt of routine.tasks) {
-            const taskServerId = tt.serviceTaskTemplateServerId ?? `routine-${routine.workOrderDayServiceServerId}-${tt.taskTemplateServerId}`;
+            const taskServerId = `routine-${assignment.workOrderDayServerId}-${routine.workOrderDayServiceServerId}-${tt.serviceTaskTemplateServerId ?? tt.taskTemplateServerId}`;
             serverTemplateIds.add(taskServerId);
           }
         }
         for (const tt of assignment.standaloneTasks) {
-          const taskServerId = tt.dayTaskTemplateServerId ?? `standalone-${assignment.workOrderDayServerId}-${tt.taskTemplateServerId}`;
+          const taskServerId = `standalone-${assignment.workOrderDayServerId}-${tt.dayTaskTemplateServerId ?? tt.taskTemplateServerId}`;
           serverTemplateIds.add(taskServerId);
         }
 
