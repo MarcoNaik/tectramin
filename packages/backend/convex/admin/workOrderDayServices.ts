@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { createInstancesForRoutineOnDay } from "../shared/taskInstanceCreation";
 
 const workOrderDayServiceValidator = v.object({
   _id: v.id("workOrderDayServices"),
@@ -27,6 +28,7 @@ export const listByDay = query({
     const links = await ctx.db
       .query("workOrderDayServices")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const result = await Promise.all(
@@ -36,6 +38,7 @@ export const listByDay = query({
         const taskTemplates = await ctx.db
           .query("serviceTaskTemplates")
           .withIndex("by_service", (q) => q.eq("serviceId", link.serviceId))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
         const applicableTasks = taskTemplates.filter(
           (t) => t.dayNumber === undefined || t.dayNumber === day?.dayNumber
@@ -93,7 +96,23 @@ export const addService = mutation({
       .unique();
 
     if (existing) {
-      throw new Error("Service already linked to this work order day");
+      if (existing.isActive !== false) {
+        throw new Error("Service already linked to this work order day");
+      }
+
+      await ctx.db.patch(existing._id, {
+        isActive: true,
+        order: args.order ?? existing.order,
+      });
+
+      await createInstancesForRoutineOnDay(
+        ctx,
+        args.workOrderDayId,
+        existing._id,
+        args.serviceId
+      );
+
+      return existing._id;
     }
 
     let order = args.order;
@@ -101,16 +120,27 @@ export const addService = mutation({
       const existingLinks = await ctx.db
         .query("workOrderDayServices")
         .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+        .filter((q) => q.neq(q.field("isActive"), false))
         .collect();
       order = existingLinks.length;
     }
 
-    return await ctx.db.insert("workOrderDayServices", {
+    const newId = await ctx.db.insert("workOrderDayServices", {
       workOrderDayId: args.workOrderDayId,
       serviceId: args.serviceId,
       order,
       createdAt: Date.now(),
+      isActive: true,
     });
+
+    await createInstancesForRoutineOnDay(
+      ctx,
+      args.workOrderDayId,
+      newId,
+      args.serviceId
+    );
+
+    return newId;
   },
 });
 
@@ -143,12 +173,10 @@ export const removeService = mutation({
 
       if (responses.length > 0 || instance.status === "completed") {
         orphanedCount++;
-      } else {
-        await ctx.db.delete(instance._id);
       }
     }
 
-    await ctx.db.delete(args.workOrderDayServiceId);
+    await ctx.db.patch(args.workOrderDayServiceId, { isActive: false });
 
     return { orphanedCount };
   },
@@ -198,6 +226,7 @@ export const getServicesWithTasks = query({
     const links = await ctx.db
       .query("workOrderDayServices")
       .withIndex("by_work_order_day", (q) => q.eq("workOrderDayId", args.workOrderDayId))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const result = await Promise.all(
@@ -207,6 +236,7 @@ export const getServicesWithTasks = query({
         const serviceTaskTemplates = await ctx.db
           .query("serviceTaskTemplates")
           .withIndex("by_service", (q) => q.eq("serviceId", link.serviceId))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
 
         const applicableTasks = serviceTaskTemplates.filter(
