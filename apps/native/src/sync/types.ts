@@ -21,7 +21,9 @@ export interface LocalTaskInstancePayload {
   clientId: string;
   serverId?: string;
   workOrderDayServerId: string;
-  dayTaskTemplateServerId: string;
+  dayTaskTemplateServerId?: string;
+  workOrderDayServiceServerId?: string;
+  serviceTaskTemplateServerId?: string;
   taskTemplateServerId: string;
   userId: string;
   instanceLabel?: string;
