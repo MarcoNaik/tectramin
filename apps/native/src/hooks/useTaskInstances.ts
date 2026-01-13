@@ -3,7 +3,7 @@ import { useLiveQuery } from "drizzle-orm/expo-sqlite";
 import { eq, and } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../db/client";
-import { taskInstances, fieldResponses, workOrderDayServices, dayTaskTemplates } from "../db/schema";
+import { taskInstances, fieldResponses, workOrderDayServices, dayTaskTemplates, workOrderDays } from "../db/schema";
 import { addToQueue } from "../sync/SyncQueue";
 import { syncService } from "../sync/SyncService";
 import { networkMonitor } from "../sync/NetworkMonitor";
@@ -37,19 +37,38 @@ export function useTaskInstances(userId: string) {
     db.select().from(dayTaskTemplates)
   );
 
+  const { data: assignments } = useLiveQuery(
+    db.select().from(workOrderDays).where(eq(workOrderDays.userId, userId))
+  );
+
   const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? [])
     .filter((instance) => {
+      const dayAssigned = (assignments ?? []).some(
+        (a) => a.serverId === instance.workOrderDayServerId
+      );
+      if (!dayAssigned) return false;
+
       if (instance.workOrderDayServiceServerId) {
-        return (services ?? []).some(
+        const routineExists = (services ?? []).some(
           (s) => s.serverId === instance.workOrderDayServiceServerId
         );
+        if (!routineExists) return false;
+
+        if (instance.serviceTaskTemplateServerId) {
+          return (templates ?? []).some(
+            (tt) => tt.serviceTaskTemplateServerId === instance.serviceTaskTemplateServerId
+          );
+        }
+        return true;
       }
-      return (templates ?? []).some(
-        (tt) =>
-          tt.workOrderDayServerId === instance.workOrderDayServerId &&
-          tt.taskTemplateServerId === instance.taskTemplateServerId &&
-          tt.workOrderDayServiceServerId === null
-      );
+
+      if (instance.dayTaskTemplateServerId) {
+        return (templates ?? []).some(
+          (tt) => tt.dayTaskTemplateServerId === instance.dayTaskTemplateServerId
+        );
+      }
+
+      return false;
     })
     .map((instance) => ({
       ...instance,
@@ -136,12 +155,13 @@ export function useTaskInstances(userId: string) {
         .set(updates)
         .where(eq(taskInstances.clientId, clientId));
 
+      const isRoutineTask = instance.workOrderDayServiceServerId !== null;
       const payload = {
         clientId,
         workOrderDayServerId: instance.workOrderDayServerId,
-        dayTaskTemplateServerId: instance.dayTaskTemplateServerId ?? undefined,
-        workOrderDayServiceServerId: instance.workOrderDayServiceServerId ?? undefined,
-        serviceTaskTemplateServerId: instance.serviceTaskTemplateServerId ?? undefined,
+        dayTaskTemplateServerId: isRoutineTask ? undefined : (instance.dayTaskTemplateServerId ?? undefined),
+        workOrderDayServiceServerId: isRoutineTask ? (instance.workOrderDayServiceServerId ?? undefined) : undefined,
+        serviceTaskTemplateServerId: isRoutineTask ? (instance.serviceTaskTemplateServerId ?? undefined) : undefined,
         taskTemplateServerId: instance.taskTemplateServerId,
         userId,
         instanceLabel: instance.instanceLabel ?? undefined,
@@ -201,16 +221,26 @@ export function useTaskInstancesByWorkOrderDay(workOrderDayServerId: string) {
   const enrichedInstances: TaskInstanceWithResponses[] = (instances ?? [])
     .filter((instance) => {
       if (instance.workOrderDayServiceServerId) {
-        return (services ?? []).some(
+        const routineExists = (services ?? []).some(
           (s) => s.serverId === instance.workOrderDayServiceServerId
         );
+        if (!routineExists) return false;
+
+        if (instance.serviceTaskTemplateServerId) {
+          return (templates ?? []).some(
+            (tt) => tt.serviceTaskTemplateServerId === instance.serviceTaskTemplateServerId
+          );
+        }
+        return true;
       }
-      return (templates ?? []).some(
-        (tt) =>
-          tt.workOrderDayServerId === instance.workOrderDayServerId &&
-          tt.taskTemplateServerId === instance.taskTemplateServerId &&
-          tt.workOrderDayServiceServerId === null
-      );
+
+      if (instance.dayTaskTemplateServerId) {
+        return (templates ?? []).some(
+          (tt) => tt.dayTaskTemplateServerId === instance.dayTaskTemplateServerId
+        );
+      }
+
+      return false;
     })
     .map((instance) => ({
       ...instance,
