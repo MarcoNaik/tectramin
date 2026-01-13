@@ -14,8 +14,8 @@ export { expoDb };
 export async function clearAllData() {
   try {
     const tables = Object.values(schema).filter(
-      (value): value is SQLiteTable => value instanceof SQLiteTable
-    );
+      (value) => value instanceof SQLiteTable
+    ) as SQLiteTable[];
 
     for (const table of tables) {
       const tableName = getTableName(table);
