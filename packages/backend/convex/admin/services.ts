@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { createInstancesForNewRoutineTask } from "../shared/taskInstanceCreation";
 
 const serviceValidator = v.object({
   _id: v.id("services"),
@@ -45,6 +46,7 @@ export const listWithTaskCount = query({
         const links = await ctx.db
           .query("serviceTaskTemplates")
           .withIndex("by_service", (q) => q.eq("serviceId", service._id))
+          .filter((q) => q.neq(q.field("isActive"), false))
           .collect();
         return {
           _id: service._id,
@@ -102,11 +104,13 @@ export const getWithTaskTemplates = query({
     const links = await ctx.db
       .query("serviceTaskTemplates")
       .withIndex("by_service", (q) => q.eq("serviceId", args.id))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const dependencies = await ctx.db
       .query("serviceTaskDependencies")
       .withIndex("by_service", (q) => q.eq("serviceId", args.id))
+      .filter((q) => q.neq(q.field("isActive"), false))
       .collect();
 
     const taskTemplates = await Promise.all(
@@ -250,16 +254,57 @@ export const addTaskTemplate = mutation({
       .unique();
 
     if (existing) {
-      throw new Error("Task template already linked to service");
+      if (existing.isActive !== false) {
+        throw new Error("Task template already linked to service");
+      }
+
+      const depsAsDependant = await ctx.db
+        .query("serviceTaskDependencies")
+        .withIndex("by_dependent", (q) => q.eq("serviceTaskTemplateId", existing._id))
+        .collect();
+      for (const dep of depsAsDependant) {
+        const prereq = await ctx.db.get(dep.dependsOnServiceTaskTemplateId);
+        if (prereq && prereq.isActive !== false) {
+          await ctx.db.patch(dep._id, { isActive: true });
+        }
+      }
+
+      await ctx.db.patch(existing._id, {
+        isActive: true,
+        order: args.order,
+        isRequired: args.isRequired,
+        dayNumber: args.dayNumber,
+      });
+
+      await createInstancesForNewRoutineTask(
+        ctx,
+        args.serviceId,
+        existing._id,
+        args.taskTemplateId,
+        args.dayNumber
+      );
+
+      return existing._id;
     }
 
-    return await ctx.db.insert("serviceTaskTemplates", {
+    const newId = await ctx.db.insert("serviceTaskTemplates", {
       serviceId: args.serviceId,
       taskTemplateId: args.taskTemplateId,
       order: args.order,
       isRequired: args.isRequired,
       dayNumber: args.dayNumber,
+      isActive: true,
     });
+
+    await createInstancesForNewRoutineTask(
+      ctx,
+      args.serviceId,
+      newId,
+      args.taskTemplateId,
+      args.dayNumber
+    );
+
+    return newId;
   },
 });
 
@@ -317,8 +362,6 @@ export const removeTaskTemplate = mutation({
 
         if (responses.length > 0 || instance.status === "completed") {
           orphanedCount++;
-        } else {
-          await ctx.db.delete(instance._id);
         }
       }
 
@@ -326,21 +369,19 @@ export const removeTaskTemplate = mutation({
         .query("serviceTaskDependencies")
         .withIndex("by_dependent", (q) => q.eq("serviceTaskTemplateId", link._id))
         .collect();
-
       for (const dep of depsAsDependant) {
-        await ctx.db.delete(dep._id);
+        await ctx.db.patch(dep._id, { isActive: false });
       }
 
       const depsAsPrereq = await ctx.db
         .query("serviceTaskDependencies")
         .withIndex("by_prerequisite", (q) => q.eq("dependsOnServiceTaskTemplateId", link._id))
         .collect();
-
       for (const dep of depsAsPrereq) {
-        await ctx.db.delete(dep._id);
+        await ctx.db.patch(dep._id, { isActive: false });
       }
 
-      await ctx.db.delete(link._id);
+      await ctx.db.patch(link._id, { isActive: false });
     }
 
     return { orphanedCount };
