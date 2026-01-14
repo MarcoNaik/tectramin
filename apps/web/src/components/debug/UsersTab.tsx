@@ -126,10 +126,14 @@ export function UsersTab() {
   const triggerTalanaSync = useMutation(api.talana.triggerSync);
   const triggerClerkSync = useMutation(api.clerk.triggerSyncAllFromClerk);
   const linkTalanaToClerk = useMutation(api.admin.userLinking.linkTalanaToClerk);
+  const orphanedAssignments = useQuery(api.admin.userLinking.getOrphanedAssignments);
+  const deleteOrphaned = useMutation(api.admin.userLinking.deleteOrphanedAssignments);
 
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [talanaSyncStatus, setTalanaSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
   const [clerkSyncStatus, setClerkSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
+  const [orphanCleanupStatus, setOrphanCleanupStatus] = useState<"idle" | "cleaning" | "done">("idle");
+  const [orphanDeletedCount, setOrphanDeletedCount] = useState(0);
   const [testName, setTestName] = useState("");
   const [testEmail, setTestEmail] = useState("");
 
@@ -206,6 +210,18 @@ export function UsersTab() {
       email: clerkUser.email,
       fullName: clerkUser.fullName,
     });
+  };
+
+  const handleCleanupOrphans = async () => {
+    setOrphanCleanupStatus("cleaning");
+    try {
+      const count = await deleteOrphaned({});
+      setOrphanDeletedCount(count);
+      setOrphanCleanupStatus("done");
+    } catch (e) {
+      console.error("Orphan cleanup error:", e);
+      setOrphanCleanupStatus("idle");
+    }
   };
 
   const alreadySynced = users?.some((u) => u.clerkId === user?.id);
@@ -290,6 +306,38 @@ export function UsersTab() {
           </button>
         </div>
       </div>
+
+      {orphanedAssignments && orphanedAssignments.length > 0 && (
+        <div className="p-3 bg-red-50 border-2 border-red-300">
+          <div className="text-sm font-bold text-red-800 mb-2">
+            Asignaciones Huérfanas ({orphanedAssignments.length})
+          </div>
+          <p className="text-xs text-red-700 mb-2">
+            Estas asignaciones apuntan a usuarios que ya no existen en la base de datos.
+          </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleCleanupOrphans}
+              disabled={orphanCleanupStatus === "cleaning"}
+              className="bg-red-500 text-white px-4 py-2 text-sm font-bold border-2 border-black disabled:opacity-50 hover:bg-red-600"
+            >
+              {orphanCleanupStatus === "cleaning" ? "Limpiando..." : "Eliminar Huérfanas"}
+            </button>
+            {orphanCleanupStatus === "done" && (
+              <span className="text-red-600 text-sm font-bold">
+                {orphanDeletedCount} asignaciones eliminadas
+              </span>
+            )}
+          </div>
+          <div className="mt-2 max-h-32 overflow-y-auto">
+            {orphanedAssignments.map((a) => (
+              <div key={a._id} className="text-xs text-red-700 py-1 border-b border-red-200 last:border-b-0">
+                {a.workOrderName ?? "OT Desconocida"} - Día {a.dayNumber ?? "?"}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="border-2 border-purple-300 p-3">
