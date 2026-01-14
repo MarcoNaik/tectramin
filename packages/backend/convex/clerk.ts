@@ -32,7 +32,11 @@ export const syncFromWebhook = internalMutation({
       .unique();
 
     if (existingByEmail) {
-      if (existingByEmail.clerkId.startsWith("talana_")) {
+      const isPendingUser =
+        existingByEmail.clerkId.startsWith("talana_") ||
+        existingByEmail.clerkId.startsWith("test_");
+
+      if (isPendingUser) {
         await ctx.db.patch(existingByEmail._id, {
           clerkId: args.clerkId,
           fullName: args.fullName ?? existingByEmail.fullName,
