@@ -141,6 +141,17 @@ export const getByRut = query({
   },
 });
 
+export const getByEmail = query({
+  args: { email: v.string() },
+  returns: v.union(userValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+  },
+});
+
 export const linkByRut = mutation({
   args: {
     clerkId: v.string(),
