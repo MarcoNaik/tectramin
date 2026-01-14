@@ -11,6 +11,18 @@
       "cache": false,
       "persistent": true
     },
+    "prod": {
+      "cache": false,
+      "persistent": true
+    },
+    "prod:ios": {
+      "cache": false,
+      "persistent": true
+    },
+    "prod:android": {
+      "cache": false,
+      "persistent": true
+    },
     "lint": {},
     "clean": {
       "cache": false
