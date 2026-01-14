@@ -3,4 +3,7 @@
 
 *.apk
 *.aab
+*.ipa
 mapping-*.txt
+
+google-service-account.json
