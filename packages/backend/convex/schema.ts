@@ -14,6 +14,7 @@ export default defineSchema({
     talanaId: v.optional(v.number()),
   })
     .index("by_clerk_id", ["clerkId"])
+    .index("by_email", ["email"])
     .index("by_role", ["role"])
     .index("by_active", ["isActive"])
     .index("by_rut", ["rut"])
