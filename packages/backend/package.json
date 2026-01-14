@@ -7,6 +7,7 @@
     "setup": "convex dev --until-success"
   },
   "dependencies": {
+    "@clerk/backend": "^2.29.2",
     "convex": "^1.25.0"
   },
   "devDependencies": {
