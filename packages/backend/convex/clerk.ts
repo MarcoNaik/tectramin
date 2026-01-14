@@ -1,4 +1,4 @@
-import { internalMutation, internalQuery, internalAction, mutation } from "./_generated/server";
+import { internalMutation, internalQuery, internalAction, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 
@@ -172,5 +172,27 @@ export const triggerSyncAllFromClerk = mutation({
   handler: async (ctx) => {
     await ctx.scheduler.runAfter(0, internal.clerk.syncAllFromClerk, {});
     return null;
+  },
+});
+
+export const deleteFromClerk = internalAction({
+  args: { clerkId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkSecretKey) {
+      console.error("CLERK_SECRET_KEY not configured, skipping Clerk deletion");
+      return false;
+    }
+
+    try {
+      const { createClerkClient } = await import("@clerk/backend");
+      const clerk = createClerkClient({ secretKey: clerkSecretKey });
+      await clerk.users.deleteUser(args.clerkId);
+      return true;
+    } catch (e) {
+      console.error("Failed to delete user from Clerk:", e);
+      return false;
+    }
   },
 });

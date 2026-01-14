@@ -1,5 +1,6 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 
 const userValidator = v.object({
   _id: v.id("users"),
@@ -185,11 +186,12 @@ export const deleteUser = mutation({
   returns: v.object({
     deleted: v.boolean(),
     assignmentsRemoved: v.number(),
+    clerkDeletionScheduled: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.id);
     if (!user) {
-      return { deleted: false, assignmentsRemoved: 0 };
+      return { deleted: false, assignmentsRemoved: 0, clerkDeletionScheduled: false };
     }
 
     const assignments = await ctx.db
@@ -201,8 +203,21 @@ export const deleteUser = mutation({
       await ctx.db.delete(assignment._id);
     }
 
+    const isRealClerkUser =
+      !user.clerkId.startsWith("talana_") && !user.clerkId.startsWith("test_");
+
+    if (isRealClerkUser) {
+      await ctx.scheduler.runAfter(0, internal.clerk.deleteFromClerk, {
+        clerkId: user.clerkId,
+      });
+    }
+
     await ctx.db.delete(args.id);
 
-    return { deleted: true, assignmentsRemoved: assignments.length };
+    return {
+      deleted: true,
+      assignmentsRemoved: assignments.length,
+      clerkDeletionScheduled: isRealClerkUser,
+    };
   },
 });
