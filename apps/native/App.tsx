@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ConvexClientProvider from "./ConvexClientProvider";
 import { OfflineProvider } from "./src/providers/OfflineProvider";
+import { OnboardingProvider } from "./src/providers/OnboardingProvider";
 import { PermissionsGate } from "./src/components/PermissionsGate";
 import HomeScreen from "./src/screens/HomeScreen";
 
@@ -16,19 +17,21 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <SafeAreaProvider>
         <ConvexClientProvider>
-          <OfflineProvider>
-            <PermissionsGate>
-              <NavigationContainer>
-                <Stack.Navigator>
-                  <Stack.Screen
-                    name="Home"
-                    component={HomeScreen}
-                    options={{ headerShown: false }}
-                  />
-                </Stack.Navigator>
-              </NavigationContainer>
-            </PermissionsGate>
-          </OfflineProvider>
+          <OnboardingProvider>
+            <OfflineProvider>
+              <PermissionsGate>
+                <NavigationContainer>
+                  <Stack.Navigator>
+                    <Stack.Screen
+                      name="Home"
+                      component={HomeScreen}
+                      options={{ headerShown: false }}
+                    />
+                  </Stack.Navigator>
+                </NavigationContainer>
+              </PermissionsGate>
+            </OfflineProvider>
+          </OnboardingProvider>
         </ConvexClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
