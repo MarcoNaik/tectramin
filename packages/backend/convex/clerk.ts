@@ -1,5 +1,6 @@
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, internalAction, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const syncFromWebhook = internalMutation({
   args: {
@@ -100,5 +101,72 @@ export const getByClerkId = internalQuery({
       .query("users")
       .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
       .unique();
+  },
+});
+
+export const syncAllFromClerk = internalAction({
+  args: {},
+  returns: v.object({
+    synced: v.number(),
+    skipped: v.number(),
+  }),
+  handler: async (ctx) => {
+    const clerkSecretKey = process.env.CLERK_SECRET_KEY;
+    if (!clerkSecretKey) {
+      throw new Error("CLERK_SECRET_KEY not configured");
+    }
+
+    const { createClerkClient } = await import("@clerk/backend");
+    const clerk = createClerkClient({ secretKey: clerkSecretKey });
+
+    let synced = 0;
+    let skipped = 0;
+    let offset = 0;
+    const limit = 100;
+
+    while (true) {
+      const response = await clerk.users.getUserList({
+        limit,
+        offset,
+      });
+
+      if (response.data.length === 0) {
+        break;
+      }
+
+      for (const user of response.data) {
+        const email = user.emailAddresses?.[0]?.emailAddress ?? "";
+        const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || undefined;
+
+        if (!email) {
+          skipped++;
+          continue;
+        }
+
+        await ctx.runMutation(internal.clerk.syncFromWebhook, {
+          clerkId: user.id,
+          email,
+          fullName,
+        });
+        synced++;
+      }
+
+      if (response.data.length < limit) {
+        break;
+      }
+
+      offset += limit;
+    }
+
+    return { synced, skipped };
+  },
+});
+
+export const triggerSyncAllFromClerk = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ctx.scheduler.runAfter(0, internal.clerk.syncAllFromClerk, {});
+    return null;
   },
 });
