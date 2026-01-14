@@ -136,7 +136,7 @@ function WorkOrderSpan({
       if (user) {
         slots.push(
           <span key={i} className="w-5 h-5 border-2 border-black text-xs font-bold flex items-center justify-center bg-white">
-            {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+            {user.fullName?.[0]?.toUpperCase() || (user.email?.[0] || "?").toUpperCase()}
           </span>
         );
       } else {
@@ -210,7 +210,7 @@ function DroppableSlot({
         ref={setNodeRef}
         className="w-12 h-12 border-2 border-black bg-white font-bold flex items-center justify-center relative group text-sm"
       >
-        {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+        {user.fullName?.[0]?.toUpperCase() || (user.email?.[0] || "?").toUpperCase()}
         {onRemove && (
           <button
             onClick={(e) => {
@@ -258,7 +258,7 @@ function DraggableUserCard({ user }: { user: UserData }) {
     >
       <div className="flex items-center gap-2">
         <span className="w-8 h-8 border-2 border-black font-bold flex items-center justify-center text-sm bg-gray-50">
-          {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+          {user.fullName?.[0]?.toUpperCase() || (user.email?.[0] || "?").toUpperCase()}
         </span>
         <span className="font-medium text-sm truncate max-w-[120px]">{user.fullName || user.email}</span>
       </div>
@@ -320,7 +320,7 @@ function ClickableUserSlot({
         className="w-12 h-12 border-2 border-black bg-white font-bold flex items-center justify-center relative group text-sm cursor-pointer hover:bg-blue-50"
         onClick={onClick}
       >
-        {user.fullName?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+        {user.fullName?.[0]?.toUpperCase() || (user.email?.[0] || "?").toUpperCase()}
         {onRemove && (
           <button
             onClick={(e) => {
