@@ -25,15 +25,18 @@ function UserCard({
   variant,
   onLink,
   onUpdateRole,
+  onDelete,
   linkOptions,
 }: {
   user: User;
   variant: "talana" | "clerk" | "linked" | "test";
   onLink?: (targetId: Id<"users">) => void;
   onUpdateRole?: (role: string) => void;
+  onDelete?: () => void;
   linkOptions?: User[];
 }) {
   const [showLinkDropdown, setShowLinkDropdown] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const borderColor = {
     talana: "border-purple-400",
@@ -111,6 +114,37 @@ function UserCard({
           )}
         </div>
       )}
+
+      {onDelete && (
+        <div className="pt-1 border-t border-gray-200">
+          {confirmDelete ? (
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  onDelete();
+                  setConfirmDelete(false);
+                }}
+                className="flex-1 text-xs bg-red-500 text-white px-2 py-1 hover:bg-red-600"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 text-xs bg-gray-300 text-gray-700 px-2 py-1 hover:bg-gray-400"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full text-xs text-red-600 hover:text-red-800 px-2 py-1 hover:bg-red-50"
+            >
+              Eliminar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -128,6 +162,7 @@ export function UsersTab() {
   const linkTalanaToClerk = useMutation(api.admin.userLinking.linkTalanaToClerk);
   const orphanedAssignments = useQuery(api.admin.userLinking.getOrphanedAssignments);
   const deleteOrphaned = useMutation(api.admin.userLinking.deleteOrphanedAssignments);
+  const deleteUser = useMutation(api.shared.users.deleteUser);
 
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [talanaSyncStatus, setTalanaSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
@@ -221,6 +256,14 @@ export function UsersTab() {
     } catch (e) {
       console.error("Orphan cleanup error:", e);
       setOrphanCleanupStatus("idle");
+    }
+  };
+
+  const handleDeleteUser = async (userId: Id<"users">) => {
+    try {
+      await deleteUser({ id: userId });
+    } catch (e) {
+      console.error("Delete user error:", e);
     }
   };
 
@@ -353,6 +396,7 @@ export function UsersTab() {
                 variant="talana"
                 linkOptions={clerkOnlyUsers}
                 onLink={(targetId) => handleLinkTalanaToClerk(u._id, targetId)}
+                onDelete={() => handleDeleteUser(u._id)}
               />
             ))}
             {talanaUsers?.length === 0 && (
@@ -374,6 +418,7 @@ export function UsersTab() {
                 variant="clerk"
                 linkOptions={talanaUsers}
                 onLink={(targetId) => handleLinkClerkToTalana(u._id, targetId)}
+                onDelete={() => handleDeleteUser(u._id)}
               />
             ))}
             {clerkOnlyUsers?.length === 0 && (
@@ -394,6 +439,7 @@ export function UsersTab() {
                 user={u}
                 variant="linked"
                 onUpdateRole={(role) => updateRole({ id: u._id, role })}
+                onDelete={() => handleDeleteUser(u._id)}
               />
             ))}
             {linkedUsers?.length === 0 && (
@@ -411,7 +457,12 @@ export function UsersTab() {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {testUsers.map((u) => (
-              <UserCard key={u._id} user={u} variant="test" />
+              <UserCard
+                key={u._id}
+                user={u}
+                variant="test"
+                onDelete={() => handleDeleteUser(u._id)}
+              />
             ))}
           </div>
         </div>

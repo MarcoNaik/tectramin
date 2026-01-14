@@ -179,3 +179,30 @@ export const linkByRut = mutation({
     return null;
   },
 });
+
+export const deleteUser = mutation({
+  args: { id: v.id("users") },
+  returns: v.object({
+    deleted: v.boolean(),
+    assignmentsRemoved: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.id);
+    if (!user) {
+      return { deleted: false, assignmentsRemoved: 0 };
+    }
+
+    const assignments = await ctx.db
+      .query("workOrderDayAssignments")
+      .withIndex("by_user", (q) => q.eq("userId", args.id))
+      .collect();
+
+    for (const assignment of assignments) {
+      await ctx.db.delete(assignment._id);
+    }
+
+    await ctx.db.delete(args.id);
+
+    return { deleted: true, assignmentsRemoved: assignments.length };
+  },
+});
