@@ -124,10 +124,12 @@ export function UsersTab() {
   const upsertFromClerk = useMutation(api.shared.users.upsertFromClerk);
   const updateRole = useMutation(api.shared.users.updateRole);
   const triggerTalanaSync = useMutation(api.talana.triggerSync);
+  const triggerClerkSync = useMutation(api.clerk.triggerSyncAllFromClerk);
   const linkTalanaToClerk = useMutation(api.admin.userLinking.linkTalanaToClerk);
 
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const [talanaSyncStatus, setTalanaSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
+  const [clerkSyncStatus, setClerkSyncStatus] = useState<"idle" | "syncing" | "triggered">("idle");
   const [testName, setTestName] = useState("");
   const [testEmail, setTestEmail] = useState("");
 
@@ -170,6 +172,17 @@ export function UsersTab() {
     }
   };
 
+  const handleClerkSync = async () => {
+    setClerkSyncStatus("syncing");
+    try {
+      await triggerClerkSync({});
+      setClerkSyncStatus("triggered");
+    } catch (e) {
+      console.error("Clerk sync error:", e);
+      setClerkSyncStatus("idle");
+    }
+  };
+
   const handleLinkTalanaToClerk = async (talanaUserId: Id<"users">, clerkUserId: Id<"users">) => {
     const clerkUser = clerkOnlyUsers?.find((u) => u._id === clerkUserId);
     if (!clerkUser) return;
@@ -202,7 +215,7 @@ export function UsersTab() {
     <div className="space-y-4">
       <h3 className="text-lg font-bold">Gestión de Usuarios ({users?.length ?? 0})</h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-3 bg-yellow-50 border-2 border-yellow-300">
           <div className="text-sm font-bold text-yellow-800 mb-2">Tu ID de Clerk: {user?.id}</div>
           {alreadySynced ? (
@@ -232,6 +245,22 @@ export function UsersTab() {
             </button>
             {talanaSyncStatus === "triggered" && (
               <span className="text-purple-600 text-sm font-bold">Sincronización iniciada</span>
+            )}
+          </div>
+        </div>
+
+        <div className="p-3 bg-blue-50 border-2 border-blue-300">
+          <div className="text-sm font-bold text-blue-800 mb-2">Sincronizar Clerk</div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClerkSync}
+              disabled={clerkSyncStatus === "syncing"}
+              className="bg-blue-500 text-white px-4 py-2 text-sm font-bold border-2 border-black disabled:opacity-50 hover:bg-blue-600"
+            >
+              {clerkSyncStatus === "syncing" ? "Sincronizando..." : "Sincronizar Todos"}
+            </button>
+            {clerkSyncStatus === "triggered" && (
+              <span className="text-blue-600 text-sm font-bold">Sincronización iniciada</span>
             )}
           </div>
         </div>
