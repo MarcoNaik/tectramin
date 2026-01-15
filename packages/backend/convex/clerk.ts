@@ -8,7 +8,7 @@ export const syncFromWebhook = internalMutation({
     email: v.string(),
     fullName: v.optional(v.string()),
   },
-  returns: v.id("users"),
+  returns: v.union(v.id("users"), v.null()),
   handler: async (ctx, args) => {
     const existingByClerkId = await ctx.db
       .query("users")
@@ -51,15 +51,7 @@ export const syncFromWebhook = internalMutation({
       return existingByEmail._id;
     }
 
-    return await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      email: args.email,
-      fullName: args.fullName,
-      role: "field_worker",
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
+    return null;
   },
 });
 
