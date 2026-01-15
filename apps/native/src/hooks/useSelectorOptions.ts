@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { useLookupEntities } from "./useLookupEntities";
 import { useUsers } from "./useUsers";
+import { useTaskInstanceSelectOptions, type TaskInstanceSelectConfig } from "./useTaskInstanceSelectOptions";
 import { parseSelectOptions } from "../types/select";
 import type { SelectOption } from "../types/select";
 
 export type OptionsSourceConfig =
   | { type: "static"; displayStyle: string | null | undefined }
   | { type: "entity"; entityTypeId: string | undefined; parentValue?: string }
-  | { type: "user" };
+  | { type: "user" }
+  | { type: "taskInstance"; workOrderDayServerId: string | undefined; config: TaskInstanceSelectConfig };
 
 export interface UseSelectorOptionsResult {
   options: SelectOption[];
@@ -28,6 +30,11 @@ export function useSelectorOptions(config: OptionsSourceConfig): UseSelectorOpti
   );
 
   const { users } = useUsers();
+
+  const taskInstanceOptions = useTaskInstanceSelectOptions(
+    config.type === "taskInstance" ? config.workOrderDayServerId : undefined,
+    config.type === "taskInstance" ? config.config : {}
+  );
 
   return useMemo(() => {
     switch (config.type) {
@@ -65,6 +72,13 @@ export function useSelectorOptions(config: OptionsSourceConfig): UseSelectorOpti
           isLoading: false,
           needsParentSelection: false,
         };
+
+      case "taskInstance":
+        return {
+          options: taskInstanceOptions,
+          isLoading: false,
+          needsParentSelection: false,
+        };
     }
-  }, [config, staticOptions, entities, entityType, users]);
+  }, [config, staticOptions, entities, entityType, users, taskInstanceOptions]);
 }

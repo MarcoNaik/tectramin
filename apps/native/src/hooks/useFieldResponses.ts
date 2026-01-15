@@ -8,7 +8,6 @@ import { addToQueue } from "../sync/SyncQueue";
 import { syncService } from "../sync/SyncService";
 import { networkMonitor } from "../sync/NetworkMonitor";
 import { useConvex } from "convex/react";
-import { api } from "@packages/backend/convex/_generated/api";
 import { updateWorkOrderDayStatusDirect } from "./useWorkOrderDayStatus";
 import type { FieldResponse, FieldResponseInput } from "../db/types";
 
@@ -66,33 +65,16 @@ export function useFieldResponses(taskInstanceClientId: string, userId: string) 
         updatedAt: now.getTime(),
       };
 
+      await addToQueue(
+        "fieldResponses",
+        isNew ? "create" : "update",
+        clientId,
+        payload
+      );
+      await syncService.updatePendingCount();
+
       if (networkMonitor.getIsOnline()) {
-        try {
-          const syncResult = await convex.mutation(
-            api.mobile.sync.upsertFieldResponse,
-            payload
-          );
-          await db
-            .update(fieldResponses)
-            .set({ serverId: syncResult.serverId, syncStatus: "synced" })
-            .where(eq(fieldResponses.clientId, clientId));
-        } catch {
-          await addToQueue(
-            "fieldResponses",
-            isNew ? "create" : "update",
-            clientId,
-            payload
-          );
-          await syncService.updatePendingCount();
-        }
-      } else {
-        await addToQueue(
-          "fieldResponses",
-          isNew ? "create" : "update",
-          clientId,
-          payload
-        );
-        await syncService.updatePendingCount();
+        syncService.sync();
       }
 
       if (isNew) {

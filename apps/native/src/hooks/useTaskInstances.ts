@@ -1,14 +1,12 @@
 import { useCallback } from "react";
 import { useLiveQuery } from "drizzle-orm/expo-sqlite";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "../db/client";
 import { taskInstances, fieldResponses, workOrderDayServices, dayTaskTemplates, workOrderDays } from "../db/schema";
 import { addToQueue } from "../sync/SyncQueue";
 import { syncService } from "../sync/SyncService";
 import { networkMonitor } from "../sync/NetworkMonitor";
-import { useConvex } from "convex/react";
-import { api } from "@packages/backend/convex/_generated/api";
 import type { TaskInstance, FieldResponse, TaskInstanceInput } from "../db/types";
 
 export interface TaskInstanceWithResponses extends TaskInstance {
@@ -16,8 +14,6 @@ export interface TaskInstanceWithResponses extends TaskInstance {
 }
 
 export function useTaskInstances(userId: string) {
-  const convex = useConvex();
-
   const { data: instances } = useLiveQuery(
     db
       .select()
@@ -115,25 +111,16 @@ export function useTaskInstances(userId: string) {
         updatedAt: now.getTime(),
       };
 
+      await addToQueue("taskInstances", "create", clientId, payload);
+      await syncService.updatePendingCount();
+
       if (networkMonitor.getIsOnline()) {
-        try {
-          const result = await convex.mutation(api.mobile.sync.upsertTaskInstance, payload);
-          await db
-            .update(taskInstances)
-            .set({ serverId: result.serverId, syncStatus: "synced" })
-            .where(eq(taskInstances.clientId, clientId));
-        } catch {
-          await addToQueue("taskInstances", "create", clientId, payload);
-          await syncService.updatePendingCount();
-        }
-      } else {
-        await addToQueue("taskInstances", "create", clientId, payload);
-        await syncService.updatePendingCount();
+        syncService.sync();
       }
 
       return clientId;
     },
-    [convex, userId]
+    [userId]
   );
 
   const updateTaskInstanceStatus = useCallback(
@@ -172,23 +159,14 @@ export function useTaskInstances(userId: string) {
         updatedAt: now.getTime(),
       };
 
-      if (networkMonitor.getIsOnline() && instance.serverId) {
-        try {
-          await convex.mutation(api.mobile.sync.upsertTaskInstance, payload);
-          await db
-            .update(taskInstances)
-            .set({ syncStatus: "synced" })
-            .where(eq(taskInstances.clientId, clientId));
-        } catch {
-          await addToQueue("taskInstances", "update", clientId, payload);
-          await syncService.updatePendingCount();
-        }
-      } else {
-        await addToQueue("taskInstances", "update", clientId, payload);
-        await syncService.updatePendingCount();
+      await addToQueue("taskInstances", "update", clientId, payload);
+      await syncService.updatePendingCount();
+
+      if (networkMonitor.getIsOnline()) {
+        syncService.sync();
       }
     },
-    [convex, instances, userId]
+    [instances, userId]
   );
 
   return {
