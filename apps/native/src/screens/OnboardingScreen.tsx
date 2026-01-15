@@ -31,7 +31,9 @@ function MatchCard({
       ? "Alta coincidencia"
       : match.confidence >= 0.6
         ? "Posible coincidencia"
-        : "Baja coincidencia";
+        : match.confidence > 0
+          ? "Baja coincidencia"
+          : "";
 
   const confidenceColor =
     match.confidence >= 0.9
@@ -55,9 +57,11 @@ function MatchCard({
         <Text style={styles.matchName}>{match.user.fullName ?? match.user.email}</Text>
         <Text style={styles.matchEmail}>{match.user.email}</Text>
         {match.user.rut && <Text style={styles.matchRut}>RUT: {match.user.rut}</Text>}
-        <Text style={[styles.matchConfidence, { color: confidenceColor }]}>
-          {confidenceLabel}
-        </Text>
+        {confidenceLabel ? (
+          <Text style={[styles.matchConfidence, { color: confidenceColor }]}>
+            {confidenceLabel}
+          </Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -123,23 +127,52 @@ export function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#7c3aed" />
-            <Text style={styles.loadingText}>Buscando tu perfil...</Text>
+            <Text style={styles.loadingText}>Buscando tu perfil en Talana...</Text>
           </View>
         ) : matches && matches.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Encontramos posibles coincidencias:</Text>
+            <Text style={styles.sectionTitle}>Selecciona tu perfil</Text>
             <Text style={styles.sectionSubtitle}>
-              Selecciona tu perfil de la lista o crea uno nuevo
+              Vincula tu cuenta con tu perfil de Talana. Si no encuentras tu nombre, puedes crear una cuenta nueva.
             </Text>
 
-            {matches.map((match) => (
-              <MatchCard
-                key={match.user._id}
-                match={match}
-                isSelected={selectedMatch === match.user._id}
-                onSelect={() => setSelectedMatch(match.user._id)}
-              />
-            ))}
+            {(() => {
+              const suggestedMatches = matches.filter((m) => m.confidence > 0);
+              const directoryUsers = matches.filter((m) => m.confidence === 0);
+              const hasSuggestions = suggestedMatches.length > 0;
+              const hasDirectory = directoryUsers.length > 0;
+
+              return (
+                <>
+                  {hasSuggestions && (
+                    <>
+                      <Text style={styles.dividerText}>Posibles coincidencias</Text>
+                      {suggestedMatches.map((match) => (
+                        <MatchCard
+                          key={match.user._id}
+                          match={match}
+                          isSelected={selectedMatch === match.user._id}
+                          onSelect={() => setSelectedMatch(match.user._id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {hasDirectory && (
+                    <>
+                      <Text style={styles.dividerText}>Directorio Talana</Text>
+                      {directoryUsers.map((match) => (
+                        <MatchCard
+                          key={match.user._id}
+                          match={match}
+                          isSelected={selectedMatch === match.user._id}
+                          onSelect={() => setSelectedMatch(match.user._id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             <TouchableOpacity
               style={[
@@ -278,6 +311,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     marginBottom: 24,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#9ca3af",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 12,
   },
   matchCard: {
     flexDirection: "row",

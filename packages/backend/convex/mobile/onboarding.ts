@@ -67,6 +67,7 @@ export const findPotentialMatches = query({
       confidence: number;
     }> = [];
 
+    const matchedUserIds = new Set<string>();
     const emailDomain = args.email.split("@")[1]?.toLowerCase();
 
     for (const user of pendingUsers) {
@@ -74,6 +75,7 @@ export const findPotentialMatches = query({
 
       if (user.email.toLowerCase() === args.email.toLowerCase()) {
         matches.push({ user, matchType: "email_exact", confidence: 1.0 });
+        matchedUserIds.add(user._id);
         continue;
       }
 
@@ -99,10 +101,23 @@ export const findPotentialMatches = query({
         }
 
         matches.push({ user, matchType: "email_domain", confidence });
+        matchedUserIds.add(user._id);
       }
     }
 
     matches.sort((a, b) => b.confidence - a.confidence);
+
+    const MIN_MATCHES = 3;
+    if (matches.length < MIN_MATCHES) {
+      const remainingUsers = pendingUsers
+        .filter((u) => !matchedUserIds.has(u._id))
+        .sort((a, b) => (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email));
+
+      for (const user of remainingUsers) {
+        matches.push({ user, matchType: "directory", confidence: 0 });
+      }
+    }
+
     return matches;
   },
 });

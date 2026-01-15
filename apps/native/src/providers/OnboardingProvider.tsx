@@ -30,13 +30,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     isSignedIn && clerkId ? { clerkId } : "skip"
   );
 
-  const isLoading = isSignedIn && onboardingStatus === undefined;
+  const isLoading = Boolean(isSignedIn && onboardingStatus === undefined);
 
-  const needsOnboarding =
+  const needsOnboarding = Boolean(
     isSignedIn &&
     !hasCompletedOnboarding &&
     onboardingStatus !== undefined &&
-    onboardingStatus.needsOnboarding;
+    onboardingStatus.needsOnboarding
+  );
 
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
