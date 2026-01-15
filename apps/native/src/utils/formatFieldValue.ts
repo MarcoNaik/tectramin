@@ -45,6 +45,17 @@ export function formatFieldValue(
     }
     case "displayText":
       return "";
+    case "taskInstanceSelect":
+      return value;
+    case "coordenated":
+      try {
+        const coords = JSON.parse(value);
+        const lat = coords.latitude || "-";
+        const lng = coords.longitude || "-";
+        return `Lat: ${lat}, Lng: ${lng}`;
+      } catch {
+        return value;
+      }
     default:
       return value;
   }

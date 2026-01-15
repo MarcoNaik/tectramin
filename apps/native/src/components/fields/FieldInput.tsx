@@ -10,6 +10,8 @@ import { UserSelectField } from "./UserSelectField";
 import { MultiUserSelectField } from "./MultiUserSelectField";
 import { EntitySelectField } from "./EntitySelectField";
 import { MultiEntitySelectField } from "./MultiEntitySelectField";
+import { TaskInstanceSelectField } from "./TaskInstanceSelectField";
+import { CoordinatedField } from "./CoordinatedField";
 import { DatePickerField } from "../DatePickerField";
 import { AttachmentField } from "../AttachmentField";
 import { DebouncedTextInput } from "../DebouncedTextInput";
@@ -25,6 +27,7 @@ interface FieldInputProps {
   userId: string;
   ensureFieldResponse: () => Promise<string>;
   getResponseForField?: (fieldServerId: string) => string | undefined;
+  workOrderDayServerId?: string;
   index?: number;
   marginBottom?: number;
 }
@@ -37,6 +40,7 @@ export function FieldInput({
   userId,
   ensureFieldResponse,
   getResponseForField,
+  workOrderDayServerId,
   index,
   marginBottom = 16,
 }: FieldInputProps) {
@@ -234,6 +238,33 @@ export function FieldInput({
         value={value}
         onChange={onChange}
         getResponseForField={getResponseForField}
+        marginBottom={marginBottom}
+      />
+    );
+  }
+
+  if (field.fieldType === "taskInstanceSelect") {
+    return (
+      <TaskInstanceSelectField
+        field={fieldWithFormattedLabel}
+        value={value}
+        onChange={onChange}
+        workOrderDayServerId={workOrderDayServerId}
+        marginBottom={marginBottom}
+      />
+    );
+  }
+
+  if (field.fieldType === "coordenated") {
+    return (
+      <CoordinatedField
+        field={field}
+        value={value}
+        onChange={onChange}
+        fieldResponseClientId={fieldResponseClientId}
+        userId={userId}
+        ensureFieldResponse={ensureFieldResponse}
+        formatLabel={formatLabel}
         marginBottom={marginBottom}
       />
     );
