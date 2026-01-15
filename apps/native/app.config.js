@@ -1,11 +1,13 @@
+const IS_DEV = process.env.APP_VARIANT === "development" || process.env.EAS_BUILD_PROFILE === "development";
+
 export default {
   expo: {
-    name: "Tectramin",
+    name: IS_DEV ? "Tectramin Dev" : "Tectramin",
     slug: "tectramin",
     scheme: "tectramin",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: IS_DEV ? "./assets/icon-dev.png" : "./assets/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
     splash: {
@@ -15,18 +17,20 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.kueks.tectramin",
+      bundleIdentifier: IS_DEV ? "com.kueks.tectramin.dev" : "com.kueks.tectramin",
+      deploymentTarget: "15.5",
       infoPlist: {
         NSCameraUsageDescription:
           "Tectramin necesita acceso a la cámara para tomar fotos de las tareas realizadas.",
         NSLocationWhenInUseUsageDescription:
           "Tectramin necesita acceso a tu ubicación para registrar dónde se realizan las tareas.",
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
-      package: "com.kueks.tectramin",
+      package: IS_DEV ? "com.kueks.tectramin.dev" : "com.kueks.tectramin",
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: IS_DEV ? "./assets/adaptive-icon-dev.png" : "./assets/adaptive-icon.png",
         backgroundColor: "#0D87E1",
       },
       permissions: [
@@ -39,6 +43,14 @@ export default {
       favicon: "./assets/favicon.png",
     },
     plugins: [
+      [
+        "expo-build-properties",
+        {
+          ios: {
+            deploymentTarget: "15.5",
+          },
+        },
+      ],
       "expo-font",
       "expo-secure-store",
       ["expo-sqlite"],
@@ -55,6 +67,13 @@ export default {
         {
           locationWhenInUsePermission:
             "Tectramin necesita acceso a tu ubicación para registrar dónde se realizan las tareas.",
+        },
+      ],
+      [
+        "rn-mlkit-ocr",
+        {
+          ocrModels: ["latin"],
+          ocrUseBundled: true,
         },
       ],
     ],
