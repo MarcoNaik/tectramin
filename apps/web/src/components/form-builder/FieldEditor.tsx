@@ -20,6 +20,11 @@ interface EntitySelectConfig {
   filterByFieldId?: string;
 }
 
+interface TaskInstanceSelectConfig {
+  sourceTaskTemplateId?: string;
+  displayFieldTemplateId?: string;
+}
+
 type AttachmentSource = "camera" | "gallery" | "document";
 
 interface AttachmentConfig {
@@ -60,6 +65,19 @@ function parseAttachmentConfig(displayStyle: string | undefined): AttachmentConf
     const parsed = JSON.parse(displayStyle);
     if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
       return parsed as AttachmentConfig;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function parseTaskInstanceSelectConfig(displayStyle: string | undefined): TaskInstanceSelectConfig {
+  if (!displayStyle) return {};
+  try {
+    const parsed = JSON.parse(displayStyle);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as TaskInstanceSelectConfig;
     }
     return {};
   } catch {
@@ -219,6 +237,84 @@ function EntityTypeSelector({
             {selectedType?.parentEntityTypeId
               ? "Este es un tipo hijo - puede filtrar por un campo padre"
               : "Este es un tipo raíz"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskInstanceTypeSelector({
+  config,
+  onChange,
+  currentTaskTemplateId,
+}: {
+  config: TaskInstanceSelectConfig;
+  onChange: (config: TaskInstanceSelectConfig) => void;
+  currentTaskTemplateId: Id<"taskTemplates">;
+}) {
+  const taskTemplates = useQuery(api.admin.taskTemplates.list);
+  const sourceFields = useQuery(
+    api.admin.fieldTemplates.listByTaskTemplate,
+    config.sourceTaskTemplateId ? { taskTemplateId: config.sourceTaskTemplateId as Id<"taskTemplates"> } : "skip"
+  );
+
+  const availableTaskTemplates = taskTemplates?.filter((t) => t._id !== currentTaskTemplateId && t.isActive);
+  const selectedTemplate = taskTemplates?.find((t) => t._id === config.sourceTaskTemplateId);
+  const displayableFieldTypes = ["text", "number", "select", "entitySelect"];
+  const availableDisplayFields = sourceFields?.filter((f) => displayableFieldTypes.includes(f.fieldType));
+  const selectedField = sourceFields?.find((f) => f._id === config.displayFieldTemplateId);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-sm font-bold text-gray-700 mb-1">Tarea Fuente</label>
+        <select
+          value={config.sourceTaskTemplateId || ""}
+          onChange={(e) => onChange({ ...config, sourceTaskTemplateId: e.target.value || undefined, displayFieldTemplateId: undefined })}
+          className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Seleccionar tarea...</option>
+          {availableTaskTemplates?.map((template) => (
+            <option key={template._id} value={template._id}>
+              {template.name}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500 mt-1">
+          Se mostrarán las instancias completadas de esta tarea
+        </p>
+      </div>
+      {config.sourceTaskTemplateId && (
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Campo de Etiqueta</label>
+          <select
+            value={config.displayFieldTemplateId || ""}
+            onChange={(e) => onChange({ ...config, displayFieldTemplateId: e.target.value || undefined })}
+            className="w-full border-2 border-black rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Seleccionar campo...</option>
+            {availableDisplayFields?.map((field) => (
+              <option key={field._id} value={field._id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            El valor de este campo se usará como etiqueta en el selector
+          </p>
+        </div>
+      )}
+      {!config.sourceTaskTemplateId && (
+        <p className="text-xs text-orange-500">Selecciona una tarea fuente para configurar este campo</p>
+      )}
+      {config.sourceTaskTemplateId && config.displayFieldTemplateId && (
+        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <p className="text-sm text-purple-700 font-medium">
+            Instancias de: {selectedTemplate?.name || "..."}
+          </p>
+          <p className="text-xs text-purple-600 mt-1">
+            Mostrar: {selectedField?.label || "..."}
           </p>
         </div>
       )}
@@ -461,6 +557,13 @@ export function FieldEditor({
               onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
               allFields={allFields}
               currentFieldId={selectedField._id}
+            />
+          )}
+          {selectedField.fieldType === "taskInstanceSelect" && (
+            <TaskInstanceTypeSelector
+              config={parseTaskInstanceSelectConfig(selectedField.displayStyle)}
+              onChange={(config) => onUpdate(selectedField._id, { displayStyle: JSON.stringify(config) })}
+              currentTaskTemplateId={selectedField.taskTemplateId}
             />
           )}
           {selectedField.fieldType === "attachment" && (

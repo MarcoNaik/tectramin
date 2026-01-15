@@ -80,6 +80,8 @@ export const FIELD_TYPES = [
   { value: "select", label: "Seleccion", icon: "▼" },
   { value: "userSelect", label: "Seleccion de Usuario", icon: "👤" },
   { value: "entitySelect", label: "Seleccion de Entidad", icon: "🔗" },
+  { value: "taskInstanceSelect", label: "Seleccion de Instancia", icon: "📋" },
+  { value: "coordenated", label: "Geolocalizacion", icon: "📍" },
 ] as const;
 
 export const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -95,6 +97,8 @@ export const FIELD_TYPE_LABELS: Record<string, string> = {
   multiUserSelect: "Seleccion Multiple de Usuarios",
   entitySelect: "Seleccion de Entidad",
   multiEntitySelect: "Seleccion Multiple de Entidades",
+  taskInstanceSelect: "Seleccion de Instancia",
+  coordenated: "Geolocalizacion",
 };
 
 export type FieldType = typeof FIELD_TYPES[number]["value"];
@@ -162,6 +166,16 @@ export const OPERATORS_BY_FIELD_TYPE: Record<string, { value: string; label: str
   multiEntitySelect: [
     { value: "includesAny", label: "Incluye cualquiera de" },
     { value: "includesAll", label: "Incluye todos" },
+    { value: "isEmpty", label: "Esta vacio" },
+    { value: "isNotEmpty", label: "No esta vacio" },
+  ],
+  coordenated: [
+    { value: "isEmpty", label: "Esta vacio" },
+    { value: "isNotEmpty", label: "No esta vacio" },
+  ],
+  taskInstanceSelect: [
+    { value: "equals", label: "Igual a" },
+    { value: "notEquals", label: "No igual a" },
     { value: "isEmpty", label: "Esta vacio" },
     { value: "isNotEmpty", label: "No esta vacio" },
   ],

@@ -13,6 +13,8 @@ import { PreviewFieldUserSelect } from "./PreviewFieldUserSelect";
 import { PreviewFieldMultiUserSelect } from "./PreviewFieldMultiUserSelect";
 import { PreviewFieldEntitySelect } from "./PreviewFieldEntitySelect";
 import { PreviewFieldMultiEntitySelect } from "./PreviewFieldMultiEntitySelect";
+import { PreviewFieldTaskInstanceSelect } from "./PreviewFieldTaskInstanceSelect";
+import { PreviewFieldCoordinated } from "./PreviewFieldCoordinated";
 
 interface PreviewFieldProps {
   field: FieldTemplateData;
@@ -70,6 +72,10 @@ export function PreviewField({
       return <PreviewFieldEntitySelect {...commonProps} />;
     case "multiEntitySelect":
       return <PreviewFieldMultiEntitySelect {...commonProps} />;
+    case "taskInstanceSelect":
+      return <PreviewFieldTaskInstanceSelect {...commonProps} />;
+    case "coordenated":
+      return <PreviewFieldCoordinated {...commonProps} />;
     default:
       return <PreviewFieldText {...commonProps} onEditPlaceholder={onEditPlaceholder} />;
   }
