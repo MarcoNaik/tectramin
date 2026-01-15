@@ -62,7 +62,7 @@ export type SyncStatus = "pending" | "synced";
 export type SyncOperation = "create" | "update" | "upload";
 
 export type TaskInstanceStatus = "draft" | "completed";
-export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText" | "select" | "multiSelect" | "userSelect" | "multiUserSelect" | "entitySelect" | "multiEntitySelect";
+export type FieldType = "text" | "number" | "boolean" | "date" | "attachment" | "displayText" | "select" | "multiSelect" | "userSelect" | "multiUserSelect" | "entitySelect" | "multiEntitySelect" | "taskInstanceSelect" | "coordenated";
 export type AttachmentUploadStatus = "pending" | "uploading" | "uploaded" | "failed";
 
 export interface TaskInstanceInput {

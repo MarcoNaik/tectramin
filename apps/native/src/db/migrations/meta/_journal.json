@@ -113,6 +113,13 @@
       "when": 1768290184621,
       "tag": "0015_misty_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1768446199291,
+      "tag": "0016_wandering_sumo",
+      "breakpoints": true
     }
   ]
 }

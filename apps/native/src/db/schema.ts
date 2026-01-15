@@ -174,3 +174,15 @@ export const lookupEntities = sqliteTable("lookup_entities", {
   displayOrder: integer("display_order").notNull(),
   isActive: integer("is_active", { mode: "boolean" }).notNull(),
 });
+
+export const userPreferences = sqliteTable(
+  "user_preferences",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    userId: text("user_id").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [unique("unique_user_key").on(table.userId, table.key)]
+);
