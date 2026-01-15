@@ -64,7 +64,7 @@ export interface TaskTemplateData {
   updatedAt: number;
 }
 
-export type MainView = "gridView" | "formBuilder" | "debug" | "dataVisualization";
+export type MainView = "gridView" | "formBuilder" | "debug" | "dataVisualization" | "documentBuilder";
 
 export type DatePreset = "today" | "thisWeek" | "thisMonth" | "allTime";
 
