@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ScrollView,
 } from "react-native";
 import { Text } from "../../components/Text";
 import { ProgressButton } from "./TaskCardButton";
 import type { DayTaskTemplate, FieldTemplate } from "../../db/types";
 import type { AssignmentWithTemplates } from "../../hooks/useAssignments";
 import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
+import type { TaskFilterMode } from "../../hooks/useTaskFilterPreference";
 
 interface RepeatableTaskCardProps {
   template: DayTaskTemplate & { fields: FieldTemplate[] };
@@ -18,6 +20,7 @@ interface RepeatableTaskCardProps {
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
   index: number;
+  filterMode: TaskFilterMode;
 }
 
 export function RepeatableTaskCard({
@@ -27,12 +30,24 @@ export function RepeatableTaskCard({
   onSelectTask,
   onCreateInstance,
   index,
+  filterMode,
 }: RepeatableTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const completedCount = instances.filter((i) => i.status === "completed").length;
-  const totalCount = instances.length;
+  useEffect(() => {
+    if (isExpanded && scrollViewRef.current) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    }
+  }, [instances.length, isExpanded]);
+
+  const filteredInstances = useMemo(() => {
+    if (filterMode === "all") return instances;
+    return instances.filter((i) => i.status !== "completed");
+  }, [instances, filterMode]);
 
   const lastInstance = instances[instances.length - 1];
   const isAssignmentComplete = assignment.status === "completed";
@@ -49,7 +64,7 @@ export function RepeatableTaskCard({
     if (isCreating) return;
     setIsCreating(true);
     try {
-      const nextNumber = totalCount + 1;
+      const nextNumber = instances.length + 1;
       const label = `${template.taskTemplateName} #${nextNumber}`;
       await onCreateInstance(template, assignment.serverId, label);
     } finally {
@@ -115,44 +130,53 @@ export function RepeatableTaskCard({
         </View>
         <View style={styles.headerBadges}>
           <Text style={styles.repeatableIcon}>↻</Text>
-          <Text style={styles.countText}>
-            {completedCount}/{totalCount}
-          </Text>
         </View>
       </TouchableOpacity>
 
       {isExpanded && (
         <View style={styles.instanceList}>
-          {instances.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                No hay instancias todavía
-              </Text>
-            </View>
-          ) : (
-            instances.map((instance, idx) => {
-              const { progress, isCompleted, isRequiredComplete } = getInstanceProgress(instance);
-              return (
-                <TouchableOpacity
-                  key={instance.clientId}
-                  style={styles.instanceItem}
-                  onPress={() => handleSelectInstance(instance)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.instanceLabel}>
-                    {getInstanceLabel(instance, idx)}
-                  </Text>
-                  <ProgressButton
-                    text={getButtonText(instance)}
-                    progress={progress}
-                    isCompleted={isCompleted}
-                    isRequiredComplete={isRequiredComplete}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.instanceScrollView}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
+            {filteredInstances.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  {filterMode === "pending" && instances.length > 0
+                    ? "Todas las instancias completadas"
+                    : "No hay instancias todavía"}
+                </Text>
+              </View>
+            ) : (
+              filteredInstances.map((instance) => {
+                const originalIdx = instances.findIndex(
+                  (i) => i.clientId === instance.clientId
+                );
+                const { progress, isCompleted, isRequiredComplete } = getInstanceProgress(instance);
+                return (
+                  <TouchableOpacity
+                    key={instance.clientId}
+                    style={styles.instanceItem}
                     onPress={() => handleSelectInstance(instance)}
-                  />
-                </TouchableOpacity>
-              );
-            })
-          )}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.instanceLabel}>
+                      {getInstanceLabel(instance, originalIdx)}
+                    </Text>
+                    <ProgressButton
+                      text={getButtonText(instance)}
+                      progress={progress}
+                      isCompleted={isCompleted}
+                      isRequiredComplete={isRequiredComplete}
+                      onPress={() => handleSelectInstance(instance)}
+                    />
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
 
           {!isAssignmentComplete && (
             <TouchableOpacity
@@ -227,12 +251,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
   },
-  countText: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
   instanceList: {
     backgroundColor: "#ffffff",
+  },
+  instanceScrollView: {
+    maxHeight: 220,
   },
   emptyState: {
     paddingVertical: 16,

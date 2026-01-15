@@ -386,9 +386,10 @@ export function AssignmentsScreen() {
         onCreateInstance={handleCreateInstance}
         refreshing={syncing}
         onRefresh={handleSync}
+        userId={user?.id ?? ""}
       />
     ),
-    [taskInstances, allDependencies, handleSelectTaskWithChecks, handleCreateAndSelectTaskWithChecks, handleCreateInstance, syncing, handleSync]
+    [taskInstances, allDependencies, handleSelectTaskWithChecks, handleCreateAndSelectTaskWithChecks, handleCreateInstance, syncing, handleSync, user?.id]
   );
 
   useEffect(() => {
@@ -462,7 +463,14 @@ export function AssignmentsScreen() {
         <View style={styles.headerLeft}>
           <SyncStatusIcon />
         </View>
-        <Text style={styles.appTitle}>Tectramin</Text>
+        <View style={styles.headerCenter}>
+          <Image
+            source={require("../../../assets/icon.png")}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appTitle}>Tectramin</Text>
+        </View>
         <View style={styles.headerRight}>
           <UserAvatarButton
             imageUrl={user?.imageUrl}
@@ -590,6 +598,16 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e5e7eb",
     backgroundColor: "#fff",
     zIndex: 1,
+  },
+  headerCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
   },
   appTitle: {
     fontSize: 20,

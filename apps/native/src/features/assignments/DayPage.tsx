@@ -24,6 +24,7 @@ interface DayPageProps {
   onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
   refreshing: boolean;
   onRefresh: () => void;
+  userId: string;
 }
 
 export function DayPage({
@@ -35,6 +36,7 @@ export function DayPage({
   onCreateInstance,
   refreshing,
   onRefresh,
+  userId,
 }: DayPageProps) {
   const horizontalPadding = useResponsivePadding();
 
@@ -78,6 +80,7 @@ export function DayPage({
                   onSelectTask={onSelectTask}
                   onCreateAndSelectTask={onCreateAndSelectTask}
                   onCreateInstance={onCreateInstance}
+                  userId={userId}
                 />
               );
             })}

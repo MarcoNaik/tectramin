@@ -254,6 +254,7 @@ function TaskInstanceFormInner({
             userId={userId}
             ensureFieldResponse={createEnsureFieldResponse(field.serverId)}
             getResponseForField={getResponseValueForField}
+            workOrderDayServerId={currentInstance?.workOrderDayServerId}
             index={fieldIndices.get(field.serverId)}
             marginBottom={fieldGap}
           />
@@ -270,6 +271,7 @@ function TaskInstanceFormInner({
       pageScrollHandler,
       horizontalPadding,
       fieldGap,
+      currentInstance?.workOrderDayServerId,
     ]
   );
 

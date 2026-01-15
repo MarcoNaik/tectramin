@@ -1,15 +1,23 @@
+import { useCallback } from "react";
 import {
   View,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
 import { Text } from "../../components/Text";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { TaskCardRow } from "./TaskCardRow";
 import { RepeatableTaskCard } from "./RepeatableTaskCard";
 import { useWorkOrderDayStatus } from "../../hooks/useWorkOrderDayStatus";
+import { useTaskFilterPreference, type TaskFilterMode } from "../../hooks/useTaskFilterPreference";
 import type { DayTaskTemplate, FieldTemplate, TaskDependency } from "../../db/types";
 import type { AssignmentWithTemplates, RoutineWithTasks } from "../../hooks/useAssignments";
 import type { TaskInstanceWithResponses } from "../../hooks/useTaskInstances";
+
+const FILTER_OPTIONS: Array<{ value: TaskFilterMode; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "pending", label: "Pendientes" },
+];
 
 interface AssignmentTaskGroupProps {
   assignment: AssignmentWithTemplates;
@@ -18,6 +26,7 @@ interface AssignmentTaskGroupProps {
   onSelectTask: (taskInstanceClientId: string, template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string) => void;
   onCreateAndSelectTask: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => void;
   onCreateInstance: (template: DayTaskTemplate & { fields: FieldTemplate[] }, workOrderDayServerId: string, instanceLabel?: string) => Promise<void>;
+  userId: string;
 }
 
 function RoutineSection({
@@ -29,6 +38,7 @@ function RoutineSection({
   onCreateAndSelectTask,
   onCreateInstance,
   globalIndex,
+  filterMode,
 }: {
   routine: RoutineWithTasks;
   taskInstances: TaskInstanceWithResponses[];
@@ -38,6 +48,7 @@ function RoutineSection({
   onCreateAndSelectTask: AssignmentTaskGroupProps["onCreateAndSelectTask"];
   onCreateInstance: AssignmentTaskGroupProps["onCreateInstance"];
   globalIndex: number;
+  filterMode: TaskFilterMode;
 }) {
   let taskIndex = globalIndex;
 
@@ -47,13 +58,39 @@ function RoutineSection({
       ti.workOrderDayServiceServerId === routine.serverId
   );
 
+  const shouldShowTask = (
+    template: RoutineWithTasks["tasks"][number],
+    instances: TaskInstanceWithResponses[]
+  ): boolean => {
+    if (filterMode === "all") return true;
+
+    if (template.isRepeatable) {
+      const hasPending = instances.some((i) => i.status !== "completed");
+      const canAddMore =
+        instances.length === 0 ||
+        instances[instances.length - 1]?.status === "completed";
+      return hasPending || canAddMore;
+    }
+
+    const instance = instances[0];
+    return !instance || instance.status !== "completed";
+  };
+
+  const visibleTasks = routine.tasks.filter((template) => {
+    const instances = routineInstances.filter(
+      (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
+    );
+    return shouldShowTask(template, instances);
+  });
+
+  if (visibleTasks.length === 0) return null;
+
   return (
     <View style={styles.routineSection}>
       <View style={styles.routineHeader}>
         <Text style={styles.routineTitle}>{routine.serviceName}</Text>
-        <Text style={styles.routineTaskCount}>{routine.tasks.length} tareas</Text>
       </View>
-      {routine.tasks.map((template) => {
+      {visibleTasks.map((template) => {
         const instances = routineInstances.filter(
           (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
         );
@@ -69,6 +106,7 @@ function RoutineSection({
               onSelectTask={onSelectTask}
               onCreateInstance={onCreateInstance}
               index={currentIndex}
+              filterMode={filterMode}
             />
           );
         }
@@ -100,8 +138,13 @@ export function AssignmentTaskGroup({
   onSelectTask,
   onCreateAndSelectTask,
   onCreateInstance,
+  userId,
 }: AssignmentTaskGroupProps) {
   const { updateStatus } = useWorkOrderDayStatus();
+  const { filterMode, setFilterMode } = useTaskFilterPreference(
+    assignment.serverId,
+    userId
+  );
 
   const routineInstances = taskInstances.filter(
     (ti) =>
@@ -150,6 +193,36 @@ export function AssignmentTaskGroup({
     await updateStatus(assignment.serverId, "completed");
   };
 
+  const shouldShowStandaloneTask = useCallback(
+    (
+      template: AssignmentWithTemplates["standaloneTasks"][number],
+      instances: TaskInstanceWithResponses[]
+    ): boolean => {
+      if (filterMode === "all") return true;
+
+      if (template.isRepeatable) {
+        const hasPending = instances.some((i) => i.status !== "completed");
+        const canAddMore =
+          instances.length === 0 ||
+          instances[instances.length - 1]?.status === "completed";
+        return hasPending || canAddMore;
+      }
+
+      const instance = instances[0];
+      return !instance || instance.status !== "completed";
+    },
+    [filterMode]
+  );
+
+  const visibleStandaloneTasks = assignment.standaloneTasks.filter(
+    (template) => {
+      const instances = standaloneInstances.filter(
+        (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
+      );
+      return shouldShowStandaloneTask(template, instances);
+    }
+  );
+
   let globalTaskIndex = 1;
 
   return (
@@ -169,6 +242,14 @@ export function AssignmentTaskGroup({
         </Text>
       </View>
 
+      <View style={styles.filterContainer}>
+        <SegmentedControl
+          options={FILTER_OPTIONS}
+          selectedValue={filterMode}
+          onValueChange={setFilterMode}
+        />
+      </View>
+
       {assignment.routines.map((routine) => {
         const startIndex = globalTaskIndex;
         globalTaskIndex += routine.tasks.length;
@@ -183,17 +264,17 @@ export function AssignmentTaskGroup({
             onCreateAndSelectTask={onCreateAndSelectTask}
             onCreateInstance={onCreateInstance}
             globalIndex={startIndex}
+            filterMode={filterMode}
           />
         );
       })}
 
-      {assignment.standaloneTasks.length > 0 && (
+      {visibleStandaloneTasks.length > 0 && (
         <View style={styles.standaloneSection}>
           <View style={styles.standaloneHeader}>
             <Text style={styles.standaloneTitle}>Tareas Independientes</Text>
-            <Text style={styles.routineTaskCount}>{assignment.standaloneTasks.length} tareas</Text>
           </View>
-          {assignment.standaloneTasks.map((template) => {
+          {visibleStandaloneTasks.map((template) => {
             const instances = standaloneInstances.filter(
               (ti) => ti.taskTemplateServerId === template.taskTemplateServerId
             );
@@ -209,6 +290,7 @@ export function AssignmentTaskGroup({
                   onSelectTask={onSelectTask}
                   onCreateInstance={onCreateInstance}
                   index={currentIndex}
+                  filterMode={filterMode}
                 />
               );
             }
@@ -256,6 +338,11 @@ const styles = StyleSheet.create({
   },
   assignmentGroupHeader: {
     padding: 12,
+    backgroundColor: "#f3f4f6",
+  },
+  filterContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: "#f3f4f6",
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
@@ -309,10 +396,6 @@ const styles = StyleSheet.create({
     color: "#374151",
     textTransform: "uppercase",
     letterSpacing: 0.5,
-  },
-  routineTaskCount: {
-    fontSize: 11,
-    color: "#9ca3af",
   },
   standaloneSection: {
     borderBottomWidth: 1,
