@@ -261,4 +261,17 @@ export default defineSchema({
     .index("by_entity_type", ["entityTypeId"])
     .index("by_parent_entity", ["parentEntityId"])
     .index("by_entity_type_and_active", ["entityTypeId", "isActive"]),
+
+  documentTemplates: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    sections: v.string(),
+    globalFilters: v.string(),
+    createdBy: v.string(),
+    isGlobalTemplate: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["createdBy"])
+    .index("by_global", ["isGlobalTemplate"]),
 });
